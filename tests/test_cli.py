@@ -101,7 +101,7 @@ def test_status_with_all_guides_current(runner, tmp_path):
         result = runner.invoke(main, ['status'])
 
         assert result.exit_code == 0
-        assert "project-guides v1.0.0" in result.output
+        assert "project-guides v1.1.0" in result.output
         assert "Guides status:" in result.output
         assert "All guides are up to date" in result.output
 
@@ -235,9 +235,11 @@ def test_overrides_lists_all_overridden_guides(runner, tmp_path):
         result = runner.invoke(main, ['overrides'])
 
         assert result.exit_code == 0
-        assert "Overridden guides (2)" in result.output
+        assert "Overridden guides:" in result.output
         assert "debug-guide.md" in result.output
         assert "Custom debugging" in result.output
+        assert "project-guide.md" in result.output
+        assert "Project-specific" in result.output
         assert "project-guide.md" in result.output
         assert "Project-specific" in result.output
 
@@ -275,7 +277,7 @@ def test_update_all_guides(runner, tmp_path):
 
         # Verify config was updated
         config = Config.load(".project-guides.yml")
-        assert config.installed_version == "1.0.0"
+        assert config.installed_version == "1.1.0"
 
 
 def test_update_specific_guides(runner, tmp_path):

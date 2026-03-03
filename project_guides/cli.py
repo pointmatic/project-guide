@@ -335,36 +335,81 @@ def unoverride(guide_name: str):
 @main.command()
 def overrides():
     """List all overridden guides."""
-    config_path = Path(".project-guides.yml")
-
-    # Check if config exists
-    if not config_path.exists():
-        click.secho(
-            "Error: No .project-guides.yml found. Run 'project-guides init' first.",
-            fg='red',
-            err=True
-        )
-        raise click.Abort()
-
-    # Load config
     try:
-        config = Config.load(str(config_path))
+        config = Config.load()
     except ConfigError as e:
-        click.secho(f"Error: {e}", fg='red', err=True)
-        sys.exit(3)  # Configuration error exit code
+        click.secho(f"Error: {e}", fg="red", err=True)
+        sys.exit(3)
 
-    # Check if any overrides exist
     if not config.overrides:
-        click.echo("No overridden guides.")
+        click.secho("No overridden guides.", fg="yellow")
         return
 
-    # List overrides
-    click.echo(f"Overridden guides ({len(config.overrides)}):")
-    for guide_name, override in sorted(config.overrides.items()):
-        click.echo(f"  • {guide_name}")
-        click.echo(f"    Reason: {override.reason}")
-        click.echo(f"    Locked version: v{override.locked_version}")
-        click.echo(f"    Last updated: {override.last_updated}")
+    click.secho("Overridden guides:\n", fg="cyan", bold=True)
+
+    for guide_name, override in config.overrides.items():
+        click.secho(f"{guide_name}", fg="yellow", bold=True)
+        click.secho(f"  Reason: {override.reason}", fg="white")
+        click.secho(f"  Since: v{override.locked_version}", fg="white")
+        click.secho(f"  Last updated: {override.last_updated}", fg="white")
+        click.echo()
+
+
+@main.command()
+@click.option(
+    "--force",
+    is_flag=True,
+    help="Skip confirmation prompt",
+)
+def purge(force):
+    """Remove all project-guides files from the current project."""
+    try:
+        config = Config.load()
+    except ConfigError as e:
+        click.secho(f"Error: {e}", fg="red", err=True)
+        sys.exit(3)
+
+    config_path = Path(".project-guides.yml")
+    guides_dir = Path(config.target_dir)
+
+    # Show what will be removed
+    click.secho("The following will be removed:", fg="yellow", bold=True)
+    click.echo(f"  • {config_path}")
+    click.echo(f"  • {guides_dir}/ (and all contents)")
+    click.echo()
+
+    # Confirm unless --force
+    if not force:
+        click.confirm(
+            click.style("Are you sure you want to purge project-guides?", fg="red", bold=True),
+            abort=True
+        )
+
+    # Remove guides directory
+    try:
+        if guides_dir.exists():
+            import shutil
+            shutil.rmtree(guides_dir)
+            click.secho(f"✓ Removed {guides_dir}/", fg="green")
+        else:
+            click.secho(f"  {guides_dir}/ not found (skipped)", fg="yellow")
+    except OSError as e:
+        click.secho(f"Error removing {guides_dir}/: {e}", fg="red", err=True)
+        sys.exit(2)
+
+    # Remove config file
+    try:
+        if config_path.exists():
+            config_path.unlink()
+            click.secho(f"✓ Removed {config_path}", fg="green")
+        else:
+            click.secho(f"  {config_path} not found (skipped)", fg="yellow")
+    except OSError as e:
+        click.secho(f"Error removing {config_path}: {e}", fg="red", err=True)
+        sys.exit(2)
+
+    click.echo()
+    click.secho("project-guides has been purged from this project.", fg="green", bold=True)
 
 
 if __name__ == "__main__":

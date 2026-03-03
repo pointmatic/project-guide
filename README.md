@@ -18,6 +18,8 @@ When working with LLMs on software projects, consistent workflow documentation i
 - 🔒 **Backup Protection** - Automatic backups when updating overridden guides
 - 🎨 **CLI Interface** - Simple commands for all operations
 - 🧪 **Well Tested** - 82% test coverage with 48 comprehensive tests
+- **Quick start guide** with 4-step workflow
+- **Command reference** - All 7 commands with detailed options and examples
 
 ## Installation
 
@@ -193,6 +195,32 @@ debug-guide.md
   Since: v0.12.0
   Last updated: 2026-03-03
 ```
+
+### `purge`
+
+Remove all project-guides files from the current project.
+
+```bash
+project-guides purge [OPTIONS]
+```
+
+**Options:**
+- `--force` - Skip confirmation prompt
+
+**Examples:**
+```bash
+# Purge with confirmation prompt
+project-guides purge
+
+# Purge without confirmation
+project-guides purge --force
+```
+
+**What gets removed:**
+- `.project-guides.yml` configuration file
+- Guides directory (e.g., `docs/guides/`) and all contents
+
+**Warning:** This action cannot be undone. Use with caution.
 
 ## Configuration
 

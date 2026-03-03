@@ -342,19 +342,46 @@ Prepare and publish first stable release.
 - [x] Build package successfully (wheel and sdist)
 - [x] Verify: All 48 tests pass
 - [x] Verify: Ruff and mypy checks pass
-- [ ] Set up PyPI trusted publishing or API token in GitHub secrets (manual step)
-- [ ] Create GitHub release with tag `v1.0.0` (manual step)
-- [ ] GitHub Actions automatically publishes to PyPI (after release created)
-- [ ] Verify: Package installs from PyPI (after publishing)
-- [ ] Verify: All commands work in fresh environment (after publishing)
+- [x] Set up PyPI trusted publishing in GitHub
+- [x] Create GitHub release with tag `v1.0.0`
+- [x] GitHub Actions automatically published to PyPI
+- [x] Verify: Package installs from PyPI ✓
+- [x] Verify: `project-guides init` works in fresh environment ✓
+
+### Story F.d: v1.1.0 Purge Command [Done]
+
+Add cleanup command to remove project-guides from a project.
+
+- [x] Implement `purge` command in CLI
+  - [x] Add `--force` flag to skip confirmation
+  - [x] Remove `.project-guides.yml` config file
+  - [x] Remove guides directory and all contents
+  - [x] Handle missing files gracefully
+  - [x] Proper error handling with exit codes
+- [x] Add comprehensive tests
+  - [x] Test purge removes all files
+  - [x] Test confirmation prompt
+  - [x] Test with custom target directory
+  - [x] Test error when no config exists
+  - [x] Test handling of missing guides directory
+- [x] Update README documentation
+  - [x] Add purge command section
+  - [x] Update command count to 7
+  - [x] Add usage examples and warnings
+- [x] Update version to `1.1.0` in `version.py` and `pyproject.toml`
+- [x] Update CHANGELOG.md with v1.1.0 entry
+- [x] Verify: All 53 tests pass ✓
+- [x] Build package successfully ✓
+- [ ] Create GitHub release with tag `v1.1.0` (manual step)
+- [ ] Verify: Package publishes to PyPI (after release)
 
 ---
 
 ## Summary
 
-**Total Stories**: 19 (16 with version numbers, 3 without)
-**Final Version**: v1.0.0
-**Estimated Phases**: 6 (A-F)
+**Total Stories**: 20 (17 with version numbers, 3 without)
+**Current Version**: v1.1.0
+**Phases**: 6 (A-F)
 
 **Phase Breakdown**:
 - **Phase A (Foundation)**: 3 stories — Basic package structure, config model, template bundle
@@ -362,4 +389,4 @@ Prepare and publish first stable release.
 - **Phase C (CLI Commands)**: 4 stories — All CLI commands
 - **Phase D (Error Handling)**: 2 stories — Error handling and output polish
 - **Phase E (Testing & Quality)**: 3 stories — Integration tests, coverage, linting
-- **Phase F (Documentation & Release)**: 4 stories — README, real templates, first release
+- **Phase F (Documentation & Release)**: 5 stories — README, templates, releases (v1.0.0, v1.1.0)

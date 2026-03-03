@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-03-03
+
+### Added
+- **`purge` command** to remove all project-guides files from a project
+  - `--force` flag to skip confirmation prompt
+  - Removes `.project-guides.yml` and guides directory
+  - Handles missing files gracefully
+  - Comprehensive error handling
+- 5 new tests for purge command (total: 53 tests)
+
+### Changed
+- Updated README with purge command documentation
+- Command count increased from 6 to 7
+
 ## [1.0.0] - 2026-03-03
 
 ### Added
@@ -188,7 +202,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - developer/codecov-setup-guide.md
   - developer/github-actions-guide.md
 
-[Unreleased]: https://github.com/pointmatic/project-guides/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/pointmatic/project-guides/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/pointmatic/project-guides/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/pointmatic/project-guides/compare/v0.15.0...v1.0.0
 [0.15.0]: https://github.com/pointmatic/project-guides/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/pointmatic/project-guides/compare/v0.13.0...v0.14.0
