@@ -24,7 +24,9 @@ from project_guides.sync import (
     copy_guide,
     backup_guide,
     compare_versions,
+    sync_guides,
 )
+from project_guides.config import Config
 from project_guides.version import __version__
 
 
@@ -80,7 +82,7 @@ def test_get_package_version_matches_version_py():
     version = get_package_version()
     
     assert version == __version__
-    assert version == "0.5.0"
+    assert version == "0.6.0"
 
 
 def test_copy_guide_creates_files_correctly(tmp_path):
@@ -157,3 +159,116 @@ def test_compare_versions_with_various_strings():
     # installed > package
     assert compare_versions("0.3.0", "0.2.0") == 1
     assert compare_versions("1.0.0", "0.9.9") == 1
+
+
+def test_sync_guides_with_no_overrides(tmp_path):
+    """Test syncing guides with no overrides."""
+    config = Config(
+        installed_version="0.5.0",
+        target_dir=str(tmp_path / "guides")
+    )
+    
+    # Sync a subset of guides
+    updated, skipped, current = sync_guides(
+        config,
+        guides=["project-guide.md", "debug-guide.md"]
+    )
+    
+    assert len(updated) == 2
+    assert "project-guide.md" in updated
+    assert "debug-guide.md" in updated
+    assert len(skipped) == 0
+    assert len(current) == 0
+    
+    # Verify files were created
+    assert (tmp_path / "guides" / "project-guide.md").exists()
+    assert (tmp_path / "guides" / "debug-guide.md").exists()
+
+
+def test_sync_guides_with_overrides_skipped(tmp_path):
+    """Test that overridden guides are skipped."""
+    config = Config(
+        installed_version="0.5.0",
+        target_dir=str(tmp_path / "guides")
+    )
+    config.add_override("debug-guide.md", "Custom content", "0.5.0")
+    
+    updated, skipped, current = sync_guides(
+        config,
+        guides=["project-guide.md", "debug-guide.md"]
+    )
+    
+    assert len(updated) == 1
+    assert "project-guide.md" in updated
+    assert len(skipped) == 1
+    assert "debug-guide.md" in skipped
+    assert len(current) == 0
+
+
+def test_sync_guides_with_force_flag(tmp_path):
+    """Test that force flag updates overridden guides."""
+    target_dir = tmp_path / "guides"
+    config = Config(
+        installed_version="0.5.0",
+        target_dir=str(target_dir)
+    )
+    
+    # Create an existing guide and mark it as overridden
+    copy_guide("debug-guide.md", target_dir)
+    config.add_override("debug-guide.md", "Custom content", "0.5.0")
+    
+    updated, skipped, current = sync_guides(
+        config,
+        guides=["debug-guide.md"],
+        force=True
+    )
+    
+    assert len(updated) == 1
+    assert "debug-guide.md" in updated
+    assert len(skipped) == 0
+    
+    # Verify backup was created
+    backup_files = list(target_dir.glob("debug-guide.md.bak.*"))
+    assert len(backup_files) == 1
+
+
+def test_sync_guides_dry_run_mode(tmp_path):
+    """Test that dry-run mode doesn't actually copy files."""
+    config = Config(
+        installed_version="0.5.0",
+        target_dir=str(tmp_path / "guides")
+    )
+    
+    updated, skipped, current = sync_guides(
+        config,
+        guides=["project-guide.md"],
+        dry_run=True
+    )
+    
+    assert len(updated) == 1
+    assert "project-guide.md" in updated
+    
+    # Verify file was NOT created
+    assert not (tmp_path / "guides" / "project-guide.md").exists()
+
+
+def test_sync_guides_current_version(tmp_path):
+    """Test that guides at current version are not updated."""
+    target_dir = tmp_path / "guides"
+    config = Config(
+        installed_version="0.6.0",  # Same as current package version
+        target_dir=str(target_dir)
+    )
+    
+    # Create existing guide
+    copy_guide("project-guide.md", target_dir)
+    
+    updated, skipped, current = sync_guides(
+        config,
+        guides=["project-guide.md"]
+    )
+    
+    assert len(updated) == 0
+    assert len(skipped) == 0
+    assert len(current) == 1
+    assert "project-guide.md" in current

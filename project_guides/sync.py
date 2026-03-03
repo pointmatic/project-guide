@@ -13,13 +13,14 @@
 # limitations under the License.
 
 from pathlib import Path
-from typing import List
+from typing import List, Tuple, Optional
 import importlib.resources
 import shutil
 from datetime import datetime
 
 from packaging.version import parse
 from project_guides.version import __version__
+from project_guides.config import Config
 
 
 def get_template_path(guide_name: str) -> Path:
@@ -120,3 +121,63 @@ def compare_versions(installed: str, package: str) -> int:
         return 1
     else:
         return 0
+
+
+def sync_guides(
+    config: Config,
+    guides: Optional[List[str]] = None,
+    force: bool = False,
+    dry_run: bool = False
+) -> Tuple[List[str], List[str], List[str]]:
+    """
+    Sync guides to latest version.
+    
+    Args:
+        config: Project configuration
+        guides: List of specific guides to sync, or None for all guides
+        force: If True, update even overridden guides (creates backups)
+        dry_run: If True, show what would change without applying
+    
+    Returns:
+        Tuple of (updated, skipped, current) guide name lists
+    """
+    updated = []
+    skipped = []
+    current = []
+    
+    # Get list of guides to sync
+    if guides is None:
+        guides_to_sync = get_all_guide_names()
+    else:
+        guides_to_sync = guides
+    
+    target_dir = Path(config.target_dir)
+    package_version = get_package_version()
+    
+    for guide_name in guides_to_sync:
+        target_file = target_dir / guide_name
+        
+        # Check if guide is overridden
+        if config.is_overridden(guide_name) and not force:
+            skipped.append(guide_name)
+            continue
+        
+        # Check if guide exists and compare versions
+        if target_file.exists():
+            # If installed version equals package version, skip
+            if config.installed_version and compare_versions(config.installed_version, package_version) == 0:
+                current.append(guide_name)
+                continue
+        
+        # Update the guide
+        if not dry_run:
+            # If overridden and force=True, create backup first
+            if config.is_overridden(guide_name) and force and target_file.exists():
+                backup_guide(target_file)
+            
+            # Copy the guide
+            copy_guide(guide_name, target_dir, force=True)
+        
+        updated.append(guide_name)
+    
+    return (updated, skipped, current)

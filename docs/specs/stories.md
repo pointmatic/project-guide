@@ -112,22 +112,22 @@ Implement guide copying and backup functions.
   - [x] Test `compare_versions()` with various version strings
 - [x] Verify: All sync tests pass
 
-### Story B.c: v0.6.0 Sync Module - Orchestration [Planned]
+### Story B.c: v0.6.0 Sync Module - Orchestration [Done]
 
 Implement high-level sync logic.
 
-- [ ] Update `project_guides/sync.py`
-  - [ ] Implement `sync_guides(config, guides, force, dry_run)` function
-  - [ ] Return tuple of (updated, skipped, current) guide lists
-  - [ ] Handle override checking
-  - [ ] Handle version comparison
-  - [ ] Handle dry-run mode
-- [ ] Update `tests/test_sync.py`
-  - [ ] Test sync with no overrides
-  - [ ] Test sync with overrides (skipped)
-  - [ ] Test sync with force flag
-  - [ ] Test dry-run mode
-- [ ] Verify: All sync tests pass
+- [x] Update `project_guides/sync.py`
+  - [x] Implement `sync_guides(config, guides, force, dry_run)` function
+  - [x] Return tuple of (updated, skipped, current) guide lists
+  - [x] Handle override checking
+  - [x] Handle version comparison
+  - [x] Handle dry-run mode
+- [x] Update `tests/test_sync.py`
+  - [x] Test sync with no overrides
+  - [x] Test sync with overrides (skipped)
+  - [x] Test sync with force flag
+  - [x] Test dry-run mode
+- [x] Verify: All sync tests pass
 
 ---
 
