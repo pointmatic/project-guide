@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Dict
 
 import yaml
-
+from project_guides.exceptions import ConfigError
 
 @dataclass
 class GuideOverride:
@@ -59,27 +59,40 @@ class Config:
         config_path = Path(path)
         
         if not config_path.exists():
-            raise FileNotFoundError(f"Configuration file not found: {path}")
+            raise ConfigError(
+                f"Configuration file not found: {config_path}\n"
+                "Run 'project-guides init' to create it."
+            )
         
         try:
-            with open(config_path, "r") as f:
+            with open(path, 'r') as f:
                 data = yaml.safe_load(f)
         except yaml.YAMLError as e:
-            raise ValueError(f"Failed to parse YAML: {e}")
+            raise ConfigError(f"Invalid YAML in {config_path}: {e}")
+        except PermissionError:
+            raise ConfigError(f"Permission denied reading {config_path}")
         
-        if data is None:
-            data = {}
+        if not data:
+            raise ConfigError(f"Empty configuration file: {config_path}")
         
+        # Parse overrides
         overrides = {}
-        if "overrides" in data and data["overrides"]:
-            for guide_name, override_data in data["overrides"].items():
-                overrides[guide_name] = GuideOverride.from_dict(override_data)
+        if 'overrides' in data:
+            for guide_name, override_data in data['overrides'].items():
+                try:
+                    # Convert last_updated string to date object if needed
+                    if 'last_updated' in override_data and isinstance(override_data['last_updated'], str):
+                        from datetime import datetime
+                        override_data['last_updated'] = datetime.strptime(override_data['last_updated'], '%Y-%m-%d').date()
+                    overrides[guide_name] = GuideOverride(**override_data)
+                except (TypeError, ValueError) as e:
+                    raise ConfigError(f"Invalid override data for '{guide_name}': {e}")
         
-        return cls(
-            version=data.get("version", "1.0"),
-            installed_version=data.get("installed_version", ""),
-            target_dir=data.get("target_dir", "docs/guides"),
-            overrides=overrides,
+        return Config(
+            version=data.get('version', '1.0'),
+            installed_version=data.get('installed_version'),
+            target_dir=data.get('target_dir', 'docs/guides'),
+            overrides=overrides
         )
 
     def save(self, path: str = ".project-guides.yml") -> None:

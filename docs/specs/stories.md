@@ -208,21 +208,23 @@ Implement `project-guides update` command.
 
 ## Phase D: Error Handling & Polish
 
-### Story D.a: v0.11.0 Error Handling [Planned]
+### Story D.a: v0.11.0 Error Handling [Done]
 
 Add comprehensive error handling and user-friendly messages.
 
-- [ ] Create custom exception classes
-  - [ ] `ConfigError` for configuration issues
-  - [ ] `SyncError` for sync operation failures
-- [ ] Update all modules to use custom exceptions
-- [ ] Update CLI commands to catch and format errors
-  - [ ] Missing config → suggest `init`
-  - [ ] Invalid YAML → show line number
-  - [ ] Permission errors → clear message
-  - [ ] Invalid guide names → list valid options
-- [ ] Update tests for error conditions
-- [ ] Verify: All error messages are clear and actionable
+- [x] Create custom exception classes
+  - [x] `ConfigError` for configuration issues
+  - [x] `SyncError` for sync operation failures
+  - [x] `GuideNotFoundError` for missing guides
+- [x] Update all modules to use custom exceptions
+- [x] Update CLI commands to catch and format errors
+  - [x] Missing config → suggest `init`
+  - [x] Invalid YAML → show error details
+  - [x] Permission errors → clear message
+  - [x] Invalid guide names → list valid options
+- [x] Update tests for error conditions
+- [x] Add exit codes (0=success, 1=general error, 3=config error)
+- [x] Verify: All error messages are clear and actionable
 
 ### Story D.b: v0.12.0 CLI Output Formatting [Planned]
 

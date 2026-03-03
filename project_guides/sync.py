@@ -21,6 +21,7 @@ from datetime import datetime
 from packaging.version import parse
 from project_guides.version import __version__
 from project_guides.config import Config
+from project_guides.exceptions import GuideNotFoundError, SyncError
 
 
 def get_template_path(guide_name: str) -> Path:
@@ -41,7 +42,7 @@ def get_template_path(guide_name: str) -> Path:
             ) as path:
                 return Path(path)
     
-    raise FileNotFoundError(f"Template not found: {guide_name}")
+    raise GuideNotFoundError(guide_name, get_all_guide_names())
 
 
 def get_all_guide_names() -> List[str]:
@@ -72,20 +73,38 @@ def get_package_version() -> str:
 
 
 def copy_guide(guide_name: str, target_dir: Path, force: bool = False) -> None:
-    """Copy a guide template to target directory."""
-    target_dir = Path(target_dir)
+    """
+    Copy a guide template to the target directory.
+    
+    Args:
+        guide_name: Name of the guide to copy
+        target_dir: Target directory path
+        force: If True, overwrite existing files
+    
+    Raises:
+        FileExistsError: If file exists and force is False
+        SyncError: If copy operation fails
+    """
+    template_path = get_template_path(guide_name)
     target_file = target_dir / guide_name
     
-    # Check if target file exists
+    # Create subdirectories if needed
+    try:
+        target_file.parent.mkdir(parents=True, exist_ok=True)
+    except PermissionError:
+        raise SyncError(f"Permission denied creating directory: {target_file.parent}")
+    
+    # Check if file exists
     if target_file.exists() and not force:
-        raise FileExistsError(f"Guide already exists: {target_file}")
+        raise FileExistsError(f"File already exists: {target_file}")
     
-    # Create target directory if needed
-    target_file.parent.mkdir(parents=True, exist_ok=True)
-    
-    # Get template path and copy
-    template_path = get_template_path(guide_name)
-    shutil.copy2(template_path, target_file)
+    # Copy the file
+    try:
+        shutil.copy2(template_path, target_file)
+    except PermissionError:
+        raise SyncError(f"Permission denied writing to: {target_file}")
+    except OSError as e:
+        raise SyncError(f"Failed to copy {guide_name}: {e}")
 
 
 def backup_guide(guide_path: Path) -> Path:

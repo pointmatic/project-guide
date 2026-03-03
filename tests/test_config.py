@@ -18,6 +18,7 @@ from pathlib import Path
 import pytest
 
 from project_guides.config import Config, GuideOverride
+from project_guides.exceptions import ConfigError
 
 
 def test_config_creation_with_defaults():
@@ -76,16 +77,15 @@ def test_invalid_yaml_handling(tmp_path):
     """Test handling of invalid YAML."""
     config_file = tmp_path / ".project-guides.yml"
     
-    with open(config_file, "w") as f:
-        f.write("invalid: yaml: content: [")
+    config_file.write_text("invalid: yaml: content:")
     
-    with pytest.raises(ValueError, match="Failed to parse YAML"):
+    with pytest.raises(ConfigError, match="Invalid YAML"):
         Config.load(str(config_file))
 
 
 def test_missing_config_file():
-    """Test loading a non-existent config file."""
-    with pytest.raises(FileNotFoundError, match="Configuration file not found"):
+    """Test loading from non-existent config file."""
+    with pytest.raises(ConfigError, match="Configuration file not found"):
         Config.load("/nonexistent/path/.project-guides.yml")
 
 

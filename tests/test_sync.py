@@ -28,6 +28,7 @@ from project_guides.sync import (
 )
 from project_guides.config import Config
 from project_guides.version import __version__
+from project_guides.exceptions import GuideNotFoundError
 
 
 def test_get_template_path_returns_valid_paths():
@@ -51,8 +52,8 @@ def test_get_template_path_developer_guide():
 
 
 def test_get_template_path_nonexistent():
-    """Test that get_template_path raises error for non-existent guide."""
-    with pytest.raises(FileNotFoundError, match="Template not found"):
+    """Test that get_template_path raises error for non-existent templates."""
+    with pytest.raises(GuideNotFoundError, match="Guide 'nonexistent-guide.md' not found"):
         get_template_path("nonexistent-guide.md")
 
 
@@ -82,7 +83,7 @@ def test_get_package_version_matches_version_py():
     version = get_package_version()
     
     assert version == __version__
-    assert version == "0.6.0"
+    assert version == "0.11.0"
 
 
 def test_copy_guide_creates_files_correctly(tmp_path):
@@ -116,7 +117,7 @@ def test_copy_guide_respects_force_flag(tmp_path):
     copy_guide("debug-guide.md", target_dir)
     
     # Second copy without force should fail
-    with pytest.raises(FileExistsError, match="Guide already exists"):
+    with pytest.raises(FileExistsError, match="File already exists"):
         copy_guide("debug-guide.md", target_dir, force=False)
     
     # Second copy with force should succeed
@@ -256,7 +257,7 @@ def test_sync_guides_current_version(tmp_path):
     """Test that guides at current version are not updated."""
     target_dir = tmp_path / "guides"
     config = Config(
-        installed_version="0.6.0",  # Same as current package version
+        installed_version="0.11.0",  # Same as current package version
         target_dir=str(target_dir)
     )
     

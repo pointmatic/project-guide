@@ -13,12 +13,14 @@
 # limitations under the License.
 
 from pathlib import Path
+import sys
 
 import click
 
 from project_guides.version import __version__
 from project_guides.config import Config
 from project_guides.sync import get_all_guide_names, copy_guide, compare_versions, sync_guides
+from project_guides.exceptions import ConfigError, SyncError, GuideNotFoundError
 
 
 @click.group()
@@ -92,9 +94,9 @@ def status():
     # Load config
     try:
         config = Config.load(str(config_path))
-    except Exception as e:
-        click.secho(f"Error loading config: {e}", fg='red', err=True)
-        raise click.Abort()
+    except ConfigError as e:
+        click.secho(f"Error: {e}", fg='red', err=True)
+        sys.exit(3)  # Configuration error exit code
     
     # Show version info
     package_version = __version__
@@ -174,7 +176,11 @@ def update(guides: tuple, dry_run: bool, force: bool):
         raise click.Abort()
     
     # Load config
-    config = Config.load(str(config_path))
+    try:
+        config = Config.load(str(config_path))
+    except ConfigError as e:
+        click.secho(f"Error: {e}", fg='red', err=True)
+        sys.exit(3)  # Configuration error exit code
     
     # Convert guides tuple to list or None
     guides_list = list(guides) if guides else None
@@ -190,7 +196,7 @@ def update(guides: tuple, dry_run: bool, force: bool):
                     err=True
                 )
                 click.echo(f"Available guides: {', '.join(all_guides)}")
-                raise click.Abort()
+                sys.exit(1)  # General error exit code
     
     # Run sync
     if dry_run:
@@ -256,7 +262,11 @@ def override(guide_name: str, reason: str):
         raise click.Abort()
     
     # Load config
-    config = Config.load(str(config_path))
+    try:
+        config = Config.load(str(config_path))
+    except ConfigError as e:
+        click.secho(f"Error: {e}", fg='red', err=True)
+        sys.exit(3)  # Configuration error exit code
     
     # Verify guide exists
     all_guides = get_all_guide_names()
@@ -267,7 +277,7 @@ def override(guide_name: str, reason: str):
             err=True
         )
         click.echo(f"Available guides: {', '.join(all_guides)}")
-        raise click.Abort()
+        sys.exit(1)  # General error exit code
     
     # Add override
     config.add_override(guide_name, reason, config.installed_version or __version__)
@@ -293,7 +303,11 @@ def unoverride(guide_name: str):
         raise click.Abort()
     
     # Load config
-    config = Config.load(str(config_path))
+    try:
+        config = Config.load(str(config_path))
+    except ConfigError as e:
+        click.secho(f"Error: {e}", fg='red', err=True)
+        sys.exit(3)  # Configuration error exit code
     
     # Check if guide is overridden
     if not config.is_overridden(guide_name):
@@ -326,7 +340,11 @@ def overrides():
         raise click.Abort()
     
     # Load config
-    config = Config.load(str(config_path))
+    try:
+        config = Config.load(str(config_path))
+    except ConfigError as e:
+        click.secho(f"Error: {e}", fg='red', err=True)
+        sys.exit(3)  # Configuration error exit code
     
     # Check if any overrides exist
     if not config.overrides:
