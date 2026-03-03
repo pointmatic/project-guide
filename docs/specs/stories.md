@@ -97,20 +97,20 @@ Implement functions to access bundled templates.
   - [x] Test `get_package_version()` matches version.py
 - [x] Verify: All sync tests pass
 
-### Story B.b: v0.5.0 Sync Module - File Operations [Planned]
+### Story B.b: v0.5.0 Sync Module - File Operations [Done]
 
 Implement guide copying and backup functions.
 
-- [ ] Update `project_guides/sync.py`
-  - [ ] Implement `copy_guide(guide_name, target_dir, force) -> None`
-  - [ ] Implement `backup_guide(guide_path: Path) -> Path`
-  - [ ] Implement `compare_versions(installed, package) -> int`
-- [ ] Update `tests/test_sync.py`
-  - [ ] Test `copy_guide()` creates files correctly
-  - [ ] Test `copy_guide()` respects force flag
-  - [ ] Test `backup_guide()` creates .bak files
-  - [ ] Test `compare_versions()` with various version strings
-- [ ] Verify: All sync tests pass
+- [x] Update `project_guides/sync.py`
+  - [x] Implement `copy_guide(guide_name, target_dir, force) -> None`
+  - [x] Implement `backup_guide(guide_path: Path) -> Path`
+  - [x] Implement `compare_versions(installed, package) -> int`
+- [x] Update `tests/test_sync.py`
+  - [x] Test `copy_guide()` creates files correctly
+  - [x] Test `copy_guide()` respects force flag
+  - [x] Test `backup_guide()` creates .bak files
+  - [x] Test `compare_versions()` with various version strings
+- [x] Verify: All sync tests pass
 
 ### Story B.c: v0.6.0 Sync Module - Orchestration [Planned]
 
