@@ -83,19 +83,19 @@ Set up package data structure for bundled guide templates.
 
 ## Phase B: Core Services
 
-### Story B.a: v0.4.0 Sync Module - Template Access [Planned]
+### Story B.a: v0.4.0 Sync Module - Template Access [Done]
 
 Implement functions to access bundled templates.
 
-- [ ] Create `project_guides/sync.py`
-  - [ ] Implement `get_template_path(guide_name: str) -> Path`
-  - [ ] Implement `get_all_guide_names() -> List[str]`
-  - [ ] Implement `get_package_version() -> str`
-- [ ] Create `tests/test_sync.py`
-  - [ ] Test `get_template_path()` returns valid paths
-  - [ ] Test `get_all_guide_names()` returns all guides
-  - [ ] Test `get_package_version()` matches version.py
-- [ ] Verify: All sync tests pass
+- [x] Create `project_guides/sync.py`
+  - [x] Implement `get_template_path(guide_name: str) -> Path`
+  - [x] Implement `get_all_guide_names() -> List[str]`
+  - [x] Implement `get_package_version() -> str`
+- [x] Create `tests/test_sync.py`
+  - [x] Test `get_template_path()` returns valid paths
+  - [x] Test `get_all_guide_names()` returns all guides
+  - [x] Test `get_package_version()` matches version.py
+- [x] Verify: All sync tests pass
 
 ### Story B.b: v0.5.0 Sync Module - File Operations [Planned]
 
