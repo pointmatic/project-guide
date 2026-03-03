@@ -101,7 +101,7 @@ def test_status_with_all_guides_current(runner, tmp_path):
         result = runner.invoke(main, ['status'])
         
         assert result.exit_code == 0
-        assert "project-guides v0.8.0" in result.output
+        assert "project-guides v0.9.0" in result.output
         assert "Guides status:" in result.output
         assert "All guides are up to date" in result.output
 
@@ -153,3 +153,103 @@ def test_status_with_missing_config(runner, tmp_path):
         assert result.exit_code == 1
         assert "No .project-guides.yml found" in result.output
         assert "Run 'project-guides init' first" in result.output
+
+
+def test_override_adds_entry_to_config(runner, tmp_path):
+    """Test that override command adds entry to config."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        # Initialize project
+        runner.invoke(main, ['init'])
+        
+        # Add override
+        result = runner.invoke(main, ['override', 'debug-guide.md', 'Custom debugging workflow'])
+        
+        assert result.exit_code == 0
+        assert "Marked debug-guide.md as overridden" in result.output
+        assert "Custom debugging workflow" in result.output
+        
+        # Verify config was updated
+        config = Config.load(".project-guides.yml")
+        assert config.is_overridden("debug-guide.md")
+        assert config.overrides["debug-guide.md"].reason == "Custom debugging workflow"
+
+
+def test_override_with_nonexistent_guide_error(runner, tmp_path):
+    """Test that override errors with non-existent guide."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        # Initialize project
+        runner.invoke(main, ['init'])
+        
+        # Try to override non-existent guide
+        result = runner.invoke(main, ['override', 'fake-guide.md', 'Some reason'])
+        
+        assert result.exit_code == 1
+        assert "Guide 'fake-guide.md' not found" in result.output
+        assert "Available guides:" in result.output
+
+
+def test_unoverride_removes_entry(runner, tmp_path):
+    """Test that unoverride command removes entry from config."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        # Initialize project
+        runner.invoke(main, ['init'])
+        
+        # Add override
+        runner.invoke(main, ['override', 'debug-guide.md', 'Custom content'])
+        
+        # Remove override
+        result = runner.invoke(main, ['unoverride', 'debug-guide.md'])
+        
+        assert result.exit_code == 0
+        assert "Removed override from debug-guide.md" in result.output
+        
+        # Verify config was updated
+        config = Config.load(".project-guides.yml")
+        assert not config.is_overridden("debug-guide.md")
+
+
+def test_unoverride_not_overridden_error(runner, tmp_path):
+    """Test that unoverride errors when guide is not overridden."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        # Initialize project
+        runner.invoke(main, ['init'])
+        
+        # Try to unoverride a guide that's not overridden
+        result = runner.invoke(main, ['unoverride', 'debug-guide.md'])
+        
+        assert result.exit_code == 1
+        assert "is not overridden" in result.output
+
+
+def test_overrides_lists_all_overridden_guides(runner, tmp_path):
+    """Test that overrides command lists all overridden guides."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        # Initialize project
+        runner.invoke(main, ['init'])
+        
+        # Add multiple overrides
+        runner.invoke(main, ['override', 'debug-guide.md', 'Custom debugging'])
+        runner.invoke(main, ['override', 'project-guide.md', 'Project-specific'])
+        
+        # List overrides
+        result = runner.invoke(main, ['overrides'])
+        
+        assert result.exit_code == 0
+        assert "Overridden guides (2)" in result.output
+        assert "debug-guide.md" in result.output
+        assert "Custom debugging" in result.output
+        assert "project-guide.md" in result.output
+        assert "Project-specific" in result.output
+
+
+def test_overrides_with_no_overrides(runner, tmp_path):
+    """Test overrides command when no guides are overridden."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        # Initialize project
+        runner.invoke(main, ['init'])
+        
+        # List overrides
+        result = runner.invoke(main, ['overrides'])
+        
+        assert result.exit_code == 0
+        assert "No overridden guides" in result.output

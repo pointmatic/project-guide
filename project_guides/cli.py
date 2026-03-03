@@ -156,5 +156,108 @@ def status():
         click.secho("All guides are up to date.", fg='green')
 
 
+@main.command()
+@click.argument('guide_name')
+@click.argument('reason')
+def override(guide_name: str, reason: str):
+    """Mark a guide as overridden to prevent updates."""
+    config_path = Path(".project-guides.yml")
+    
+    # Check if config exists
+    if not config_path.exists():
+        click.secho(
+            "Error: No .project-guides.yml found. Run 'project-guides init' first.",
+            fg='red',
+            err=True
+        )
+        raise click.Abort()
+    
+    # Load config
+    config = Config.load(str(config_path))
+    
+    # Verify guide exists
+    all_guides = get_all_guide_names()
+    if guide_name not in all_guides:
+        click.secho(
+            f"Error: Guide '{guide_name}' not found.",
+            fg='red',
+            err=True
+        )
+        click.echo(f"Available guides: {', '.join(all_guides)}")
+        raise click.Abort()
+    
+    # Add override
+    config.add_override(guide_name, reason, config.installed_version or __version__)
+    config.save(str(config_path))
+    
+    click.secho(f"✓ Marked {guide_name} as overridden", fg='green')
+    click.echo(f"  Reason: {reason}")
+
+
+@main.command()
+@click.argument('guide_name')
+def unoverride(guide_name: str):
+    """Remove override status from a guide."""
+    config_path = Path(".project-guides.yml")
+    
+    # Check if config exists
+    if not config_path.exists():
+        click.secho(
+            "Error: No .project-guides.yml found. Run 'project-guides init' first.",
+            fg='red',
+            err=True
+        )
+        raise click.Abort()
+    
+    # Load config
+    config = Config.load(str(config_path))
+    
+    # Check if guide is overridden
+    if not config.is_overridden(guide_name):
+        click.secho(
+            f"Error: Guide '{guide_name}' is not overridden.",
+            fg='red',
+            err=True
+        )
+        raise click.Abort()
+    
+    # Remove override
+    config.remove_override(guide_name)
+    config.save(str(config_path))
+    
+    click.secho(f"✓ Removed override from {guide_name}", fg='green')
+
+
+@main.command()
+def overrides():
+    """List all overridden guides."""
+    config_path = Path(".project-guides.yml")
+    
+    # Check if config exists
+    if not config_path.exists():
+        click.secho(
+            "Error: No .project-guides.yml found. Run 'project-guides init' first.",
+            fg='red',
+            err=True
+        )
+        raise click.Abort()
+    
+    # Load config
+    config = Config.load(str(config_path))
+    
+    # Check if any overrides exist
+    if not config.overrides:
+        click.echo("No overridden guides.")
+        return
+    
+    # List overrides
+    click.echo(f"Overridden guides ({len(config.overrides)}):")
+    for guide_name, override in sorted(config.overrides.items()):
+        click.echo(f"  • {guide_name}")
+        click.echo(f"    Reason: {override.reason}")
+        click.echo(f"    Locked version: v{override.locked_version}")
+        click.echo(f"    Last updated: {override.last_updated}")
+
+
 if __name__ == "__main__":
     main()

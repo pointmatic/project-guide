@@ -171,20 +171,20 @@ Implement `project-guides status` command.
   - [x] Test status with missing config
 - [x] Verify: `project-guides status` shows guide status
 
-### Story C.c: v0.9.0 Override Commands [Planned]
+### Story C.c: v0.9.0 Override Commands [Done]
 
 Implement override management commands.
 
-- [ ] Update `project_guides/cli.py`
-  - [ ] Implement `override` command
-  - [ ] Implement `unoverride` command
-  - [ ] Implement `overrides` command (list all)
-- [ ] Update `tests/test_cli.py`
-  - [ ] Test override adds entry to config
-  - [ ] Test override with non-existent guide (error)
-  - [ ] Test unoverride removes entry
-  - [ ] Test overrides lists all overridden guides
-- [ ] Verify: Override commands work correctly
+- [x] Update `project_guides/cli.py`
+  - [x] Implement `override` command
+  - [x] Implement `unoverride` command
+  - [x] Implement `overrides` command (list all)
+- [x] Update `tests/test_cli.py`
+  - [x] Test override adds entry to config
+  - [x] Test override with non-existent guide (error)
+  - [x] Test unoverride removes entry
+  - [x] Test overrides lists all overridden guides
+- [x] Verify: Override commands work correctly
 
 ### Story C.d: v0.10.0 Update Command [Planned]
 
