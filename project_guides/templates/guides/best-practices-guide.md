@@ -186,6 +186,62 @@ Recognize and adapt to two distinct development modes:
 
 ---
 
+## Open Source Sustainability
+
+### GitHub Sponsors & Funding
+
+**Problem:** Open-source maintainers often struggle to sustain projects long-term without financial support, leading to burnout or project abandonment.
+
+**Best Practice:**
+
+For public open-source projects, consider setting up funding options to support ongoing maintenance and development.
+
+**Why Enable Funding?**
+- Supports maintainer time and effort
+- Signals project value to the community
+- Enables faster feature development and bug fixes
+- Covers infrastructure costs (hosting, domains, CI minutes)
+- Builds a sustainable open-source ecosystem
+
+**Setup Steps:**
+
+1. **Create `.github/FUNDING.yml`** in your repository root
+2. **Choose funding platforms:**
+   - **GitHub Sponsors** (integrated into GitHub, no fees)
+   - **Patreon** (recurring monthly support)
+   - **Ko-fi** (one-time or monthly donations)
+   - **Buy Me a Coffee** (simple one-time donations)
+   - **Open Collective** (transparent fund management)
+   - **Custom URLs** (PayPal, Stripe, etc.)
+
+3. **Add your usernames to the config:**
+   ```yaml
+   # .github/FUNDING.yml
+   github: [your-github-username]
+   patreon: your-patreon-username
+   ko_fi: your-kofi-username
+   custom: ["https://www.buymeacoffee.com/yourname"]
+   ```
+
+4. **GitHub displays a "Sponsor" button** on your repository page
+
+**Best Practices:**
+- **Be transparent** about how funds are used
+- **Keep it optional** and non-intrusive (never paywall features)
+- **Update sponsors** on progress and roadmap
+- **Offer perks** (optional): early access, priority support, sponsor recognition
+- **Set realistic goals** and communicate them clearly
+- **Thank sponsors** publicly (with permission) or privately
+
+**When to Enable:**
+- **Early projects:** Wait until the project has proven value and users
+- **Mature projects:** Enable when you're committed to long-term maintenance
+- **Popular projects:** Essential for sustainability at scale
+
+**Rationale:** Sustainable open-source development requires resources. Funding options allow users who benefit from your work to contribute back, creating a healthier ecosystem for everyone.
+
+---
+
 ## General Principles
 
 ### Measure Twice, Cut Once

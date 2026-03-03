@@ -105,7 +105,7 @@ def test_version_upgrade_scenario(runner, tmp_path):
 
         # Verify version was updated
         config = Config.load(".project-guides.yml")
-        assert config.installed_version == "0.14.0"
+        assert config.installed_version == "1.0.0"
 
         # Status should now show all current
         result = runner.invoke(main, ['status'])
@@ -241,4 +241,4 @@ def test_specific_guide_update(runner, tmp_path):
 
         # Verify config was updated
         config = Config.load(".project-guides.yml")
-        assert config.installed_version == "0.14.0"
+        assert config.installed_version == "1.0.0"

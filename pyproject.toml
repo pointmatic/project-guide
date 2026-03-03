@@ -1,6 +1,6 @@
 [project]
 name = "project-guides"
-version = "0.14.0"
+version = "1.0.0"
 description = "Manage LLM development workflow documentation across projects"
 readme = "README.md"
 license = "Apache-2.0"
@@ -10,7 +10,7 @@ authors = [
 ]
 keywords = ["llm", "documentation", "workflow", "guides", "templates"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
