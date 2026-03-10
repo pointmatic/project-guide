@@ -5,11 +5,11 @@
 [![Tests](https://github.com/pointmatic/project-guides/workflows/Tests/badge.svg)](https://github.com/pointmatic/project-guides/actions)
 [![PyPI](https://img.shields.io/pypi/v/project-guides.svg)](https://pypi.org/project/project-guides/)
 
-Manage LLM development workflow documentation across projects. `project-guides` provides centralized, versioned guide templates with project-specific override capabilities.
+A Python CLI tool that installs and synchronizes battle-tested LLM workflow guides across projects.
 
 ## Why project-guides?
 
-When working with LLMs on software projects, consistent workflow documentation is critical. `project-guides` solves the problem of keeping development guides synchronized across multiple projects while allowing project-specific customizations.
+Install project-guides in any repository with `pip install project-guides`, run `project-guides init`, then tell your LLM to "Read `docs/guides/project-guide.md` and start." The guide walks the LLM through planning documents, breaking work into stories, and implementing each story step-by-step.
 
 **Key Features:**
 - 📚 **Centralized Templates** - Maintain workflow guides in one place

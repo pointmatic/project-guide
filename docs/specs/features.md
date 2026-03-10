@@ -8,7 +8,7 @@ For implementation details, see `tech-spec.md`. For the implementation plan, see
 
 ## Project Goal
 
-`project-guides` is a Python CLI tool and package that manages LLM development workflow documentation across multiple projects. It provides centralized, versioned guide templates with project-specific override capabilities.
+`project-guides` is a Python CLI tool that installs and synchronizes battle-tested LLM workflow guides across projects, supporting version tracking and project-specific overrides to keep documentation consistent while preserving customizations.
 
 ### Core Requirements
 

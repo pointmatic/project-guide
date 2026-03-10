@@ -423,24 +423,26 @@ Enhance guide templates with better instructions and setup procedures.
 
 ## Phase G: Comprehensive Documentation
 
-### Story G.a: v1.2.0 Project Descriptions [Planned]
+### Story G.a: v1.2.0 Project Descriptions [Done]
 
 Create canonical source of truth for all project descriptions and marketing copy.
 
-- [ ] Create `docs/specs/descriptions.md` following descriptions-guide.md
-  - [ ] Add project name (GitHub vs. package name)
-  - [ ] Add tagline (3-5 words)
-  - [ ] Add long tagline (one sentence)
-  - [ ] Add one-liner (single sentence)
-  - [ ] Add friendly brief description (2-3 sentences)
-  - [ ] Add two-clause technical description
-  - [ ] Add benefits list (5-10 features)
-  - [ ] Add technical description (3-5 sentences)
-  - [ ] Add keywords (10-15 keywords)
-  - [ ] Add feature cards (6-8 cards for landing page)
-  - [ ] Add usage notes (mapping descriptions to consumer files)
-- [ ] Present `descriptions.md` for developer approval
-- [ ] Wait for approval before proceeding
+- [x] Create `docs/specs/descriptions.md` following descriptions-guide.md
+  - [x] Add project name (GitHub vs. package name)
+  - [x] Add tagline (3-5 words)
+  - [x] Add long tagline (one sentence)
+  - [x] Add one-liner (single sentence)
+  - [x] Add friendly brief description (2-3 sentences)
+  - [x] Add two-clause technical description
+  - [x] Add benefits list (5-10 features)
+  - [x] Add technical description (3-5 sentences)
+  - [x] Add keywords (10-15 keywords)
+  - [x] Add feature cards (15 cards organized by category for landing page)
+  - [x] Add quick start section (essential getting-started steps)
+  - [x] Add usage notes (mapping descriptions to consumer files)
+- [x] Distribute descriptions to existing documents (README.md, pyproject.toml, features.md)
+- [x] Present `descriptions.md` for developer approval
+- [x] Developer approved
 
 ### Story G.b: Generate Documentation Images [Done]
 
