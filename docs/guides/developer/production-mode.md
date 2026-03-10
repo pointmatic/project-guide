@@ -12,6 +12,53 @@ This guide provides concise instructions for the branch-based workflow used in p
 
 ---
 
+## GitHub Repository Setup
+
+Before using this workflow, configure your repository settings on GitHub. These settings enforce production-mode practices.
+
+### Manual Tasks (GitHub Web UI)
+
+Navigate to your repository's **Settings** tab and configure the following:
+
+#### 1. Branch Protection Rules
+
+**Settings → Branches → Branch protection rules → Add rule**
+
+Target branch: `default` (typically `main` or `master`)
+
+- [ ] **Do not add any bypass list items** (no one should bypass protection)
+- [ ] **Restrict deletions** — Prevent branch deletion
+- [ ] **Require pull request before merging**
+  - [ ] Require 1 approval
+  - [ ] Require conversation resolution before merging
+- [ ] **Require status checks to pass before merging**
+  - [ ] Require branches to be up to date before merging
+  - [ ] Status checks required: `unit-tests`, `integration-tests` (or your CI job names)
+- [ ] **Block force pushes** — Prevent force pushes to main
+
+Click **Create** or **Save changes**
+
+#### 2. Security Settings
+
+**Settings → Security → Code security and analysis**
+
+- [ ] **Dependency graph** — Enable (shows dependencies)
+- [ ] **Dependabot alerts** — Enable (security vulnerability alerts)
+- [ ] **Dependabot security updates** — Enable (automatic security PRs)
+- [ ] **Grouped security updates** — Enable (reduces PR noise by grouping updates)
+
+#### 3. GitHub Actions Permissions
+
+**Settings → Actions → General → Workflow permissions**
+
+- [ ] Set to **Read repository contents and packages permissions**
+  - This prevents workflows from accidentally pushing to protected branches
+  - Workflows that need write access must use explicit tokens
+
+**Note:** If you need workflows to create releases or push tags, use repository secrets with fine-grained permissions instead of the default `GITHUB_TOKEN`.
+
+---
+
 ## Workflow Overview
 
 ```

@@ -18,8 +18,9 @@ The `developer/` subdirectory contains manual setup instructions and troubleshoo
 - Manual service configuration (e.g., Codecov, PyPI trusted publishers)
 - Troubleshooting references
 - One-time setup procedures
+- Production mode workflow and GitHub repository setup
 
-These are not part of the automated LLM workflow but serve as reference documentation for manual steps.
+These guides are primarily for manual setup tasks, but LLMs may reference excerpts when providing step-by-step instructions or documenting procedures in stories.
 
 ## Usage
 

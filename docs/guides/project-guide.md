@@ -2,13 +2,19 @@
 
 This guide provides step-by-step instructions for an LLM to help a developer create a new software project from scratch. The LLM generates each document one at a time, presenting it to the developer for approval before proceeding to the next.
 
+## How to Use This Guide
+
+**For Developers:** After installing project-guides (`pip install project-guides`) and running `project-guides init`, tell your LLM: "Read `docs/guides/project-guide.md` and start." The LLM will walk through planning documents, break work into stories, and implement each story step-by-step. You just say "proceed" after each step.
+
+**For LLMs:** This guide describes a "HITLoop" (human-in-the-loop) workflow where the developer directs and you execute. Work through each step methodically, presenting your work for approval at each gate. When the developer says "proceed" (or equivalent like "continue", "next", "go ahead"), move to the next step. If it's unclear which step comes next, ask the developer which step to tackle. Never auto-advance past approval gates—always wait for explicit confirmation.
+
 ---
 
 ## Prerequisites
 
-Before starting, the developer must provide:
+Before starting, the developer must provide (or the LLM must ask):
 
-1. **A project idea** — a short description of what the project should do (a few sentences to a few paragraphs).
+1. **A project idea** — a short description of what the project should do (a few sentences to a few paragraphs). This is often documented in a `docs/specs/concept.md` file.
 2. **Language / runtime** — e.g. Python 3.14, Node 22, Go 1.23, etc.
 3. **License preference** — e.g. Apache-2.0, MIT, MPL-2.0, GPL-3.0. If a `LICENSE` file already exists in the project root, that license prevails.
 
@@ -406,7 +412,8 @@ Once all three documents are approved, begin implementing stories in order:
    e. Mark checklist items as `[x]` and change the story suffix to `[Done]`.
    f. Bump the version in the package manifest and source (if the story has a version).
    g. Present the completed story to the developer for approval.
-3. **Pause after each story.** Do not proceed to the next story until the developer says "proceed" (or equivalent approval). This is a hard gate — never auto-advance.
+3. **Pause after each story.** Do not proceed to the next story until the developer says "proceed" (or equivalent like "continue", "next", "go ahead"). This is a hard gate — never auto-advance.
+4. **If unclear which story is next**, ask the developer: "Which story should I work on next?" or "Should I proceed with Story X.y?"
 
 ### File Header Reminder
 
