@@ -580,12 +580,27 @@ Document local development workflow for documentation.
   - [x] Add v1.2.0 - Canonical project descriptions
 - [x] Verify: Local development instructions are clear and complete ✓
 
+### Story G.i: v1.2.6 Bug Fixes [Done]
+
+Fix version comparison bug in sync_guides causing test failure.
+
+- [x] Fix `sync_guides()` version comparison logic in `project_guides/sync.py`
+  - [x] Add check for non-existent files when versions match
+  - [x] Properly mark guides as "current" when installed_version == package_version
+  - [x] Add comment explaining the logic flow
+- [x] Update `test_sync_guides_current_version` in `tests/test_sync.py`
+  - [x] Import `__version__` from `project_guides.version`
+  - [x] Use dynamic version instead of hardcoded "1.1.3"
+  - [x] Ensures test stays valid across version bumps
+- [x] Verify: All 53 tests pass ✓
+- [x] Verify: Test coverage remains at 82% ✓
+
 ---
 
 ## Summary
 
-**Total Stories**: 30 (25 with version numbers, 5 without)
-**Current Version**: v1.1.3
+**Total Stories**: 31 (26 with version numbers, 5 without)
+**Current Version**: v1.2.6
 **Phases**: 7 (A-G)
 
 **Phase Breakdown**:
@@ -595,4 +610,4 @@ Document local development workflow for documentation.
 - **Phase D (Error Handling)**: 2 stories — Error handling and output polish
 - **Phase E (Testing & Quality)**: 3 stories — Integration tests, coverage, linting
 - **Phase F (Documentation & Release)**: 7 stories — README, templates, releases (v1.0.0, v1.1.0, v1.1.2, v1.1.3)
-- **Phase G (Comprehensive Documentation)**: 8 stories — Project descriptions, landing page, MkDocs setup, GitHub Pages deployment (v1.2.0-v1.2.5)
+- **Phase G (Comprehensive Documentation)**: 9 stories — Project descriptions, landing page, MkDocs setup, GitHub Pages deployment, bug fixes (v1.2.0-v1.2.6)

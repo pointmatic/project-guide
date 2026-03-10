@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.6] - 2026-03-10
+
+### Fixed
+- **Version comparison bug in sync_guides**
+  - Fixed logic to properly mark guides as "current" when installed_version matches package_version
+  - Added check for non-existent files when versions match
+  - Updated test to use dynamic version import instead of hardcoded value
+
 ## [1.2.5] - 2026-03-10
 
 ### Changed

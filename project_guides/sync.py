@@ -184,10 +184,16 @@ def sync_guides(
 
         # Check if guide exists and compare versions
         if target_file.exists():
-            # If installed version equals package version, skip
+            # If installed version equals package version, mark as current
             if config.installed_version and compare_versions(config.installed_version, package_version) == 0:
                 current.append(guide_name)
                 continue
+            # If installed version is older, will update below
+        
+        # If file doesn't exist and versions match, still mark as current (no update needed)
+        elif config.installed_version and compare_versions(config.installed_version, package_version) == 0:
+            current.append(guide_name)
+            continue
 
         # Update the guide
         if not dry_run:
