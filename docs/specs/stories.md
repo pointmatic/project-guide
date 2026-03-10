@@ -394,8 +394,8 @@ Update guide templates to use modern Git commands.
   - [x] Makes tests self-maintaining for future releases
 - [x] Verify: All 53 tests pass ✓
 - [x] Build package successfully ✓
-- [ ] Create GitHub release with tag `v1.1.2` (manual step)
-- [ ] Verify: Package publishes to PyPI (after release)
+- [x] Create GitHub release with tag `v1.1.2` (manual step)
+- [x] Verify: Package publishes to PyPI (after release)
 
 ### Story F.f: v1.1.3 Template Improvements [Done]
 
@@ -416,16 +416,173 @@ Enhance guide templates with better instructions and setup procedures.
 - [x] Update CHANGELOG.md with v1.1.3 entry
 - [x] Verify: All 53 tests pass ✓
 - [x] Build package successfully ✓
-- [ ] Create GitHub release with tag `v1.1.3` (manual step)
-- [ ] Verify: Package publishes to PyPI (after release)
+- [x] Create GitHub release with tag `v1.1.3` (manual step)
+- [x] Verify: Package publishes to PyPI (after release)
+
+---
+
+## Phase G: Comprehensive Documentation
+
+### Story G.a: v1.2.0 Project Descriptions [Planned]
+
+Create canonical source of truth for all project descriptions and marketing copy.
+
+- [ ] Create `docs/specs/descriptions.md` following descriptions-guide.md
+  - [ ] Add project name (GitHub vs. package name)
+  - [ ] Add tagline (3-5 words)
+  - [ ] Add long tagline (one sentence)
+  - [ ] Add one-liner (single sentence)
+  - [ ] Add friendly brief description (2-3 sentences)
+  - [ ] Add two-clause technical description
+  - [ ] Add benefits list (5-10 features)
+  - [ ] Add technical description (3-5 sentences)
+  - [ ] Add keywords (10-15 keywords)
+  - [ ] Add feature cards (6-8 cards for landing page)
+  - [ ] Add usage notes (mapping descriptions to consumer files)
+- [ ] Present `descriptions.md` for developer approval
+- [ ] Wait for approval before proceeding
+
+### Story G.b: Generate Documentation Images [Done]
+
+Request developer to create required banner and header images.
+
+- [x] Notify developer that images are required before proceeding
+- [x] Request landing page banner: `docs/site/images/project-guides-banner-landing.png` (1024×650 pixels)
+  - [x] Must include tagline from `descriptions.md`
+- [x] Request README header: `docs/site/images/project-guides-header-readme.png` (945×100 pixels)
+  - [x] Must include tagline from `descriptions.md`
+- [x] Wait for developer to provide images
+- [x] Verify images exist before proceeding to next story
+
+### Story G.c: v1.2.1 Documentation Structure [Planned]
+
+Set up MkDocs configuration and directory structure.
+
+- [ ] Create `docs/site/` directory structure
+  - [x] Create `docs/site/images/` directory
+  - [ ] Create `docs/site/.gitignore` (ignore MkDocs cache)
+- [ ] Create `mkdocs.yml` in repository root
+  - [ ] Configure site metadata (name, description, URL)
+  - [ ] Configure Material theme with dark/light mode
+  - [ ] Set `docs_dir: docs/site` and `site_dir: site`
+  - [ ] Configure navigation structure
+  - [ ] Add markdown extensions (admonition, superfences, highlight, etc.)
+  - [ ] Add plugins (search, git-revision-date-localized)
+- [ ] Update root `.gitignore`
+  - [ ] Add `/site/` to ignore MkDocs build output
+- [ ] Add MkDocs dependencies to `pyproject.toml`
+  - [ ] Add `mkdocs-material` to optional dependencies group `[docs]`
+  - [ ] Add `mkdocs-git-revision-date-localized-plugin` to `[docs]`
+- [ ] Verify: `mkdocs build` runs without errors
+
+### Story G.d: v1.2.2 Landing Page [Planned]
+
+Create custom branded landing page using descriptions from G.a.
+
+- [ ] Create `docs/site/index.html`
+  - [ ] Add HTML structure with meta tags (title, description, keywords from `descriptions.md`)
+  - [ ] Add CSS styling (dark theme with teal accent)
+  - [ ] Add navigation bar (Features, Quick Start, Docs, GitHub)
+  - [ ] Add hero section with project name and tagline
+  - [ ] Add hero banner image (`images/project-guides-banner-landing.png`)
+  - [ ] Add subtitle using friendly brief description
+  - [ ] Add CTA buttons (GitHub, Get Started, Documentation)
+  - [ ] Add Quick Start section with installation commands
+  - [ ] Add Features section with feature cards from `descriptions.md`
+- [ ] Verify: Landing page displays correctly locally
+- [ ] Verify: All links work (relative paths for MkDocs pages)
+
+### Story G.e: v1.2.3 Documentation Pages [Planned]
+
+Create comprehensive markdown documentation pages.
+
+- [ ] Create `docs/site/getting-started.md`
+  - [ ] Add installation section (pip, pipx, from source)
+  - [ ] Add quick start guide (4-step workflow)
+  - [ ] Add next steps with links to other pages
+- [ ] Create `docs/site/usage.md`
+  - [ ] Document all 7 commands with examples
+  - [ ] Add command reference table
+  - [ ] Add common workflows
+  - [ ] Add troubleshooting tips
+- [ ] Create `docs/site/configuration.md`
+  - [ ] Document `.project-guides.yml` structure
+  - [ ] Explain override system
+  - [ ] Show configuration examples
+- [ ] Create `docs/site/guides.md`
+  - [ ] List all bundled guides with descriptions
+  - [ ] Explain guide categories (main vs. developer)
+  - [ ] Link to guide templates in repository
+- [ ] Create `docs/site/api.md`
+  - [ ] Document public API if library usage is supported
+  - [ ] Show Python usage examples
+  - [ ] Document key modules and functions
+- [ ] Verify: All documentation pages render correctly
+- [ ] Verify: Internal links between pages work
+
+### Story G.f: v1.2.4 GitHub Actions Deployment [Planned]
+
+Set up automated deployment to GitHub Pages.
+
+- [ ] Create `.github/workflows/deploy-docs.yml`
+  - [ ] Configure trigger on push to main branch
+  - [ ] Add workflow_dispatch for manual triggers
+  - [ ] Set up permissions (contents: read, pages: write, id-token: write)
+  - [ ] Add build job (checkout, setup Python, install deps, build MkDocs)
+  - [ ] Add deploy job (deploy to GitHub Pages)
+  - [ ] Use `mkdocs build --strict` to fail on warnings
+- [ ] Configure GitHub Pages in repository settings
+  - [ ] Set source to "GitHub Actions"
+  - [ ] Document manual setup steps in story checklist
+- [ ] Test deployment workflow
+  - [ ] Push changes to trigger workflow
+  - [ ] Verify workflow runs successfully
+  - [ ] Verify site is accessible at GitHub Pages URL
+- [ ] Verify: Documentation site is live and accessible
+
+### Story G.g: v1.2.5 README Integration [Planned]
+
+Update README with documentation assets and links.
+
+- [ ] Update `README.md`
+  - [ ] Add header banner image at top (`docs/site/images/project-guides-header-readme.png`)
+  - [ ] Update description using text from `descriptions.md`
+  - [ ] Add documentation badge linking to GitHub Pages
+  - [ ] Add "Documentation" section with link to full docs
+  - [ ] Update installation section to match `getting-started.md`
+  - [ ] Ensure consistency with landing page content
+- [ ] Update `pyproject.toml`
+  - [ ] Update description field using two-clause technical description
+  - [ ] Add documentation URL to project.urls
+  - [ ] Verify keywords match `descriptions.md`
+- [ ] Verify: README displays correctly on GitHub
+- [ ] Verify: README header image loads properly
+
+### Story G.h: Local Development Documentation [Planned]
+
+Document local development workflow for documentation.
+
+- [ ] Add "Documentation Development" section to `README.md`
+  - [ ] Document how to install docs dependencies (`pip install -e ".[docs]"`)
+  - [ ] Document how to preview locally (`mkdocs serve`)
+  - [ ] Document how to build locally (`mkdocs build`)
+  - [ ] Explain directory structure (`docs/site/` vs. `site/`)
+- [ ] Create `docs/site/contributing.md` (optional)
+  - [ ] Document how to contribute to documentation
+  - [ ] Explain markdown conventions
+  - [ ] Link to MkDocs Material documentation
+- [ ] Update CHANGELOG.md
+  - [ ] Add v1.2.0 through v1.2.5 entries
+  - [ ] Document all documentation features added
+- [ ] Verify: Local development instructions are clear and complete
 
 ---
 
 ## Summary
 
-**Total Stories**: 22 (19 with version numbers, 3 without)
+**Total Stories**: 30 (25 with version numbers, 5 without)
 **Current Version**: v1.1.3
-**Phases**: 6 (A-F)
+**Phases**: 7 (A-G)
 
 **Phase Breakdown**:
 - **Phase A (Foundation)**: 3 stories — Basic package structure, config model, template bundle
@@ -434,3 +591,4 @@ Enhance guide templates with better instructions and setup procedures.
 - **Phase D (Error Handling)**: 2 stories — Error handling and output polish
 - **Phase E (Testing & Quality)**: 3 stories — Integration tests, coverage, linting
 - **Phase F (Documentation & Release)**: 7 stories — README, templates, releases (v1.0.0, v1.1.0, v1.1.2, v1.1.3)
+- **Phase G (Comprehensive Documentation)**: 8 stories — Project descriptions, landing page, MkDocs setup, GitHub Pages deployment (v1.2.0-v1.2.5)
