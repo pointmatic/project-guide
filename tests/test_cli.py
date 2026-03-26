@@ -273,7 +273,7 @@ def test_update_all_guides(runner, tmp_path):
         result = runner.invoke(main, ['update'])
 
         assert result.exit_code == 0
-        assert "Updated:" in result.output
+        assert "Updated" in result.output
         assert "guide" in result.output.lower()
 
         # Verify config was updated
@@ -340,8 +340,8 @@ def test_update_with_force_creates_backups(runner, tmp_path):
         result = runner.invoke(main, ['update', '--force'])
 
         assert result.exit_code == 0
-        assert "Updated:" in result.output
         assert "debug-guide.md" in result.output
+        assert "Successfully updated" in result.output
 
         # Verify backup was created
         backup_files = list(Path("docs/guides").glob("debug-guide.md.bak.*"))

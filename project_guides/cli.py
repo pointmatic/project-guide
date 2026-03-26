@@ -19,7 +19,13 @@ import click
 
 from project_guides.config import Config
 from project_guides.exceptions import ConfigError, SyncError
-from project_guides.sync import compare_versions, copy_guide, get_all_guide_names, sync_guides
+from project_guides.sync import (
+    apply_guide_update,
+    compare_versions,
+    copy_guide,
+    get_all_guide_names,
+    sync_guides,
+)
 from project_guides.version import __version__
 
 
@@ -216,16 +222,43 @@ def update(guides: tuple, dry_run: bool, force: bool):
         click.echo()
 
     try:
-        updated, skipped, current, missing = sync_guides(config, guides_list, force, dry_run)
+        updated, skipped, current, missing, modified = sync_guides(config, guides_list, force, dry_run)
     except SyncError as e:
         click.secho(f"Error: {e}", fg='red', err=True)
         sys.exit(2)  # File I/O error exit code
 
-    # Print results
+    # Handle modified files - prompt user for each one
+    user_approved = []
+    user_declined = []
+    user_backed_up = []
+
+    if modified and not dry_run:
+        click.secho("Modified files detected:", fg='yellow')
+        for guide in modified:
+            click.secho(f"  ⚠ {guide} has been modified locally.", fg='yellow')
+            if click.confirm(f"    Backup and overwrite {guide}?", default=False):
+                try:
+                    apply_guide_update(guide, config, make_backup=True)
+                    user_approved.append(guide)
+                except SyncError as e:
+                    click.secho(f"  Error updating {guide}: {e}", fg='red', err=True)
+            else:
+                user_declined.append(guide)
+    elif modified and dry_run:
+        click.secho("Modified (would prompt: backup and overwrite?):", fg='yellow')
+        for guide in modified:
+            click.secho(f"  ⚠ {guide}", fg='yellow')
+
+    # Print other results
     if updated:
-        action = "Would update" if dry_run else "Updated"
+        action = "Would update (backed up)" if (dry_run and force) else ("Updated (backed up)" if force else ("Would update" if dry_run else "Updated"))
         click.secho(f"{action}:", fg='green')
         for guide in updated:
+            click.secho(f"  ✓ {guide}", fg='green')
+
+    if user_approved:
+        click.secho("Updated (approved by user):", fg='green')
+        for guide in user_approved:
             click.secho(f"  ✓ {guide}", fg='green')
 
     if missing:
@@ -233,6 +266,11 @@ def update(guides: tuple, dry_run: bool, force: bool):
         click.secho(f"{action} (missing files):", fg='cyan')
         for guide in missing:
             click.secho(f"  + {guide}", fg='cyan')
+
+    if user_declined:
+        click.secho("Skipped (user declined):", fg='yellow')
+        for guide in user_declined:
+            click.secho(f"  ⊘ {guide}", fg='yellow')
 
     if skipped:
         click.secho("Skipped (overridden):", fg='yellow')
@@ -245,8 +283,9 @@ def update(guides: tuple, dry_run: bool, force: bool):
         for guide in current:
             click.echo(f"  • {guide}")
 
-    # Update config if not dry-run and updates were made
-    if not dry_run and updated:
+    # Update config if not dry-run and any updates were made
+    all_updated = updated + user_approved + missing
+    if not dry_run and all_updated:
         config.installed_version = __version__
         config.save(str(config_path))
 
@@ -254,26 +293,33 @@ def update(guides: tuple, dry_run: bool, force: bool):
     click.echo()
     if dry_run:
         total_changes = len(updated) + len(missing)
-        if total_changes > 0:
+        if total_changes > 0 or modified:
             parts = []
             if updated:
                 parts.append(f"update {len(updated)}")
             if missing:
                 parts.append(f"create {len(missing)}")
-            click.echo(f"Would {' and '.join(parts)} guide{'s' if total_changes != 1 else ''}.")
+            if modified:
+                parts.append(f"prompt for {len(modified)} modified")
+            click.echo(f"Would {', '.join(parts)}.")
             click.echo("Run without --dry-run to apply changes.")
         else:
             click.echo("No updates needed.")
     else:
-        total_changes = len(updated) + len(missing)
+        total_changes = len(updated) + len(user_approved) + len(missing)
         if total_changes > 0:
             parts = []
-            if updated:
-                parts.append(f"updated {len(updated)}")
+            if updated + user_approved:
+                n = len(updated) + len(user_approved)
+                parts.append(f"updated {n}")
             if missing:
                 parts.append(f"created {len(missing)}")
             click.secho(f"✓ Successfully {' and '.join(parts)} guide{'s' if total_changes != 1 else ''}.", fg='green')
-        elif skipped and not current:
+            if user_backed_up:
+                click.echo(f"  {len(user_backed_up)} backup(s) created.")
+        elif user_declined and not skipped and not current:
+            click.echo("No guides updated (all modifications declined).")
+        elif skipped and not current and not user_declined:
             click.echo("All guides are overridden. Use --force to update anyway.")
         else:
             click.echo("All guides are up to date.")

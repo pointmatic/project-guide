@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-03-25
+
+### Added
+- **Prompt before overwriting user-modified guides**
+  - `update` command now prompts `Overwrite <guide>? [y/N]` for each modified file
+  - User can accept or decline per-file — declined files are reported as skipped
+  - `--force` flag skips the prompt, creates a `.bak` backup, and overwrites automatically
+  - `--dry-run` shows modified files with a note that they would be prompted
+
+### Changed
+- `sync_guides()` now returns 5-tuple `(updated, skipped, current, missing, modified)`
+  - `modified`: files with user edits detected but not yet acted on (caller decides)
+  - `--force` moves modified files directly to `updated` list after creating backup
+- `update` output now shows "Updated (backed up):" label when `--force` is used
+- Test suite expanded to 59 tests with `test_sync_guides_force_overwrites_modified_with_backup`
+
 ## [1.3.0] - 2026-03-25
 
 ### Added

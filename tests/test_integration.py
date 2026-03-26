@@ -57,7 +57,7 @@ def test_full_init_override_update_workflow(runner, tmp_path):
         # Step 5: Update (should skip overridden guide, update others)
         result = runner.invoke(main, ['update'])
         assert result.exit_code == 0
-        assert "Skipped (overridden)" in result.output or "Updated:" in result.output
+        assert "Skipped (overridden)" in result.output or "Updated" in result.output
         assert "debug-guide.md" in result.output
 
         # Step 6: Force update (should create backup and update overridden guide)
@@ -68,7 +68,7 @@ def test_full_init_override_update_workflow(runner, tmp_path):
 
         result = runner.invoke(main, ['update', '--force'])
         assert result.exit_code == 0
-        assert "Updated:" in result.output or "Already current:" in result.output
+        assert "Updated" in result.output or "Already current:" in result.output
 
         # Verify backup was created
         backup_files = list(Path("docs/guides").glob("debug-guide.md.bak.*"))
@@ -102,7 +102,7 @@ def test_version_upgrade_scenario(runner, tmp_path):
         # Update to latest
         result = runner.invoke(main, ['update'])
         assert result.exit_code == 0
-        assert "Updated:" in result.output
+        assert "Updated" in result.output
 
         # Verify version was updated
         config = Config.load(".project-guides.yml")

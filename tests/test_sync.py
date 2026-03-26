@@ -168,7 +168,7 @@ def test_sync_guides_with_no_overrides(tmp_path):
     )
 
     # Sync a subset of guides
-    updated, skipped, current, missing = sync_guides(
+    updated, skipped, current, missing, modified = sync_guides(
         config,
         guides=["project-guide.md", "debug-guide.md"]
     )
@@ -198,7 +198,7 @@ def test_sync_guides_with_overrides_skipped(tmp_path):
     )
     config.add_override("debug-guide.md", "Custom content", "0.5.0")
 
-    updated, skipped, current, missing = sync_guides(
+    updated, skipped, current, missing, modified = sync_guides(
         config,
         guides=["project-guide.md", "debug-guide.md"]
     )
@@ -223,7 +223,7 @@ def test_sync_guides_with_force_flag(tmp_path):
     copy_guide("debug-guide.md", target_dir)
     config.add_override("debug-guide.md", "Custom content", "0.5.0")
 
-    updated, skipped, current, missing = sync_guides(
+    updated, skipped, current, missing, modified = sync_guides(
         config,
         guides=["debug-guide.md"],
         force=True
@@ -245,7 +245,7 @@ def test_sync_guides_dry_run_mode(tmp_path):
         target_dir=str(tmp_path / "guides")
     )
 
-    updated, skipped, current, missing = sync_guides(
+    updated, skipped, current, missing, modified = sync_guides(
         config,
         guides=["project-guide.md"],
         dry_run=True
@@ -273,7 +273,7 @@ def test_sync_guides_current_version(tmp_path):
     # Create existing guide
     copy_guide("project-guide.md", target_dir)
 
-    updated, skipped, current, missing = sync_guides(
+    updated, skipped, current, missing, modified = sync_guides(
         config,
         guides=["project-guide.md"]
     )
@@ -296,7 +296,7 @@ def test_sync_guides_detects_missing_files(tmp_path):
     )
 
     # Don't create any files - they should be detected as missing
-    updated, skipped, current, missing = sync_guides(
+    updated, skipped, current, missing, modified = sync_guides(
         config,
         guides=["project-guide.md", "debug-guide.md"]
     )
@@ -330,16 +330,50 @@ def test_sync_guides_detects_user_modifications(tmp_path):
     with open(guide_file, 'a') as f:
         f.write("\n# User added content\n")
 
-    updated, skipped, current, missing = sync_guides(
+    updated, skipped, current, missing, modified = sync_guides(
         config,
         guides=["project-guide.md"]
     )
 
-    # Modified file should be updated
-    assert len(updated) == 1
-    assert "project-guide.md" in updated
+    # Modified file should be in modified list (awaiting user decision)
+    assert len(modified) == 1
+    assert "project-guide.md" in modified
+    assert len(updated) == 0
     assert len(current) == 0
     assert len(missing) == 0
+
+
+def test_sync_guides_force_overwrites_modified_with_backup(tmp_path):
+    """Test that --force backs up and overwrites user-modified files."""
+    from project_guides.version import __version__
+
+    target_dir = tmp_path / "guides"
+    config = Config(
+        installed_version=__version__,
+        target_dir=str(target_dir)
+    )
+
+    # Create guide and modify it
+    copy_guide("project-guide.md", target_dir)
+    guide_file = target_dir / "project-guide.md"
+
+    with open(guide_file, 'a') as f:
+        f.write("\n# User added content\n")
+
+    updated, skipped, current, missing, modified = sync_guides(
+        config,
+        guides=["project-guide.md"],
+        force=True
+    )
+
+    # With --force, modified file should be backed up and updated
+    assert len(updated) == 1
+    assert "project-guide.md" in updated
+    assert len(modified) == 0
+
+    # Verify a backup was created
+    backup_files = list(target_dir.glob("project-guide.md.bak.*"))
+    assert len(backup_files) == 1
 
 
 def test_file_matches_template_with_identical_content(tmp_path):

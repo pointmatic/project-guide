@@ -652,12 +652,36 @@ Fix critical bugs in update command and add content-based change detection.
 - [x] Verify: All 58 tests pass ✓
 - [x] Verify: Test coverage remains at 82% ✓
 
+### Story H.b: v1.3.1 Prompt on Modified Files [Done]
+
+Protect user edits by prompting before overwriting modified guides.
+
+- [x] Refactor `sync_guides()` in `project_guides/sync.py`
+  - [x] Change return to 5-tuple: `(updated, skipped, current, missing, modified)`
+  - [x] Modified files (version current but content differs) go to `modified` list
+  - [x] `--force` moves modified files to `updated` after creating `.bak` backup
+  - [x] Add `apply_guide_update()` helper for single-guide update with optional backup
+- [x] Update CLI `update` command in `project_guides/cli.py`
+  - [x] Prompt `Overwrite <guide>? [y/N]` for each file in `modified` list
+  - [x] Track `user_approved` and `user_declined` separately
+  - [x] Show "Skipped (user declined):" section in output
+  - [x] Show "Updated (backed up):" label when `--force` is used
+  - [x] `--dry-run` reports modified files with note they would be prompted
+  - [x] Summary accurately reflects all approved, created, and updated counts
+- [x] Update all tests for 5-tuple return
+  - [x] Update 7 unpacking calls in `tests/test_sync.py`
+  - [x] Fix `test_sync_guides_detects_user_modifications` — now asserts `modified` list
+  - [x] Fix `test_cli.py` and `test_integration.py` label assertions
+  - [x] Add `test_sync_guides_force_overwrites_modified_with_backup`
+- [x] Verify: All 59 tests pass ✓
+- [x] Verify: Linting passes ✓
+
 ---
 
 ## Summary
 
-**Total Stories**: 33 (28 with version numbers, 5 without)
-**Current Version**: v1.3.0
+**Total Stories**: 34 (29 with version numbers, 5 without)
+**Current Version**: v1.3.1
 **Phases**: 8 (A-H)
 
 **Phase Breakdown**:
@@ -668,4 +692,4 @@ Fix critical bugs in update command and add content-based change detection.
 - **Phase E (Testing & Quality)**: 3 stories — Integration tests, coverage, linting
 - **Phase F (Documentation & Release)**: 7 stories — README, templates, releases (v1.0.0, v1.1.0, v1.1.2, v1.1.3)
 - **Phase G (Comprehensive Documentation)**: 11 stories — Project descriptions, landing page, MkDocs setup, GitHub Pages deployment, bug fixes (v1.2.0-v1.2.8)
-- **Phase H (Enhanced Features)**: 1 story — Enhanced update detection with content comparison (v1.3.0)
+- **Phase H (Enhanced Features)**: 2 stories — Enhanced update detection, prompt on modified files (v1.3.0-v1.3.1)

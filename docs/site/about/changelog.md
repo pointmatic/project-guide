@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-03-25
+
+### Added
+- **Prompt before overwriting user-modified guides**
+  - `update` command prompts `Overwrite <guide>? [y/N]` for each locally modified file
+  - User can accept or decline per-file; declined files are reported as "Skipped (user declined)"
+  - `--force` flag skips the prompt, creates a `.bak` backup, and overwrites automatically
+  - `--dry-run` reports modified files with a note they would be prompted
+
+### Changed
+- `sync_guides()` returns 5-tuple `(updated, skipped, current, missing, modified)` — modified files deferred to CLI for prompting
+- `update` output shows "Updated (backed up):" label when `--force` is used
+- Test suite expanded to 59 tests
+
+## [1.3.0] - 2026-03-25
+
+### Added
+- **Content-based change detection** in `update` and `status` commands
+  - New `file_matches_template()` function uses SHA-256 hash to compare file content with templates
+  - Detects user modifications even when version numbers match
+  - `status` command shows "(modified)" for files with user edits
+- **Missing file detection** in `update` command
+  - Missing files are now properly detected and reported separately with cyan "+" indicator
+  - Missing files are always created, even if version numbers match
+
+### Fixed
+- `update` command incorrectly reported "all guides are up to date" when files were missing
+- `update` command didn't detect user modifications to guide files
+
 ## [1.1.3] - 2026-03-09
 
 ### Added
@@ -93,7 +122,9 @@ For the complete changelog including all pre-1.0 versions, see the [CHANGELOG.md
 - [PyPI Release History](https://pypi.org/project/project-guides/#history)
 - [Full Changelog](https://github.com/pointmatic/project-guides/blob/main/CHANGELOG.md)
 
-[Unreleased]: https://github.com/pointmatic/project-guides/compare/v1.1.3...HEAD
+[Unreleased]: https://github.com/pointmatic/project-guides/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/pointmatic/project-guides/compare/v1.3.0...v1.3.1
+[1.3.0]: https://github.com/pointmatic/project-guides/compare/v1.1.3...v1.3.0
 [1.1.3]: https://github.com/pointmatic/project-guides/compare/v1.1.2...v1.1.3
 [1.1.2]: https://github.com/pointmatic/project-guides/compare/v1.1.0...v1.1.2
 [1.1.0]: https://github.com/pointmatic/project-guides/compare/v1.0.0...v1.1.0

@@ -4,7 +4,7 @@ Comprehensive guide to testing project-guides.
 
 ## Test Suite Overview
 
-project-guides has 82% test coverage with 53 comprehensive tests covering:
+project-guides has 82% test coverage with 59 comprehensive tests covering:
 - CLI commands
 - Configuration handling
 - Guide synchronization

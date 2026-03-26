@@ -20,7 +20,7 @@ This is "HITLoop" (human-in-the-loop) development: the developer directs, the LL
 - ✏️ **Project-Specific Overrides** - Lock customized guides to prevent overwrites
 - 🔒 **Automatic Backups** - Preserve customizations when forcing updates
 - 🎨 **CLI Interface** - Seven intuitive commands for all operations
-- 🧪 **Well Tested** - 82% test coverage with 53 comprehensive tests
+- 🧪 **Well Tested** - 82% test coverage with 59 comprehensive tests
 - ⚡ **Zero Configuration** - Works with sensible defaults out of the box
 - 🌐 **Cross-Platform** - Runs on macOS, Linux, and Windows with Python 3.11+
 
@@ -81,7 +81,7 @@ project-guides override debug-guide.md "Custom debugging workflow for this proje
 project-guides update
 ```
 
-Overridden guides are skipped by default. Use `--force` to update them (creates backups).
+Overridden guides are skipped by default. Modified guides prompt "Backup and overwrite?" — a `.bak` file is always created before any overwrite. Use `--force` to skip the prompt and overwrite all modified guides automatically (backups still created).
 
 ## Command Reference
 

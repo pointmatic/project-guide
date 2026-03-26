@@ -176,12 +176,30 @@ def compare_versions(installed: str, package: str) -> int:
         return 0
 
 
+def apply_guide_update(guide_name: str, config: Config, make_backup: bool = False) -> None:
+    """
+    Apply a single guide update, optionally creating a backup first.
+
+    Args:
+        guide_name: Name of the guide to update
+        config: Project configuration
+        make_backup: If True, create a .bak backup before overwriting
+    """
+    target_dir = Path(config.target_dir)
+    target_file = target_dir / guide_name
+
+    if make_backup and target_file.exists():
+        backup_guide(target_file)
+
+    copy_guide(guide_name, target_dir, force=True)
+
+
 def sync_guides(
     config: Config,
     guides: list[str] | None = None,
     force: bool = False,
     dry_run: bool = False
-) -> tuple[list[str], list[str], list[str], list[str]]:
+) -> tuple[list[str], list[str], list[str], list[str], list[str]]:
     """
     Sync guides to latest version.
 
@@ -192,16 +210,19 @@ def sync_guides(
         dry_run: If True, show what would change without applying
 
     Returns:
-        Tuple of (updated, skipped, current, missing) guide name lists
-        - updated: Guides that were/will be updated (outdated or modified)
+        Tuple of (updated, skipped, current, missing, modified) guide name lists
+        - updated: Guides that were/will be updated (outdated version)
         - skipped: Guides skipped due to override (unless force=True)
         - current: Guides that match template and are up-to-date
-        - missing: Guides that don't exist and need to be created
+        - missing: Guides that don't exist and were/will be created
+        - modified: Guides with user edits detected (version current but content differs)
+                    These are NOT automatically updated; caller must handle them
     """
     updated = []
     skipped = []
     current = []
     missing = []
+    modified = []
 
     # Get list of guides to sync
     guides_to_sync = get_all_guide_names() if guides is None else guides
@@ -221,29 +242,35 @@ def sync_guides(
         if not target_file.exists():
             # File is missing - always needs to be created
             missing.append(guide_name)
-            # Update the guide if not dry-run
             if not dry_run:
                 copy_guide(guide_name, target_dir, force=True)
             continue
 
-        # File exists - check if it matches template and version is current
+        # File exists - check version and content
         if config.installed_version and compare_versions(config.installed_version, package_version) == 0:
             # Version is current - check if content matches template
             if file_matches_template(target_file, guide_name):
                 # File matches template exactly - mark as current
                 current.append(guide_name)
                 continue
-            # else: File was modified by user, will update below
+            else:
+                # User has modified this file - report for caller to handle
+                if force:
+                    # --force: backup and overwrite without prompting
+                    if not dry_run:
+                        apply_guide_update(guide_name, config, make_backup=True)
+                    updated.append(guide_name)
+                else:
+                    # No --force: defer to caller to prompt
+                    modified.append(guide_name)
+                continue
 
-        # File needs updating (outdated version or user modifications)
+        # Outdated version - update unconditionally
         if not dry_run:
-            # If overridden and force=True, create backup first
             if config.is_overridden(guide_name) and force:
                 backup_guide(target_file)
-
-            # Copy the guide
             copy_guide(guide_name, target_dir, force=True)
 
         updated.append(guide_name)
 
-    return (updated, skipped, current, missing)
+    return (updated, skipped, current, missing, modified)
