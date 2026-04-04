@@ -62,7 +62,7 @@ Remove the old `project-guides` CLI entry point. Update all user-facing strings,
   - [x] Any other guide referencing the CLI command
 - [x] Update `CHANGELOG.md`
 - [x] Build and publish to PyPI
-- [ ] Verify: `project-guides --help` is no longer available after reinstall
+- [x] Verify: `project-guides --help` is no longer available after reinstall
 - [x] Verify: `project-guide --help` works and shows correct command name
 
 ### Story I.d: v1.5.1 Rename Python Module Directory [In Progress]

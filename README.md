@@ -59,29 +59,49 @@ project-guide status
 
 Output:
 ```
-project-guide v1.1.2 (installed: v1.1.2)
+project-guide v1.5.1 (installed: v1.2.7)
 
 Guides status:
-  ✓ project-guide.md                         v1.1.2  (current)
-  ✓ best-practices-guide.md                  v1.1.2  (current)
-  ✓ debug-guide.md                           v1.1.2  (current)
+  ⚠ README.md                                v1.2.7  (update available)
+  ⚠ best-practices-guide.md                  v1.2.7  (update available)
+  ⚠ debug-guide.md                           v1.2.7  (update available)
+  ⚠ descriptions-guide.md                    v1.2.7  (update available)
+  ⚠ developer/codecov-setup-guide.md         v1.2.7  (update available)
+  ⚠ developer/production-mode.md             v1.2.7  (update available)
+  ⚠ documentation-setup-guide.md             v1.2.7  (update available)
+  ⚠ project-guide.md                         v1.2.7  (update available)
 
-All guides are up to date.
+8 updates available
 ```
 
-### 3. Customize a guide (optional)
-
-```bash
-project-guide override debug-guide.md "Custom debugging workflow for this project"
-```
-
-### 4. Update guides to latest version
+### 3. Update guides to latest version
 
 ```bash
 project-guide update
 ```
 
 Overridden guides are skipped by default. Modified guides prompt "Backup and overwrite?" — a `.bak` file is always created before any overwrite. Use `--force` to skip the prompt and overwrite all modified guides automatically (backups still created).
+
+Output:
+```
+Updated:
+  ✓ README.md
+  ✓ best-practices-guide.md
+  ✓ debug-guide.md
+  ✓ descriptions-guide.md
+  ✓ developer/codecov-setup-guide.md
+  ✓ developer/production-mode.md
+  ✓ documentation-setup-guide.md
+  ✓ project-guide.md
+
+✓ Successfully updated 8 guides.
+```
+
+### 4. Customize a guide (optional)
+
+```bash
+project-guide override debug-guide.md "Custom debugging workflow for this project"
+```
 
 ## Command Reference
 
