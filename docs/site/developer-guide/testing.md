@@ -1,10 +1,10 @@
 # Testing Guide
 
-Comprehensive guide to testing project-guides.
+Comprehensive guide to testing project-guide.
 
 ## Test Suite Overview
 
-project-guides has 82% test coverage with 59 comprehensive tests covering:
+project-guide has 82% test coverage with 59 comprehensive tests covering:
 - CLI commands
 - Configuration handling
 - Guide synchronization
@@ -21,13 +21,13 @@ pytest
 ### With Coverage
 
 ```bash
-pytest --cov=project_guides --cov-report=term-missing
+pytest --cov=project_guide --cov-report=term-missing
 ```
 
 ### HTML Coverage Report
 
 ```bash
-pytest --cov=project_guides --cov-report=html
+pytest --cov=project_guide --cov-report=html
 open htmlcov/index.html
 ```
 
@@ -64,7 +64,7 @@ Test individual functions and classes in isolation.
 
 ```python
 def test_config_loads_from_file(tmp_path):
-    config_file = tmp_path / ".project-guides.yml"
+    config_file = tmp_path / ".project-guide.yml"
     config_file.write_text("""
 version: "1.0"
 package_version: "1.1.3"
@@ -105,7 +105,7 @@ Test command-line interface using Click's test runner.
 
 ```python
 from click.testing import CliRunner
-from project_guides.cli import cli
+from project_guide.cli import cli
 
 def test_init_command():
     runner = CliRunner()
@@ -161,7 +161,7 @@ def test_with_fixture(project_dir):
     "debug-guide.md",
 ])
 def test_guide_exists(guide_name):
-    from project_guides.templates import GUIDES_DIR
+    from project_guide.templates import GUIDES_DIR
     assert (GUIDES_DIR / guide_name).exists()
 ```
 
@@ -183,7 +183,7 @@ def test_init_creates_files(tmp_path):
     result = runner.invoke(cli, ["init"], cwd=tmp_path)
     
     assert (tmp_path / "docs" / "guides").exists()
-    assert (tmp_path / ".project-guides.yml").exists()
+    assert (tmp_path / ".project-guide.yml").exists()
     assert (tmp_path / "docs" / "guides" / "project-guide.md").exists()
 ```
 
@@ -259,10 +259,10 @@ def test_with_mock_subprocess():
 
 ```bash
 # Terminal report
-pytest --cov=project_guides --cov-report=term-missing
+pytest --cov=project_guide --cov-report=term-missing
 
 # HTML report
-pytest --cov=project_guides --cov-report=html
+pytest --cov=project_guide --cov-report=html
 open htmlcov/index.html
 ```
 
@@ -278,7 +278,7 @@ Tests run automatically on:
 ```yaml
 - name: Run tests
   run: |
-    pytest --cov=project_guides --cov-report=xml
+    pytest --cov=project_guide --cov-report=xml
     
 - name: Upload coverage
   uses: codecov/codecov-action@v3
@@ -296,7 +296,7 @@ def test_init_creates_guides():
 
 # Bad - tests implementation details
 def test_init_calls_create_directory():
-    with patch("project_guides.sync.create_directory") as mock:
+    with patch("project_guide.sync.create_directory") as mock:
         runner.invoke(cli, ["init"])
         mock.assert_called_once()
 ```
@@ -319,7 +319,7 @@ assert True
 # Good - uses isolated filesystem
 def test_init(tmp_path):
     runner.invoke(cli, ["init"], cwd=tmp_path)
-    assert (tmp_path / ".project-guides.yml").exists()
+    assert (tmp_path / ".project-guide.yml").exists()
 
 # Bad - modifies actual filesystem
 def test_init():

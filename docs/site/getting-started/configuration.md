@@ -1,10 +1,10 @@
 # Configuration
 
-project-guides uses a simple YAML configuration file to store project-specific settings.
+project-guide uses a simple YAML configuration file to store project-specific settings.
 
 ## Configuration File
 
-The `.project-guides.yml` file is created automatically when you run `project-guides init`. It's stored in your project root.
+The `.project-guide.yml` file is created automatically when you run `project-guide init`. It's stored in your project root.
 
 ### Default Configuration
 
@@ -23,7 +23,7 @@ The configuration file format version. Currently `"1.0"`.
 
 ### `package_version`
 
-The version of the project-guides package that was used to install or last update the guides. This is used to track which guides are outdated.
+The version of the project-guide package that was used to install or last update the guides. This is used to track which guides are outdated.
 
 ### `guides_dir`
 
@@ -50,14 +50,14 @@ overrides:
 
 ## Zero Configuration
 
-project-guides works out of the box with sensible defaults. You don't need to create or modify the configuration file manually unless you want to customize behavior.
+project-guide works out of the box with sensible defaults. You don't need to create or modify the configuration file manually unless you want to customize behavior.
 
 ## Custom Guides Directory
 
 To use a custom guides directory, specify it during initialization:
 
 ```bash
-project-guides init --guides-dir custom/path
+project-guide init --guides-dir custom/path
 ```
 
 Or modify the configuration file:
@@ -70,7 +70,7 @@ All commands will respect this setting.
 
 ## Version Tracking
 
-project-guides automatically tracks:
+project-guide automatically tracks:
 - Which package version installed each guide
 - Which guides have been overridden
 - The version at which a guide was overridden
@@ -82,7 +82,7 @@ This enables smart updates that:
 
 ## Manual Configuration
 
-While not recommended, you can manually edit `.project-guides.yml` if needed. The file uses standard YAML syntax.
+While not recommended, you can manually edit `.project-guide.yml` if needed. The file uses standard YAML syntax.
 
 !!! warning
     Manual edits should be done carefully. Invalid YAML will cause commands to fail.

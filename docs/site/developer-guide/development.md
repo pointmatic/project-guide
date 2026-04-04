@@ -1,6 +1,6 @@
 # Development Setup
 
-Guide for setting up a development environment for project-guides.
+Guide for setting up a development environment for project-guide.
 
 ## Prerequisites
 
@@ -11,8 +11,8 @@ Guide for setting up a development environment for project-guides.
 ## Clone the Repository
 
 ```bash
-git clone https://github.com/pointmatic/project-guides.git
-cd project-guides
+git clone https://github.com/pointmatic/project-guide.git
+cd project-guide
 ```
 
 ## Set Up Virtual Environment
@@ -27,8 +27,8 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 ### Using pyenv
 
 ```bash
-pyenv virtualenv 3.11 project-guides
-pyenv activate project-guides
+pyenv virtualenv 3.11 project-guide
+pyenv activate project-guide
 ```
 
 ## Install Development Dependencies
@@ -46,7 +46,7 @@ This installs:
 
 ```bash
 # Check package is installed
-project-guides --version
+project-guide --version
 
 # Run tests
 pytest
@@ -55,7 +55,7 @@ pytest
 ruff check .
 
 # Check types
-mypy project_guides
+mypy project_guide
 ```
 
 ## Development Workflow
@@ -68,7 +68,7 @@ git checkout -b feature/your-feature-name
 
 ### 2. Make Changes
 
-Edit files in `project_guides/` or `tests/`
+Edit files in `project_guide/` or `tests/`
 
 ### 3. Run Tests
 
@@ -77,7 +77,7 @@ Edit files in `project_guides/` or `tests/`
 pytest
 
 # Run with coverage
-pytest --cov=project_guides
+pytest --cov=project_guide
 
 # Run specific test file
 pytest tests/test_cli.py
@@ -96,7 +96,7 @@ ruff check .
 ruff format .
 
 # Type check
-mypy project_guides
+mypy project_guide
 ```
 
 ### 5. Update Documentation
@@ -124,7 +124,7 @@ git commit -m "Add feature: description"
 ### Main Package
 
 ```
-project_guides/
+project_guide/
 ├── __init__.py           # Package initialization
 ├── __main__.py           # CLI entry point
 ├── cli.py                # CLI commands implementation
@@ -177,7 +177,7 @@ pytest
 ### With Coverage Report
 
 ```bash
-pytest --cov=project_guides --cov-report=html
+pytest --cov=project_guide --cov-report=html
 open htmlcov/index.html
 ```
 
@@ -225,10 +225,10 @@ ruff format .
 
 ```bash
 # Type check
-mypy project_guides
+mypy project_guide
 
 # Strict mode
-mypy --strict project_guides
+mypy --strict project_guide
 ```
 
 ## Building Documentation
@@ -282,29 +282,29 @@ pytest -x --pdb
 
 ```bash
 # Run CLI with Python for better error messages
-python -m project_guides init
+python -m project_guide init
 ```
 
 ## Common Tasks
 
 ### Add a New Command
 
-1. Add command function in `project_guides/cli.py`
+1. Add command function in `project_guide/cli.py`
 2. Add tests in `tests/test_cli.py`
 3. Update documentation in `docs/site/user-guide/commands.md`
 4. Run tests and linters
 
 ### Update a Guide Template
 
-1. Edit file in `project_guides/templates/guides/`
+1. Edit file in `project_guide/templates/guides/`
 2. Test with actual LLM
-3. Update version in `project_guides/version.py` if needed
+3. Update version in `project_guide/version.py` if needed
 4. Document changes in `CHANGELOG.md`
 
 ### Add a New Guide
 
-1. Create guide in `project_guides/templates/guides/`
-2. Update `project_guides/sync.py` to include it
+1. Create guide in `project_guide/templates/guides/`
+2. Update `project_guide/sync.py` to include it
 3. Add tests
 4. Update documentation
 

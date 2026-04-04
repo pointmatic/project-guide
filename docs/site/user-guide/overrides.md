@@ -4,7 +4,7 @@ Learn how to effectively manage guide overrides to balance customization with re
 
 ## Understanding Overrides
 
-An override tells project-guides: "I've customized this guide—don't update it automatically."
+An override tells project-guide: "I've customized this guide—don't update it automatically."
 
 ### Why Overrides Matter
 
@@ -25,10 +25,10 @@ vim docs/guides/project-guide.md
 
 ### 2. Mark as Overridden
 
-Tell project-guides not to update this guide:
+Tell project-guide not to update this guide:
 
 ```bash
-project-guides override project-guide.md --reason "Added team workflow steps"
+project-guide override project-guide.md --reason "Added team workflow steps"
 ```
 
 ### 3. Continue Updating Others
@@ -36,7 +36,7 @@ project-guides override project-guide.md --reason "Added team workflow steps"
 Other guides still receive updates:
 
 ```bash
-project-guides update
+project-guide update
 # Only non-overridden guides are updated
 ```
 
@@ -46,7 +46,7 @@ Periodically check what's new:
 
 ```bash
 # Force update creates .bak backup
-project-guides update --force
+project-guide update --force
 
 # Compare versions
 diff docs/guides/project-guide.md docs/guides/project-guide.md.bak
@@ -61,7 +61,7 @@ Either keep your override or adopt the new version:
 mv docs/guides/project-guide.md.bak docs/guides/project-guide.md
 
 # Or adopt new version (remove override)
-project-guides unoverride project-guide.md
+project-guide unoverride project-guide.md
 rm docs/guides/project-guide.md.bak
 ```
 
@@ -77,7 +77,7 @@ vim docs/guides/project-guide.md
 # Add company-specific sections, remove irrelevant parts
 
 # Lock it
-project-guides override project-guide.md \
+project-guide override project-guide.md \
   --reason "Customized for company workflow and security requirements"
 ```
 
@@ -91,7 +91,7 @@ project-guides override project-guide.md \
 ```bash
 # Only override when absolutely necessary
 # Periodically review new versions
-project-guides update --force
+project-guide update --force
 diff docs/guides/*.md docs/guides/*.md.bak
 
 # Merge improvements manually
@@ -106,11 +106,11 @@ diff docs/guides/*.md docs/guides/*.md.bak
 
 ```bash
 # Override guides with project-specific content
-project-guides override project-guide.md
+project-guide override project-guide.md
 
 # Keep general guides up-to-date
 # (best-practices-guide.md, debug-guide.md, etc.)
-project-guides update
+project-guide update
 ```
 
 **Pros**: Best of both worlds
@@ -123,7 +123,7 @@ project-guides update
 Always use `--reason`:
 
 ```bash
-project-guides override project-guide.md \
+project-guide override project-guide.md \
   --reason "Added sections for: internal APIs, security review process, deployment checklist"
 ```
 
@@ -135,7 +135,7 @@ Set a reminder to review overrides:
 
 ```bash
 # Monthly or quarterly
-project-guides overrides
+project-guide overrides
 # Review each override: still needed?
 ```
 
@@ -155,7 +155,7 @@ Track override decisions in git:
 
 ```bash
 # After overriding
-git add .project-guides.yml docs/guides/
+git add .project-guide.yml docs/guides/
 git commit -m "Override project-guide.md: added internal deployment steps"
 ```
 
@@ -179,7 +179,7 @@ vim docs/guides/project-guide.md
 # Add section: "## Our Project Setup"
 
 # Override
-project-guides override project-guide.md \
+project-guide override project-guide.md \
   --reason "Added project-specific setup steps"
 ```
 
@@ -194,7 +194,7 @@ vim docs/guides/project-guide.md
 # Remove sections that don't apply
 
 # Override
-project-guides override project-guide.md \
+project-guide override project-guide.md \
   --reason "Removed sections not applicable to our stack"
 ```
 
@@ -209,7 +209,7 @@ vim docs/guides/project-guide.md
 # Add references to internal CI/CD, code review tools
 
 # Override
-project-guides override project-guide.md \
+project-guide override project-guide.md \
   --reason "Integrated with internal tools: Jenkins, Gerrit, Artifactory"
 ```
 
@@ -220,10 +220,10 @@ project-guides override project-guide.md \
 **Solution**:
 ```bash
 # Remove override
-project-guides unoverride project-guide.md
+project-guide unoverride project-guide.md
 
 # Update to latest
-project-guides update
+project-guide update
 ```
 
 ### Scenario 5: Want to See New Version
@@ -233,7 +233,7 @@ project-guides update
 **Solution**:
 ```bash
 # Force update (creates backup)
-project-guides update --force
+project-guide update --force
 
 # Compare
 diff docs/guides/project-guide.md docs/guides/project-guide.md.bak
@@ -246,13 +246,13 @@ mv docs/guides/project-guide.md.bak docs/guides/project-guide.md
 # (edit project-guide.md to incorporate new improvements)
 
 # Option C: Adopt new version
-project-guides unoverride project-guide.md
+project-guide unoverride project-guide.md
 rm docs/guides/project-guide.md.bak
 ```
 
 ## Override Metadata
 
-Overrides are stored in `.project-guides.yml`:
+Overrides are stored in `.project-guide.yml`:
 
 ```yaml
 overrides:
@@ -275,7 +275,7 @@ For advanced users who want to merge improvements:
 
 ```bash
 # 1. Force update to get latest
-project-guides update --force
+project-guide update --force
 
 # 2. Use three-way merge
 # Original: version when you overrode

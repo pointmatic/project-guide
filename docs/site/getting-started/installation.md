@@ -1,6 +1,6 @@
 # Installation
 
-project-guides can be installed using pip, pipx, or from source.
+project-guide can be installed using pip, pipx, or from source.
 
 ## Requirements
 
@@ -9,20 +9,20 @@ project-guides can be installed using pip, pipx, or from source.
 
 ## Install via pip
 
-The simplest way to install project-guides is using pip:
+The simplest way to install project-guide is using pip:
 
 ```bash
-pip install project-guides
+pip install project-guide
 ```
 
-This installs project-guides in your current Python environment.
+This installs project-guide in your current Python environment.
 
 ## Install via pipx (Recommended)
 
 For system-wide CLI access without affecting your project's dependencies, use pipx:
 
 ```bash
-pipx install project-guides
+pipx install project-guide
 ```
 
 pipx installs the tool in an isolated environment while making the CLI command globally available.
@@ -44,8 +44,8 @@ py -m pipx ensurepath
 To install the latest development version from GitHub:
 
 ```bash
-git clone https://github.com/pointmatic/project-guides.git
-cd project-guides
+git clone https://github.com/pointmatic/project-guide.git
+cd project-guide
 pip install -e .
 ```
 
@@ -57,10 +57,10 @@ pip install -e ".[dev,docs]"
 
 ## Verify Installation
 
-After installation, verify that project-guides is available:
+After installation, verify that project-guide is available:
 
 ```bash
-project-guides --version
+project-guide --version
 ```
 
 You should see the version number displayed.

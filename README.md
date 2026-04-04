@@ -1,16 +1,16 @@
-![project-guides](https://raw.githubusercontent.com/pointmatic/project-guides/main/docs/site/images/project-guides-header-readme.png)
+![project-guide](https://raw.githubusercontent.com/pointmatic/project-guide/main/docs/site/images/project-guide-header-readme.png)
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://github.com/pointmatic/project-guides/workflows/Tests/badge.svg)](https://github.com/pointmatic/project-guides/actions)
-[![PyPI](https://img.shields.io/pypi/v/project-guides.svg)](https://pypi.org/project/project-guides/)
-[![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://pointmatic.github.io/project-guides/)
+[![Tests](https://github.com/pointmatic/project-guide/workflows/Tests/badge.svg)](https://github.com/pointmatic/project-guide/actions)
+[![PyPI](https://img.shields.io/pypi/v/project-guide.svg)](https://pypi.org/project/project-guide/)
+[![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://pointmatic.github.io/project-guide/)
 
 A Python CLI tool that installs and synchronizes battle-tested LLM workflow guides across projects, supporting version tracking and project-specific overrides to keep documentation consistent while preserving customizations.
 
-## Why project-guides?
+## Why project-guide?
 
-Install project-guides in any repository with `pip install project-guides`, run `project-guides init`, then tell your LLM to "Read `docs/guides/project-guide.md` and start." The guide walks the LLM through planning documents, breaking work into stories, and implementing each story step-by-step. You just say "proceed" after each step. The developer stays in charge—guiding features, flow, and taste—while the LLM handles the typing.
+Install project-guide in any repository with `pip install project-guide`, run `project-guide init`, then tell your LLM to "Read `docs/guides/project-guide.md` and start." The guide walks the LLM through planning documents, breaking work into stories, and implementing each story step-by-step. You just say "proceed" after each step. The developer stays in charge—guiding features, flow, and taste—while the LLM handles the typing.
 
 This is "HITLoop" (human-in-the-loop) development: the developer directs, the LLM executes. The pace is "flaming agile"—an entire production-ready backend can be completed in 6-12 hours.
 
@@ -29,13 +29,13 @@ This is "HITLoop" (human-in-the-loop) development: the developer directs, the LL
 ### Via pip
 
 ```bash
-pip install project-guides
+pip install project-guide
 ```
 
 ### Via pipx (recommended for CLI tools)
 
 ```bash
-pipx install project-guides
+pipx install project-guide
 ```
 
 ## Quick Start
@@ -44,22 +44,22 @@ pipx install project-guides
 
 ```bash
 cd /path/to/your/project
-project-guides init
+project-guide init
 ```
 
 This creates:
-- `.project-guides.yml` - Configuration file
+- `.project-guide.yml` - Configuration file
 - `docs/guides/` - Directory with guide templates
 
 ### 2. Check guide status
 
 ```bash
-project-guides status
+project-guide status
 ```
 
 Output:
 ```
-project-guides v1.1.2 (installed: v1.1.2)
+project-guide v1.1.2 (installed: v1.1.2)
 
 Guides status:
   ✓ project-guide.md                         v1.1.2  (current)
@@ -72,13 +72,13 @@ All guides are up to date.
 ### 3. Customize a guide (optional)
 
 ```bash
-project-guides override debug-guide.md "Custom debugging workflow for this project"
+project-guide override debug-guide.md "Custom debugging workflow for this project"
 ```
 
 ### 4. Update guides to latest version
 
 ```bash
-project-guides update
+project-guide update
 ```
 
 Overridden guides are skipped by default. Modified guides prompt "Backup and overwrite?" — a `.bak` file is always created before any overwrite. Use `--force` to skip the prompt and overwrite all modified guides automatically (backups still created).
@@ -87,10 +87,10 @@ Overridden guides are skipped by default. Modified guides prompt "Backup and ove
 
 ### `init`
 
-Initialize project-guides in the current directory.
+Initialize project-guide in the current directory.
 
 ```bash
-project-guides init [OPTIONS]
+project-guide init [OPTIONS]
 ```
 
 **Options:**
@@ -100,13 +100,13 @@ project-guides init [OPTIONS]
 **Examples:**
 ```bash
 # Initialize with default settings
-project-guides init
+project-guide init
 
 # Use custom directory
-project-guides init --target-dir documentation/workflows
+project-guide init --target-dir documentation/workflows
 
 # Force reinitialize
-project-guides init --force
+project-guide init --force
 ```
 
 ### `status`
@@ -114,7 +114,7 @@ project-guides init --force
 Show status of all installed guides.
 
 ```bash
-project-guides status
+project-guide status
 ```
 
 **Output includes:**
@@ -128,7 +128,7 @@ project-guides status
 Update guides to the latest version.
 
 ```bash
-project-guides update [OPTIONS]
+project-guide update [OPTIONS]
 ```
 
 **Options:**
@@ -139,16 +139,16 @@ project-guides update [OPTIONS]
 **Examples:**
 ```bash
 # Update all guides (skips overridden)
-project-guides update
+project-guide update
 
 # Update specific guides
-project-guides update --guides project-guide.md --guides debug-guide.md
+project-guide update --guides project-guide.md --guides debug-guide.md
 
 # Force update all (creates backups for overridden)
-project-guides update --force
+project-guide update --force
 
 # Preview changes
-project-guides update --dry-run
+project-guide update --dry-run
 ```
 
 ### `override`
@@ -156,7 +156,7 @@ project-guides update --dry-run
 Mark a guide as customized to prevent automatic updates.
 
 ```bash
-project-guides override GUIDE_NAME REASON
+project-guide override GUIDE_NAME REASON
 ```
 
 **Arguments:**
@@ -165,7 +165,7 @@ project-guides override GUIDE_NAME REASON
 
 **Example:**
 ```bash
-project-guides override debug-guide.md "Custom debugging workflow with project-specific tools"
+project-guide override debug-guide.md "Custom debugging workflow with project-specific tools"
 ```
 
 ### `unoverride`
@@ -173,12 +173,12 @@ project-guides override debug-guide.md "Custom debugging workflow with project-s
 Remove override status from a guide.
 
 ```bash
-project-guides unoverride GUIDE_NAME
+project-guide unoverride GUIDE_NAME
 ```
 
 **Example:**
 ```bash
-project-guides unoverride debug-guide.md
+project-guide unoverride debug-guide.md
 ```
 
 ### `overrides`
@@ -186,7 +186,7 @@ project-guides unoverride debug-guide.md
 List all overridden guides.
 
 ```bash
-project-guides overrides
+project-guide overrides
 ```
 
 **Output:**
@@ -201,10 +201,10 @@ debug-guide.md
 
 ### `purge`
 
-Remove all project-guides files from the current project.
+Remove all project-guide files from the current project.
 
 ```bash
-project-guides purge [OPTIONS]
+project-guide purge [OPTIONS]
 ```
 
 **Options:**
@@ -213,21 +213,21 @@ project-guides purge [OPTIONS]
 **Examples:**
 ```bash
 # Purge with confirmation prompt
-project-guides purge
+project-guide purge
 
 # Purge without confirmation
-project-guides purge --force
+project-guide purge --force
 ```
 
 **What gets removed:**
-- `.project-guides.yml` configuration file
+- `.project-guide.yml` configuration file
 - Guides directory (e.g., `docs/guides/`) and all contents
 
 **Warning:** This action cannot be undone. Use with caution.
 
 ## Configuration
 
-The `.project-guides.yml` file stores project configuration:
+The `.project-guide.yml` file stores project configuration:
 
 ```yaml
 version: "1.0"
@@ -268,11 +268,11 @@ overrides:
 
 ### "Configuration file not found"
 
-**Problem:** Running commands outside a project-guides initialized directory.
+**Problem:** Running commands outside a project-guide initialized directory.
 
 **Solution:**
 ```bash
-project-guides init
+project-guide init
 ```
 
 ### "Guide already exists"
@@ -282,11 +282,11 @@ project-guides init
 **Solution:**
 ```bash
 # Use --force to overwrite
-project-guides init --force
+project-guide init --force
 
 # Or manually remove existing guides
-rm -rf docs/guides .project-guides.yml
-project-guides init
+rm -rf docs/guides .project-guide.yml
+project-guide init
 ```
 
 ### "Permission denied"
@@ -309,10 +309,10 @@ chmod -R u+w docs/
 **Solution:**
 ```bash
 # Check if guide is overridden
-project-guides overrides
+project-guide overrides
 
 # Force update if needed
-project-guides update --force
+project-guide update --force
 ```
 
 ## Development
@@ -321,8 +321,8 @@ project-guides update --force
 
 ```bash
 # Clone repository
-git clone https://github.com/pointmatic/project-guides.git
-cd project-guides
+git clone https://github.com/pointmatic/project-guide.git
+cd project-guide
 
 # Install in editable mode with dev dependencies
 pip install -e ".[dev]"
@@ -335,7 +335,7 @@ pip install -e ".[dev]"
 pytest tests/
 
 # Run with coverage
-pytest tests/ --cov=project_guides --cov-report=term-missing
+pytest tests/ --cov=project_guide --cov-report=term-missing
 
 # Run specific test file
 pytest tests/test_cli.py -v
@@ -345,13 +345,13 @@ pytest tests/test_cli.py -v
 
 ```bash
 # Linting
-ruff check project_guides/ tests/
+ruff check project_guide/ tests/
 
 # Type checking
-mypy project_guides/
+mypy project_guide/
 
 # Format code
-ruff format project_guides/ tests/
+ruff format project_guide/ tests/
 ```
 
 ### Documentation Development
@@ -399,7 +399,7 @@ git checkout -b feature/your-feature-name
 # Make changes and test
 pytest tests/
 ruff check .
-mypy project_guides/
+mypy project_guide/
 
 # Commit and push
 git commit -m "Add feature: description"
@@ -428,18 +428,18 @@ limitations under the License.
 
 ## Documentation
 
-📚 **Full documentation is available at [pointmatic.github.io/project-guides](https://pointmatic.github.io/project-guides/)**
+📚 **Full documentation is available at [pointmatic.github.io/project-guide](https://pointmatic.github.io/project-guide/)**
 
-- [Getting Started](https://pointmatic.github.io/project-guides/getting-started/installation/) - Installation and quick start
-- [User Guide](https://pointmatic.github.io/project-guides/user-guide/commands/) - Commands, workflows, and override management
-- [Developer Guide](https://pointmatic.github.io/project-guides/developer-guide/contributing/) - Contributing and development setup
+- [Getting Started](https://pointmatic.github.io/project-guide/getting-started/installation/) - Installation and quick start
+- [User Guide](https://pointmatic.github.io/project-guide/user-guide/commands/) - Commands, workflows, and override management
+- [Developer Guide](https://pointmatic.github.io/project-guide/developer-guide/contributing/) - Contributing and development setup
 - [Workflow Guides](docs/guides/) - Bundled LLM workflow guides in your project
 
 ## Support
 
-- **Issues:** [GitHub Issues](https://github.com/pointmatic/project-guides/issues)
-- **Discussions:** [GitHub Discussions](https://github.com/pointmatic/project-guides/discussions)
-- **Documentation:** [GitHub Pages](https://pointmatic.github.io/project-guides/)
+- **Issues:** [GitHub Issues](https://github.com/pointmatic/project-guide/issues)
+- **Discussions:** [GitHub Discussions](https://github.com/pointmatic/project-guide/discussions)
+- **Documentation:** [GitHub Pages](https://pointmatic.github.io/project-guide/)
 
 ---
 

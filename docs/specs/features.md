@@ -1,6 +1,6 @@
-# features.md — project-guides (Python)
+# features.md — project-guide (Python)
 
-This document defines **what** the `project-guides` project does — requirements, inputs, outputs, behavior — without specifying **how** it is implemented. This is the source of truth for scope.
+This document defines **what** the `project-guide` project does — requirements, inputs, outputs, behavior — without specifying **how** it is implemented. This is the source of truth for scope.
 
 For implementation details, see `tech-spec.md`. For the implementation plan, see the stories document (to be created).
 
@@ -8,7 +8,7 @@ For implementation details, see `tech-spec.md`. For the implementation plan, see
 
 ## Project Goal
 
-`project-guides` is a Python CLI tool that installs and synchronizes battle-tested LLM workflow guides across projects, supporting version tracking and project-specific overrides to keep documentation consistent while preserving customizations.
+`project-guide` is a Python CLI tool that installs and synchronizes battle-tested LLM workflow guides across projects, supporting version tracking and project-specific overrides to keep documentation consistent while preserving customizations.
 
 ### Core Requirements
 
@@ -21,7 +21,7 @@ For implementation details, see `tech-spec.md`. For the implementation plan, see
 ### Operational Requirements
 
 1. **CLI Interface**: Provide intuitive commands for init, update, status, override management
-2. **Configuration**: Store project-specific settings in `.project-guides.yml` file
+2. **Configuration**: Store project-specific settings in `.project-guide.yml` file
 3. **Safety**: Never overwrite overridden guides without explicit user consent
 4. **Transparency**: Show clear status of which guides are in sync, out of sync, or overridden
 5. **Idempotency**: Running the same command multiple times produces the same result
@@ -36,7 +36,7 @@ For implementation details, see `tech-spec.md`. For the implementation plan, see
 ### Usability Requirements
 
 1. **Primary Users**: Developers managing multiple Python projects with LLM assistance
-2. **Installation**: Available via `pip install project-guides` or `pipx install project-guides`
+2. **Installation**: Available via `pip install project-guide` or `pipx install project-guide`
 3. **Zero Config**: Works with sensible defaults, no configuration required for basic use
 4. **Documentation**: Clear README with examples for all commands
 
@@ -53,33 +53,33 @@ For implementation details, see `tech-spec.md`. For the implementation plan, see
 
 ### Command Line Arguments
 
-**`project-guides init`**
+**`project-guide init`**
 - No required arguments
 - Optional: `--target-dir` (default: `docs/guides`)
 - Optional: `--force` (overwrite existing files)
 
-**`project-guides update`**
+**`project-guide update`**
 - Optional: `--guides` (list of specific guides to update)
 - Optional: `--dry-run` (show what would change without applying)
 - Optional: `--force` (update even overridden guides, creates backups)
 - Optional: `--interactive` (prompt for each guide)
 
-**`project-guides status`**
+**`project-guide status`**
 - No arguments
 
-**`project-guides override`**
+**`project-guide override`**
 - Required: `--guide` (guide filename)
 - Required: `--reason` (explanation for override)
 
-**`project-guides unoverride`**
+**`project-guide unoverride`**
 - Required: `--guide` (guide filename)
 
-**`project-guides overrides`**
+**`project-guide overrides`**
 - No arguments
 
 ### Configuration File
 
-**`.project-guides.yml`** (created in project root):
+**`.project-guide.yml`** (created in project root):
 ```yaml
 version: "1.0"
 installed_version: "0.2.1"
@@ -97,10 +97,10 @@ overrides:
 
 ### File Structure
 
-**After `project-guides init`:**
+**After `project-guide init`:**
 ```
 project-root/
-├── .project-guides.yml          # Configuration file
+├── .project-guide.yml          # Configuration file
 └── docs/
     └── guides/
         ├── README.md
@@ -112,21 +112,21 @@ project-root/
 
 ### Console Output
 
-**`project-guides init`:**
+**`project-guide init`:**
 ```
-Initializing project-guides v0.2.1...
+Initializing project-guide v0.2.1...
 ✓ Created docs/guides/
 ✓ Installed project-guide.md
 ✓ Installed best-practices-guide.md
 ✓ Installed debug-guide.md
 ✓ Installed documentation-setup-guide.md
 ✓ Installed README.md
-✓ Created .project-guides.yml
+✓ Created .project-guide.yml
 
 Successfully initialized 5 guides.
 ```
 
-**`project-guides update`:**
+**`project-guide update`:**
 ```
 Checking for updates...
 ✓ project-guide.md: Updated (0.2.0 → 0.2.1)
@@ -137,9 +137,9 @@ Checking for updates...
 3 guides updated, 1 skipped, 1 already current
 ```
 
-**`project-guides status`:**
+**`project-guide status`:**
 ```
-project-guides v0.2.1 (installed: v0.2.0)
+project-guide v0.2.1 (installed: v0.2.0)
 
 Guides status:
   ✓ project-guide.md          v0.2.1  (current)
@@ -148,7 +148,7 @@ Guides status:
   ⚠ documentation-setup-guide.md v0.2.0  (update available)
 
 1 guide overridden, 1 update available
-Run 'project-guides update' to sync.
+Run 'project-guide update' to sync.
 ```
 
 ---
@@ -171,38 +171,38 @@ The package must bundle canonical versions of all LLM workflow guides:
 
 ### FR-2: Project Initialization
 
-`project-guides init` must install all guide templates into a new project.
+`project-guide init` must install all guide templates into a new project.
 
 **Behavior:**
-1. Check if `.project-guides.yml` already exists
+1. Check if `.project-guide.yml` already exists
 2. If exists and `--force` not set, prompt user to confirm overwrite
 3. Create target directory if it doesn't exist (default: `docs/guides`)
 4. Copy all guide templates to target directory
-5. Create `.project-guides.yml` with current package version and default settings
+5. Create `.project-guide.yml` with current package version and default settings
 6. Report success with list of installed guides
 
 **Edge Cases:**
 - Target directory already exists → use it, don't error
 - Guides already exist → error unless `--force` is set
-- `.project-guides.yml` exists → error unless `--force` is set
+- `.project-guide.yml` exists → error unless `--force` is set
 - No write permissions → error with clear message
 
 ### FR-3: Guide Synchronization
 
-`project-guides update` must update guides to the latest package version.
+`project-guide update` must update guides to the latest package version.
 
 **Behavior:**
-1. Read `.project-guides.yml` to get current version and overrides
+1. Read `.project-guide.yml` to get current version and overrides
 2. Compare installed version to package version
 3. For each guide:
    - If overridden → skip (unless `--force` is set)
    - If current → skip
    - If outdated → update
-4. Update `.project-guides.yml` with new package version
+4. Update `.project-guide.yml` with new package version
 5. Report which guides were updated, skipped, or already current
 
 **Edge Cases:**
-- No `.project-guides.yml` → error, suggest running `init` first
+- No `.project-guide.yml` → error, suggest running `init` first
 - Guide file missing → recreate it (unless overridden)
 - Guide modified but not overridden → warn and offer to override or update
 - `--dry-run` → show changes without applying
@@ -210,11 +210,11 @@ The package must bundle canonical versions of all LLM workflow guides:
 
 ### FR-4: Override Management
 
-`project-guides override` must register a guide as project-specific.
+`project-guide override` must register a guide as project-specific.
 
 **Behavior:**
 1. Check if guide exists in target directory
-2. Add override entry to `.project-guides.yml` with:
+2. Add override entry to `.project-guide.yml` with:
    - Guide filename
    - Reason for override
    - Current package version (locked version)
@@ -224,20 +224,20 @@ The package must bundle canonical versions of all LLM workflow guides:
 **Edge Cases:**
 - Guide doesn't exist → error
 - Guide already overridden → update reason and date
-- No `.project-guides.yml` → error, suggest running `init` first
+- No `.project-guide.yml` → error, suggest running `init` first
 
-`project-guides unoverride` must remove an override.
+`project-guide unoverride` must remove an override.
 
 **Behavior:**
-1. Remove override entry from `.project-guides.yml`
+1. Remove override entry from `.project-guide.yml`
 2. Report success and suggest running `update` to sync
 
 ### FR-5: Status Reporting
 
-`project-guides status` must show current state of all guides.
+`project-guide status` must show current state of all guides.
 
 **Behavior:**
-1. Read `.project-guides.yml`
+1. Read `.project-guide.yml`
 2. Compare installed version to package version
 3. For each guide, show:
    - Name
@@ -247,15 +247,15 @@ The package must bundle canonical versions of all LLM workflow guides:
 4. Show summary: X guides current, Y outdated, Z overridden
 
 **Edge Cases:**
-- No `.project-guides.yml` → error, suggest running `init` first
+- No `.project-guide.yml` → error, suggest running `init` first
 - Guide file missing → show as "missing"
 
 ### FR-6: Override Listing
 
-`project-guides overrides` must list all overridden guides.
+`project-guide overrides` must list all overridden guides.
 
 **Behavior:**
-1. Read `.project-guides.yml`
+1. Read `.project-guide.yml`
 2. List all overridden guides with:
    - Guide name
    - Reason
@@ -270,10 +270,10 @@ The package must bundle canonical versions of all LLM workflow guides:
 ### Configuration Precedence
 
 1. Command-line flags (highest priority)
-2. `.project-guides.yml` in project root
+2. `.project-guide.yml` in project root
 3. Package defaults (lowest priority)
 
-### `.project-guides.yml` Schema
+### `.project-guide.yml` Schema
 
 ```yaml
 version: "1.0"                    # Config schema version
@@ -340,10 +340,10 @@ overrides:
 The project is complete when:
 
 1. ✅ All guide templates are bundled and installable
-2. ✅ `project-guides init` creates guides and config in new projects
-3. ✅ `project-guides update` syncs guides to latest version
-4. ✅ `project-guides override` locks guides from updates
-5. ✅ `project-guides status` shows accurate state
+2. ✅ `project-guide init` creates guides and config in new projects
+3. ✅ `project-guide update` syncs guides to latest version
+4. ✅ `project-guide override` locks guides from updates
+5. ✅ `project-guide status` shows accurate state
 6. ✅ All commands have clear help text and error messages
 7. ✅ Package is published to PyPI
 8. ✅ README includes installation and usage examples

@@ -1,11 +1,11 @@
 # License
 
-project-guides is licensed under the Apache License 2.0.
+project-guide is licensed under the Apache License 2.0.
 
 ## Apache License 2.0
 
 ```
-Copyright 2024 Pointmatic
+Copyright 2026 Pointmatic
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -47,11 +47,11 @@ The Apache License 2.0 is a permissive open source license that allows you to:
 
 ## Full License Text
 
-The complete Apache License 2.0 text is available in the [LICENSE](https://github.com/pointmatic/project-guides/blob/main/LICENSE) file in the repository.
+The complete Apache License 2.0 text is available in the [LICENSE](https://github.com/pointmatic/project-guide/blob/main/LICENSE) file in the repository.
 
 ## Third-Party Licenses
 
-project-guides depends on the following open source packages:
+project-guide depends on the following open source packages:
 
 - **click** - BSD-3-Clause License
 - **PyYAML** - MIT License
@@ -59,10 +59,10 @@ project-guides depends on the following open source packages:
 
 ## Contributing
 
-By contributing to project-guides, you agree that your contributions will be licensed under the Apache License 2.0.
+By contributing to project-guide, you agree that your contributions will be licensed under the Apache License 2.0.
 
 See [Contributing Guide](../developer-guide/contributing.md) for more information.
 
 ## Questions
 
-For questions about licensing, please open an issue on [GitHub](https://github.com/pointmatic/project-guides/issues).
+For questions about licensing, please open an issue on [GitHub](https://github.com/pointmatic/project-guide/issues).

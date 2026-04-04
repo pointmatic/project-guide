@@ -1,6 +1,6 @@
 # Commands Reference
 
-project-guides provides seven intuitive commands for managing LLM workflow guides across your projects.
+project-guide provides seven intuitive commands for managing LLM workflow guides across your projects.
 
 ## Command Overview
 
@@ -19,7 +19,7 @@ project-guides provides seven intuitive commands for managing LLM workflow guide
 Install workflow guides into your project.
 
 ```bash
-project-guides init [OPTIONS]
+project-guide init [OPTIONS]
 ```
 
 ### Options
@@ -31,20 +31,20 @@ project-guides init [OPTIONS]
 
 ```bash
 # Initialize with default settings
-project-guides init
+project-guide init
 
 # Use custom guides directory
-project-guides init --guides-dir documentation/workflows
+project-guide init --guides-dir documentation/workflows
 
 # Force reinstall (overwrites existing files)
-project-guides init --force
+project-guide init --force
 ```
 
 ### What It Does
 
 1. Creates the guides directory if it doesn't exist
 2. Copies all bundled guides to the directory
-3. Creates `.project-guides.yml` configuration file
+3. Creates `.project-guide.yml` configuration file
 4. Records the package version for each guide
 
 ## status
@@ -52,7 +52,7 @@ project-guides init --force
 Display the status of all guides in your project.
 
 ```bash
-project-guides status
+project-guide status
 ```
 
 ### Output
@@ -78,7 +78,7 @@ Guide Status:
 Update all non-overridden guides to the latest versions.
 
 ```bash
-project-guides update [OPTIONS]
+project-guide update [OPTIONS]
 ```
 
 ### Options
@@ -89,10 +89,10 @@ project-guides update [OPTIONS]
 
 ```bash
 # Update non-overridden guides
-project-guides update
+project-guide update
 
 # Force update all guides (including overridden)
-project-guides update --force
+project-guide update --force
 ```
 
 ### What It Does
@@ -108,7 +108,7 @@ project-guides update --force
 Mark a guide as overridden to prevent automatic updates.
 
 ```bash
-project-guides override <guide-name> [OPTIONS]
+project-guide override <guide-name> [OPTIONS]
 ```
 
 ### Options
@@ -119,15 +119,15 @@ project-guides override <guide-name> [OPTIONS]
 
 ```bash
 # Mark guide as overridden
-project-guides override project-guide.md
+project-guide override project-guide.md
 
 # With reason
-project-guides override project-guide.md --reason "Customized for our team workflow"
+project-guide override project-guide.md --reason "Customized for our team workflow"
 ```
 
 ### What It Does
 
-1. Records the guide as overridden in `.project-guides.yml`
+1. Records the guide as overridden in `.project-guide.yml`
 2. Stores the current version
 3. Optionally stores the reason
 4. Future `update` commands will skip this guide
@@ -137,27 +137,27 @@ project-guides override project-guide.md --reason "Customized for our team workf
 Remove override status from a guide, allowing it to be updated again.
 
 ```bash
-project-guides unoverride <guide-name>
+project-guide unoverride <guide-name>
 ```
 
 ### Examples
 
 ```bash
 # Remove override status
-project-guides unoverride project-guide.md
+project-guide unoverride project-guide.md
 ```
 
 ### What It Does
 
-1. Removes the guide from the overrides list in `.project-guides.yml`
-2. The guide can now be updated with `project-guides update`
+1. Removes the guide from the overrides list in `.project-guide.yml`
+2. The guide can now be updated with `project-guide update`
 
 ## overrides
 
 List all currently overridden guides.
 
 ```bash
-project-guides overrides
+project-guide overrides
 ```
 
 ### Example Output
@@ -176,7 +176,7 @@ Overridden Guides:
 Remove all guides and configuration from the project.
 
 ```bash
-project-guides purge [OPTIONS]
+project-guide purge [OPTIONS]
 ```
 
 ### Options
@@ -187,17 +187,17 @@ project-guides purge [OPTIONS]
 
 ```bash
 # Purge with confirmation
-project-guides purge
+project-guide purge
 
 # Purge without confirmation
-project-guides purge --force
+project-guide purge --force
 ```
 
 ### What It Does
 
 1. Prompts for confirmation (unless `--force` is used)
 2. Removes the entire guides directory
-3. Deletes `.project-guides.yml` configuration file
+3. Deletes `.project-guide.yml` configuration file
 
 !!! warning
     This operation cannot be undone. Use with caution.

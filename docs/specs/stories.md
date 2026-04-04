@@ -1,6 +1,6 @@
-# stories.md — project-guides (Python)
+# stories.md — project-guide (Python)
 
-This document breaks the `project-guides` project into an ordered sequence of small, independently completable stories grouped into phases. Each story has a checklist of concrete tasks. Stories are organized by phase and reference modules defined in `tech-spec.md`.
+This document breaks the `project-guide` project into an ordered sequence of small, independently completable stories grouped into phases. Each story has a checklist of concrete tasks. Stories are organized by phase and reference modules defined in `tech-spec.md`.
 
 Stories with code changes include a version number (e.g., v0.1.0). Stories with only documentation or polish changes omit the version number. The version follows semantic versioning and is bumped per story. Stories are marked with `[Planned]` initially and changed to `[Done]` when completed.
 
@@ -14,8 +14,8 @@ Rename the package from `project-guides` to `project-guide` (singular). The goal
 
 Publish the package under the new name `project-guide` on PyPI. This is the minimal change needed to secure the name. The old `project-guides` CLI command continues to work — no regressions for existing users.
 
-- [ ] Update `pyproject.toml`
-  - [ ] Change `name` from `"project-guides"` to `"project-guide"`
+- [x] Update `pyproject.toml`
+  - [x] Change `name` from `"project-guides"` to `"project-guide"`
   - [ ] Add `project-guide = "project_guides.cli:main"` entry point alongside existing `project-guides`
   - [ ] Bump version to `1.4.0`
   - [ ] Update description if needed

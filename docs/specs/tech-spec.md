@@ -1,6 +1,6 @@
-# tech-spec.md — project-guides (Python)
+# tech-spec.md — project-guide (Python)
 
-This document defines **how** the `project-guides` project is built — architecture, module layout, dependencies, data models, API signatures, and cross-cutting concerns.
+This document defines **how** the `project-guide` project is built — architecture, module layout, dependencies, data models, API signatures, and cross-cutting concerns.
 
 For requirements and behavior, see `features.md`. For the implementation plan, see the stories document (to be created).
 
@@ -26,7 +26,7 @@ For requirements and behavior, see `features.md`. For the implementation plan, s
 | Package | Version | Purpose |
 |---------|---------|---------|
 | `click` | ^8.1 | CLI framework with command groups and help text |
-| `pyyaml` | ^6.0 | Parse and write `.project-guides.yml` configuration |
+| `pyyaml` | ^6.0 | Parse and write `.project-guide.yml` configuration |
 | `packaging` | ^24.0 | Version comparison and parsing |
 
 **Alternative (minimal)**: Use only stdlib (`argparse` instead of `click`, manual YAML parsing) to reduce dependencies.
@@ -49,7 +49,7 @@ None — pure Python, no external binaries required.
 ## Package Structure
 
 ```
-project-guides/
+project-guide/
 ├── pyproject.toml                    # Package metadata, dependencies, build config
 ├── README.md                         # Installation, usage, examples
 ├── LICENSE                           # Apache-2.0
@@ -70,7 +70,7 @@ project-guides/
 │   │   │   └── developer/
 │   │   │       ├── codecov-setup-guide.md
 │   │   │       └── production-mode.md
-│   │   └── .project-guides.yml.template  # Default config template
+│   │   └── .project-guide.yml.template  # Default config template
 │   └── version.py                    # Version constant
 └── tests/
     ├── __init__.py
@@ -102,10 +102,10 @@ def main():
 @click.option('--force', is_flag=True, help='Overwrite existing files')
 def init(target_dir: str, force: bool):
     """Initialize guides in a new project."""
-    # 1. Check if .project-guides.yml exists (error unless --force)
+    # 1. Check if .project-guide.yml exists (error unless --force)
     # 2. Create target directory if needed
     # 3. Copy all templates from package data to target_dir
-    # 4. Create .project-guides.yml with current version
+    # 4. Create .project-guide.yml with current version
     # 5. Print success message with list of installed guides
 
 @main.command()
@@ -115,7 +115,7 @@ def init(target_dir: str, force: bool):
 @click.option('--interactive', is_flag=True, help='Prompt for each guide')
 def update(guides: tuple[str, ...], dry_run: bool, force: bool, interactive: bool):
     """Update guides to latest version."""
-    # 1. Load .project-guides.yml (error if missing)
+    # 1. Load .project-guide.yml (error if missing)
     # 2. Get list of guides to update (all or --guides subset)
     # 3. For each guide:
     #    - Check if overridden (skip unless --force)
@@ -123,13 +123,13 @@ def update(guides: tuple[str, ...], dry_run: bool, force: bool, interactive: boo
     #    - If --interactive, prompt user
     #    - If --dry-run, print what would change
     #    - Otherwise, copy template to target
-    # 4. Update .project-guides.yml with new version
+    # 4. Update .project-guide.yml with new version
     # 5. Print summary
 
 @main.command()
 def status():
     """Show status of all guides."""
-    # 1. Load .project-guides.yml (error if missing)
+    # 1. Load .project-guide.yml (error if missing)
     # 2. Get package version
     # 3. For each guide:
     #    - Check if file exists
@@ -142,30 +142,30 @@ def status():
 @click.option('--reason', required=True, help='Reason for override')
 def override(guide: str, reason: str):
     """Mark a guide as overridden (won't be updated)."""
-    # 1. Load .project-guides.yml (error if missing)
+    # 1. Load .project-guide.yml (error if missing)
     # 2. Check if guide file exists (error if not)
     # 3. Add override entry with reason, current version, date
-    # 4. Save .project-guides.yml
+    # 4. Save .project-guide.yml
     # 5. Print success message
 
 @main.command()
 @click.option('--guide', required=True, help='Guide filename to unoverride')
 def unoverride(guide: str):
     """Remove override from a guide (allow updates)."""
-    # 1. Load .project-guides.yml (error if missing)
+    # 1. Load .project-guide.yml (error if missing)
     # 2. Remove override entry
-    # 3. Save .project-guides.yml
+    # 3. Save .project-guide.yml
     # 4. Print success message
 
 @main.command()
 def overrides():
     """List all overridden guides."""
-    # 1. Load .project-guides.yml (error if missing)
+    # 1. Load .project-guide.yml (error if missing)
     # 2. Print table of overridden guides with reason, version, date
 ```
 
 **Error Handling**:
-- Missing `.project-guides.yml` → suggest running `init` first
+- Missing `.project-guide.yml` → suggest running `init` first
 - File permission errors → clear error message
 - Invalid YAML → parse error with line number
 - Invalid guide name → list valid guide names
@@ -192,20 +192,20 @@ class GuideOverride:
 
 @dataclass
 class Config:
-    """Project configuration for project-guides."""
+    """Project configuration for project-guide."""
     version: str = "1.0"  # Config schema version
     installed_version: str = ""  # Package version when last synced
     target_dir: str = "docs/guides"
     overrides: Dict[str, GuideOverride] = field(default_factory=dict)
 
     @classmethod
-    def load(cls, path: str = ".project-guides.yml") -> "Config":
+    def load(cls, path: str = ".project-guide.yml") -> "Config":
         """Load configuration from YAML file."""
         # Read YAML, parse into Config object
         # Handle missing file, invalid YAML, schema errors
         pass
 
-    def save(self, path: str = ".project-guides.yml") -> None:
+    def save(self, path: str = ".project-guide.yml") -> None:
         """Save configuration to YAML file."""
         # Convert Config to dict, write as YAML
         pass
@@ -230,11 +230,11 @@ class Config:
 **Functions**:
 
 ```python
-def load_config(path: str = ".project-guides.yml") -> Config:
+def load_config(path: str = ".project-guide.yml") -> Config:
     """Load configuration from file."""
     # Wrapper around Config.load() with error handling
 
-def save_config(config: Config, path: str = ".project-guides.yml") -> None:
+def save_config(config: Config, path: str = ".project-guide.yml") -> None:
     """Save configuration to file."""
     # Wrapper around config.save() with error handling
 ```
@@ -350,7 +350,7 @@ if __name__ == "__main__":
 
 ## Data Models
 
-### Configuration Schema (`.project-guides.yml`)
+### Configuration Schema (`.project-guide.yml`)
 
 ```yaml
 version: "1.0"                    # String, config schema version
@@ -378,13 +378,13 @@ overrides:                        # Dict[str, GuideOverride]
 
 ### Entry Point
 
-**Package**: `project-guides`
-**Command**: `project-guides` (registered in `pyproject.toml` as console script)
+**Package**: `project-guide`
+**Command**: `project-guide` (registered in `pyproject.toml` as console script)
 
 ### Command Structure
 
 ```
-project-guides
+project-guide
 ├── init          Initialize guides in a new project
 ├── update        Update guides to latest version
 ├── status        Show status of all guides
@@ -396,8 +396,8 @@ project-guides
 ### Help Text
 
 ```bash
-$ project-guides --help
-Usage: project-guides [OPTIONS] COMMAND [ARGS]...
+$ project-guide --help
+Usage: project-guide [OPTIONS] COMMAND [ARGS]...
 
   Manage LLM project guides across repositories.
 
@@ -430,8 +430,8 @@ Commands:
 **Strategy**: Fail fast with clear error messages.
 
 **Error Types**:
-1. **Missing Configuration** → "No .project-guides.yml found. Run 'project-guides init' first."
-2. **Invalid YAML** → "Failed to parse .project-guides.yml: <error> at line <N>"
+1. **Missing Configuration** → "No .project-guide.yml found. Run 'project-guide init' first."
+2. **Invalid YAML** → "Failed to parse .project-guide.yml: <error> at line <N>"
 3. **File Not Found** → "Guide not found: <guide_name>. Available guides: <list>"
 4. **Permission Denied** → "Cannot write to <path>: Permission denied"
 5. **Invalid Version** → "Invalid version string: <version>"
@@ -460,7 +460,7 @@ Commands:
 **Strategy**: Never overwrite files without explicit consent.
 
 **Rules**:
-1. `init` without `--force` → error if `.project-guides.yml` exists
+1. `init` without `--force` → error if `.project-guide.yml` exists
 2. `update` without `--force` → skip overridden guides
 3. `update --force` → create `.bak` backups before overwriting
 4. Always validate paths to prevent directory traversal
@@ -528,7 +528,7 @@ def is_outdated(installed: str, package: str) -> bool:
 
 ### PyPI Metadata
 
-**Package Name**: `project-guides`
+**Package Name**: `project-guide`
 **Description**: "Manage LLM development workflow documentation across projects"
 **Keywords**: `llm`, `documentation`, `workflow`, `guides`, `templates`
 **License**: Apache-2.0
@@ -550,19 +550,19 @@ packages = ["project_guides"]
 
 ```toml
 [project.scripts]
-project-guides = "project_guides.cli:main"
+project-guide = "project_guides.cli:main"
 ```
 
 ### Installation Methods
 
 **Via pip**:
 ```bash
-pip install project-guides
+pip install project-guide
 ```
 
 **Via pipx** (recommended for system-wide CLI):
 ```bash
-pipx install project-guides
+pipx install project-guide
 ```
 
 ---

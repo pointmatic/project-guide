@@ -1,32 +1,32 @@
 # Workflow Guide
 
-Learn how to use project-guides effectively in your LLM-assisted development workflow.
+Learn how to use project-guide effectively in your LLM-assisted development workflow.
 
 ## The HITLoop Workflow
 
-project-guides supports "HITLoop" (human-in-the-loop) development where:
+project-guide supports "HITLoop" (human-in-the-loop) development where:
 - **You direct**: Features, architecture, priorities, taste
 - **LLM executes**: Planning, coding, testing, documentation
 - **Result**: Production-ready projects in 6-12 hours
 
 ## Initial Setup
 
-### 1. Install project-guides
+### 1. Install project-guide
 
 ```bash
-pip install project-guides
+pip install project-guide
 ```
 
 ### 2. Initialize Your Project
 
 ```bash
 cd /path/to/your/project
-project-guides init
+project-guide init
 ```
 
 This creates:
 - `docs/guides/` with all workflow guides
-- `.project-guides.yml` configuration
+- `.project-guide.yml` configuration
 
 ### 3. Start the LLM Workflow
 
@@ -62,11 +62,11 @@ mkdir my-project && cd my-project
 # 2. Initialize git
 git init
 
-# 3. Install project-guides
-pip install project-guides
+# 3. Install project-guide
+pip install project-guide
 
 # 4. Initialize guides
-project-guides init
+project-guide init
 
 # 5. Start LLM collaboration
 # Tell LLM: "Read `docs/guides/project-guide.md` and start."
@@ -78,25 +78,25 @@ project-guides init
 # Navigate to project
 cd existing-project
 
-# Initialize project-guides
-project-guides init
+# Initialize project-guide
+project-guide init
 
 # Check status
-project-guides status
+project-guide status
 ```
 
 ### Updating Guides Across Projects
 
 ```bash
-# Update project-guides package
-pip install --upgrade project-guides
+# Update project-guide package
+pip install --upgrade project-guide
 
 # Update guides in each project
 cd project1
-project-guides update
+project-guide update
 
 cd ../project2
-project-guides update
+project-guide update
 ```
 
 ### Customizing a Guide
@@ -106,20 +106,20 @@ project-guides update
 vim docs/guides/project-guide.md
 
 # 2. Mark as overridden
-project-guides override project-guide.md --reason "Added team-specific workflow"
+project-guide override project-guide.md --reason "Added team-specific workflow"
 
 # 3. Verify override
-project-guides status
+project-guide status
 ```
 
 ### Syncing Latest Improvements
 
 ```bash
 # Check which guides are outdated
-project-guides status
+project-guide status
 
 # Update non-overridden guides
-project-guides update
+project-guide update
 
 # Review changes
 git diff docs/guides/
@@ -133,14 +133,14 @@ When working on multiple projects:
 
 1. **Update package globally** (if using pipx):
    ```bash
-   pipx upgrade project-guides
+   pipx upgrade project-guide
    ```
 
 2. **Update each project**:
    ```bash
    for project in project1 project2 project3; do
      cd $project
-     project-guides update
+     project-guide update
      cd ..
    done
    ```
@@ -157,14 +157,14 @@ For guides customized per project:
 ```bash
 # Project A: Custom project-guide
 cd projectA
-project-guides override project-guide.md
+project-guide override project-guide.md
 
 # Project B: Custom debug-guide
 cd ../projectB
-project-guides override debug-guide.md
+project-guide override debug-guide.md
 
 # Both: Update non-overridden guides
-project-guides update
+project-guide update
 ```
 
 ## Override Management
@@ -189,10 +189,10 @@ Periodically review overridden guides:
 
 ```bash
 # List all overrides
-project-guides overrides
+project-guide overrides
 
 # Check what's new in latest version
-project-guides update --force  # Creates .bak files
+project-guide update --force  # Creates .bak files
 diff docs/guides/project-guide.md docs/guides/project-guide.md.bak
 
 # Decide: keep override or adopt new version
@@ -205,8 +205,8 @@ diff docs/guides/project-guide.md docs/guides/project-guide.md.bak
 Always commit guides to version control:
 
 ```bash
-git add docs/guides/ .project-guides.yml
-git commit -m "Initialize project-guides"
+git add docs/guides/ .project-guide.yml
+git commit -m "Initialize project-guide"
 ```
 
 ### 2. Document Overrides
@@ -214,7 +214,7 @@ git commit -m "Initialize project-guides"
 Use the `--reason` flag when overriding:
 
 ```bash
-project-guides override project-guide.md \
+project-guide override project-guide.md \
   --reason "Added company-specific security requirements"
 ```
 
@@ -224,9 +224,9 @@ Update guides regularly to get improvements:
 
 ```bash
 # Weekly or monthly
-project-guides update
+project-guide update
 git diff docs/guides/
-git commit -m "Update project-guides to latest"
+git commit -m "Update project-guide to latest"
 ```
 
 ### 4. Review Before Committing
@@ -234,7 +234,7 @@ git commit -m "Update project-guides to latest"
 Always review guide updates before committing:
 
 ```bash
-project-guides update
+project-guide update
 git diff docs/guides/
 # Review changes, then commit
 ```
@@ -244,7 +244,7 @@ git diff docs/guides/
 For team projects:
 - Document which guides are overridden and why
 - Share override decisions with the team
-- Consider contributing improvements back to project-guides
+- Consider contributing improvements back to project-guide
 
 ## Troubleshooting
 
@@ -253,8 +253,8 @@ For team projects:
 Check if guides are overridden:
 
 ```bash
-project-guides status
-project-guides overrides
+project-guide status
+project-guide overrides
 ```
 
 ### Accidental Override
@@ -262,8 +262,8 @@ project-guides overrides
 Remove override to allow updates:
 
 ```bash
-project-guides unoverride <guide-name>
-project-guides update
+project-guide unoverride <guide-name>
+project-guide update
 ```
 
 ### Lost Customizations
@@ -272,7 +272,7 @@ If you updated with `--force`, restore from backup:
 
 ```bash
 mv docs/guides/project-guide.md.bak docs/guides/project-guide.md
-project-guides override project-guide.md
+project-guide override project-guide.md
 ```
 
 ## Next Steps

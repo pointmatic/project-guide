@@ -1,33 +1,33 @@
 # Quick Start
 
-Get up and running with project-guides in minutes.
+Get up and running with project-guide in minutes.
 
 ## 1. Install
 
-Install project-guides using pip or pipx:
+Install project-guide using pip or pipx:
 
 ```bash
-pip install project-guides
+pip install project-guide
 ```
 
 Or for system-wide access:
 
 ```bash
-pipx install project-guides
+pipx install project-guide
 ```
 
 ## 2. Initialize Your Project
 
-Navigate to your project directory and initialize project-guides:
+Navigate to your project directory and initialize project-guide:
 
 ```bash
 cd /path/to/your/project
-project-guides init
+project-guide init
 ```
 
 This creates:
 - `docs/guides/` directory with all workflow guides
-- `.project-guides.yml` configuration file
+- `.project-guide.yml` configuration file
 
 ## 3. Start Collaborating with Your LLM
 
@@ -66,7 +66,7 @@ This is "HITLoop" (human-in-the-loop) development:
 When you customize a guide for your project:
 
 ```bash
-project-guides override project-guide.md
+project-guide override project-guide.md
 ```
 
 This marks the guide as overridden, preventing future updates from overwriting your changes.
@@ -76,7 +76,7 @@ This marks the guide as overridden, preventing future updates from overwriting y
 Pull the latest workflow improvements:
 
 ```bash
-project-guides update
+project-guide update
 ```
 
 This updates all non-overridden guides to the latest versions.
@@ -86,12 +86,12 @@ This updates all non-overridden guides to the latest versions.
 See which guides are current, outdated, or overridden:
 
 ```bash
-project-guides status
+project-guide status
 ```
 
 ## Next Steps
 
 - [Commands Reference](../user-guide/commands.md) - Learn all available commands
 - [Workflow Guide](../user-guide/workflow.md) - Understand the complete workflow
-- [Configuration](configuration.md) - Customize project-guides behavior
+- [Configuration](configuration.md) - Customize project-guide behavior
 - [Override Management](../user-guide/overrides.md) - Master the override system

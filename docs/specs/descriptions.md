@@ -1,4 +1,4 @@
-# descriptions.md — project-guides
+# descriptions.md — project-guide
 
 Canonical source of truth for all descriptive language used across the project. All consumer files (README.md, docs/index.html, pyproject.toml, features.md) should draw from these definitions.
 
@@ -6,7 +6,7 @@ Canonical source of truth for all descriptive language used across the project. 
 
 ## Name
 
-- project-guides (GitHub and PyPI)
+- project-guide (GitHub and PyPI)
 
 ## Tagline
 
@@ -22,9 +22,9 @@ Stay organized and consistent using LLM guides across multiple coding projects.
 
 ### Friendly Brief Description (follows one-liner)
 
-Install project-guides in any repository with `pip install project-guides`, run `project-guides init`, then tell your LLM to "Read `docs/guides/project-guide.md` and start." The guide walks the LLM through planning documents, breaking work into stories, and implementing each story step-by-step. You just say "proceed" after each step. The developer stays in charge—guiding features, flow, and taste—while the LLM handles the typing.
+Install project-guide in any repository with `pip install project-guide`, run `project-guide init`, then tell your LLM to "Read `docs/guides/project-guide.md` and start." The guide walks the LLM through planning documents, breaking work into stories, and implementing each story step-by-step. You just say "proceed" after each step. The developer stays in charge—guiding features, flow, and taste—while the LLM handles the typing.
 
-This is "HITLoop" (human-in-the-loop) development: the developer directs, the LLM executes. The pace is "flaming agile"—an entire production-ready backend can be completed in 6-12 hours. When you customize a guide for your project, mark it as overridden so future package updates skip it. When you want the latest workflow improvements, run `project-guides update` to sync all non-overridden guides. 
+This is "HITLoop" (human-in-the-loop) development: the developer directs, the LLM executes. The pace is "flaming agile"—an entire production-ready backend can be completed in 6-12 hours. When you customize a guide for your project, mark it as overridden so future package updates skip it. When you want the latest workflow improvements, run `project-guide update` to sync all non-overridden guides. 
 
 ## Two-clause Technical Description
 
@@ -45,7 +45,7 @@ A Python CLI tool that installs and synchronizes battle-tested LLM workflow guid
 
 ## Technical Description
 
-Project-Guides is a Python CLI tool that solves the problem of keeping LLM workflow documentation synchronized with an opinionated source of truthacross multiple projects. Just install the PyPI package with `pip` in any repository and start planning and coding with the LLM. It packages canonical versions of development guides (project-guide.md, best-practices-guide.md, debug-guide.md, documentation-setup-guide.md, and more) and provides commands to install, update, and manage them in a `docs/guides` directory in the repo. The tool tracks which package versions were installed for each guide, allows a project to lock specific guides when customized, and provides clear status reporting. It uses a simple YAML configuration file (`.project-guides.yml`) to store project-specific settings and override metadata. The package is distributed via PyPI and can be installed with `pip` locally or `pipx` for system-wide CLI access.
+Project-Guide is a Python CLI tool that solves the problem of keeping LLM workflow documentation synchronized with an opinionated source of truthacross multiple projects. Just install the PyPI package with `pip` in any repository and start planning and coding with the LLM. It packages canonical versions of development guides (project-guide.md, best-practices-guide.md, debug-guide.md, documentation-setup-guide.md, and more) and provides commands to install, update, and manage them in a `docs/guides` directory in the repo. The tool tracks which package versions were installed for each guide, allows a project to lock specific guides when customized, and provides clear status reporting. It uses a simple YAML configuration file (`.project-guide.yml`) to store project-specific settings and override metadata. The package is distributed via PyPI and can be installed with `pip` locally or `pipx` for system-wide CLI access.
 
 ## Keywords
 
@@ -55,15 +55,15 @@ Project-Guides is a Python CLI tool that solves the problem of keeping LLM workf
 
 ## Quick Start
 
-Essential steps for getting started with project-guides:
+Essential steps for getting started with project-guide:
 
-1. **Install**: `pip install project-guides` (or `pipx install project-guides` for system-wide CLI)
-2. **Initialize**: Navigate to your project directory and run `project-guides init`
+1. **Install**: `pip install project-guide` (or `pipx install project-guide` for system-wide CLI)
+2. **Initialize**: Navigate to your project directory and run `project-guide init`
 3. **Start**: Tell your LLM: "Read `docs/guides/project-guide.md` and start."
 4. **Collaborate**: Say "proceed" after each step as the LLM walks through planning, stories, and implementation
-5. **Customize**: Mark guides as overridden when you customize them: `project-guides override <guide-name>`
-6. **Update**: Pull latest workflow improvements: `project-guides update`
-7. **Check Status**: See which guides are current, outdated, or overridden: `project-guides status`
+5. **Customize**: Mark guides as overridden when you customize them: `project-guide override <guide-name>`
+6. **Update**: Pull latest workflow improvements: `project-guide update`
+7. **Check Status**: See which guides are current, outdated, or overridden: `project-guide status`
 
 ---
 

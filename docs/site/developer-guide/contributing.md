@@ -1,6 +1,6 @@
 # Contributing
 
-Thank you for your interest in contributing to project-guides! This document provides guidelines for contributing to the project.
+Thank you for your interest in contributing to project-guide! This document provides guidelines for contributing to the project.
 
 ## Code of Conduct
 
@@ -12,7 +12,7 @@ Be respectful and constructive in all interactions with the project and communit
 
 If you find a bug or have a feature request:
 
-1. Check if the issue already exists in [GitHub Issues](https://github.com/pointmatic/project-guides/issues)
+1. Check if the issue already exists in [GitHub Issues](https://github.com/pointmatic/project-guide/issues)
 2. If not, create a new issue with:
    - Clear description of the problem or feature
    - Steps to reproduce (for bugs)
@@ -23,7 +23,7 @@ If you find a bug or have a feature request:
 
 For guide improvements or new features:
 
-1. Open a [GitHub Discussion](https://github.com/pointmatic/project-guides/discussions)
+1. Open a [GitHub Discussion](https://github.com/pointmatic/project-guide/discussions)
 2. Describe your suggestion and use case
 3. Discuss with maintainers before implementing
 
@@ -31,8 +31,8 @@ For guide improvements or new features:
 
 1. **Fork the repository**
    ```bash
-   git clone https://github.com/your-username/project-guides.git
-   cd project-guides
+   git clone https://github.com/your-username/project-guide.git
+   cd project-guide
    ```
 
 2. **Create a branch**
@@ -58,7 +58,7 @@ For guide improvements or new features:
 6. **Run linters**
    ```bash
    ruff check .
-   mypy project_guides
+   mypy project_guide
    ```
 
 7. **Commit your changes**
@@ -114,8 +114,8 @@ When improving workflow guides:
 ## Project Structure
 
 ```
-project-guides/
-├── project_guides/          # Main package
+project-guide/
+├── project_guide/          # Main package
 │   ├── templates/          # Bundled guide templates
 │   │   └── guides/         # Workflow guides
 │   ├── cli.py             # CLI commands
@@ -148,7 +148,7 @@ pytest tests/test_cli.py::test_init_command
 ### Check Coverage
 
 ```bash
-pytest --cov=project_guides --cov-report=html
+pytest --cov=project_guide --cov-report=html
 open htmlcov/index.html
 ```
 
@@ -159,7 +159,7 @@ open htmlcov/index.html
 ruff check .
 
 # Type checking
-mypy project_guides
+mypy project_guide
 
 # Format code
 ruff format .
@@ -184,7 +184,7 @@ mkdocs serve
 
 (For maintainers)
 
-1. Update version in `project_guides/version.py`
+1. Update version in `project_guide/version.py`
 2. Update `CHANGELOG.md`
 3. Commit changes
 4. Create and push tag
@@ -192,9 +192,9 @@ mkdocs serve
 
 ## Getting Help
 
-- [GitHub Discussions](https://github.com/pointmatic/project-guides/discussions) - Ask questions
-- [GitHub Issues](https://github.com/pointmatic/project-guides/issues) - Report bugs
-- [Documentation](https://pointmatic.github.io/project-guides/) - Read the docs
+- [GitHub Discussions](https://github.com/pointmatic/project-guide/discussions) - Ask questions
+- [GitHub Issues](https://github.com/pointmatic/project-guide/issues) - Report bugs
+- [Documentation](https://pointmatic.github.io/project-guide/) - Read the docs
 
 ## License
 
