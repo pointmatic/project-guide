@@ -93,14 +93,14 @@ Admin tasks with no code changes. No version bump.
 - [x] Rename GitHub repo from `project-guides` to `project-guide`
   - [x] Settings → Repository name → `project-guide`
   - [x] GitHub automatically redirects old URLs
-- [ ] Update all hardcoded GitHub URLs in the codebase and docs
+- [x] Update all hardcoded GitHub URLs in the codebase and docs
   - [x] `README.md` badges and links
-  - [ ] `pyproject.toml` `[project.urls]` section
-  - [ ] Any guide files referencing the repo URL
+  - [x] `pyproject.toml` `[project.urls]` section
+  - [x] Any guide files referencing the repo URL
 - [ ] Archive old `project-guides` PyPI package
   - [ ] Publish a final `project-guides` release with updated README/description: "This package has moved to `project-guide`. Please update your dependencies."
   - [ ] Go to PyPI → `project-guides` → Settings → Archive project
-- [ ] Update `mkdocs.yml` site URL if applicable
+- [x] Update `mkdocs.yml` site URL if applicable
 - [ ] Verify: all links resolve correctly
 
 ---
