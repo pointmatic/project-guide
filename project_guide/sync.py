@@ -20,9 +20,9 @@ from pathlib import Path
 
 from packaging.version import parse
 
-from project_guides.config import Config
-from project_guides.exceptions import GuideNotFoundError, SyncError
-from project_guides.version import __version__
+from project_guide.config import Config
+from project_guide.exceptions import GuideNotFoundError, SyncError
+from project_guide.version import __version__
 
 
 def get_template_path(guide_name: str) -> Path:
@@ -33,14 +33,14 @@ def get_template_path(guide_name: str) -> Path:
         parts = guide_name.replace("\\", "/").split("/")
         if len(parts) == 2 and parts[0] == "developer":
             with importlib.resources.as_file(
-                importlib.resources.files("project_guides.templates.guides.developer").joinpath(parts[1])
+                importlib.resources.files("project_guide.templates.guides.developer").joinpath(parts[1])
             ) as path:
                 return Path(path)
     else:
         # For files in the main guides directory (no path separators)
         try:
             with importlib.resources.as_file(
-                importlib.resources.files("project_guides.templates.guides").joinpath(guide_name)
+                importlib.resources.files("project_guide.templates.guides").joinpath(guide_name)
             ) as path:
                 if path.exists():
                     return Path(path)
@@ -55,14 +55,14 @@ def get_all_guide_names() -> list[str]:
     guide_names = []
 
     # Get files from main guides directory
-    guides_files = importlib.resources.files("project_guides.templates.guides")
+    guides_files = importlib.resources.files("project_guide.templates.guides")
     for item in guides_files.iterdir():
         if item.is_file() and item.name.endswith(".md"):
             guide_names.append(item.name)
 
     # Get files from developer subdirectory
     try:
-        developer_files = importlib.resources.files("project_guides.templates.guides.developer")
+        developer_files = importlib.resources.files("project_guide.templates.guides.developer")
         for item in developer_files.iterdir():
             if item.is_file() and item.name.endswith(".md"):
                 guide_names.append(f"developer/{item.name}")

@@ -17,16 +17,16 @@ from pathlib import Path
 
 import click
 
-from project_guides.config import Config
-from project_guides.exceptions import ConfigError, SyncError
-from project_guides.sync import (
+from project_guide.config import Config
+from project_guide.exceptions import ConfigError, SyncError
+from project_guide.sync import (
     apply_guide_update,
     compare_versions,
     copy_guide,
     get_all_guide_names,
     sync_guides,
 )
-from project_guides.version import __version__
+from project_guide.version import __version__
 
 
 def _migrate_config_if_needed() -> None:
@@ -149,7 +149,7 @@ def status():
         # Check if current version and content matches
         elif config.installed_version and compare_versions(config.installed_version, package_version) == 0:
             # Version is current - check if content matches template
-            from project_guides.sync import file_matches_template
+            from project_guide.sync import file_matches_template
             if file_matches_template(target_file, guide_name):
                 click.secho(f"  ✓ {guide_name:40} v{package_version}  (current)", fg='green')
                 current_count += 1

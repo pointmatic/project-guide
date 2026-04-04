@@ -1,8 +1,8 @@
-site_name: project-guides
+site_name: project-guide
 site_description: Stay organized and consistent using LLM workflow guides with project-specific overrides
-site_url: https://pointmatic.github.io/project-guides/
-repo_url: https://github.com/pointmatic/project-guides
-repo_name: pointmatic/project-guides
+site_url: https://pointmatic.github.io/project-guide/
+repo_url: https://github.com/pointmatic/project-guide
+repo_name: pointmatic/project-guide
 
 docs_dir: docs/site
 site_dir: site

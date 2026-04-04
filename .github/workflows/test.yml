@@ -33,12 +33,12 @@ jobs:
     
     - name: Run tests
       run: |
-        pytest tests/ -v --cov=project_guides --cov-report=term-missing
+        pytest tests/ -v --cov=project_guide --cov-report=term-missing
     
     - name: Generate coverage report
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
       run: |
-        pytest tests/ --cov=project_guides --cov-report=xml
+        pytest tests/ --cov=project_guide --cov-report=xml
     
     - name: Upload coverage
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'

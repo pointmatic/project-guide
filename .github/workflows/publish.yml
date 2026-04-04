@@ -27,15 +27,15 @@ jobs:
     
     - name: Run tests
       run: |
-        pytest tests/ --cov=project_guides
+        pytest tests/ --cov=project_guide
     
     - name: Run linting
       run: |
-        ruff check project_guides/ tests/
+        ruff check project_guide/ tests/
     
     - name: Run type checking
       run: |
-        mypy project_guides/
+        mypy project_guide/
     
     - name: Install build dependencies
       run: |

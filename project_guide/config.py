@@ -18,7 +18,7 @@ from pathlib import Path
 
 import yaml
 
-from project_guides.exceptions import ConfigError
+from project_guide.exceptions import ConfigError
 
 
 @dataclass
@@ -48,7 +48,7 @@ class GuideOverride:
 
 @dataclass
 class Config:
-    """Project configuration for project-guides."""
+    """Project configuration for project-guide."""
     version: str = "1.0"
     installed_version: str = ""
     target_dir: str = "docs/guides"
@@ -62,7 +62,7 @@ class Config:
         if not config_path.exists():
             raise ConfigError(
                 f"Configuration file not found: {config_path}\n"
-                "Run 'project-guides init' to create it."
+                "Run 'project-guide init' to create it."
             )
 
         try:

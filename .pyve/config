@@ -1,4 +1,4 @@
-pyve_version: "1.6.1"
+pyve_version: "1.9.0"
 backend: venv
 venv:
   directory: .venv

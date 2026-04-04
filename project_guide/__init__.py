@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from project_guides.cli import main
+from project_guide.version import __version__
 
-if __name__ == "__main__":
-    main()
+__all__ = ["__version__"]

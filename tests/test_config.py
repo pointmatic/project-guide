@@ -16,8 +16,8 @@ from datetime import date
 
 import pytest
 
-from project_guides.config import Config
-from project_guides.exceptions import ConfigError
+from project_guide.config import Config
+from project_guide.exceptions import ConfigError
 
 
 def test_config_creation_with_defaults():

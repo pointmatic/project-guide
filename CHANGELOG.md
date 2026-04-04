@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-04-04
+
+### Changed
+- **Renamed Python module directory from `project_guides/` to `project_guide/`**
+  - All internal imports updated to `project_guide.*`
+  - `importlib.resources` package paths updated to `project_guide.templates.*`
+  - All test imports updated
+  - GitHub Actions workflows updated (`--cov=project_guide`, `mypy project_guide/`, `ruff check project_guide/`)
+  - `pyproject.toml` entry point updated to `project_guide.cli:main`
+
 ## [1.5.0] - 2026-04-03
 
 ### Changed
@@ -400,7 +410,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - developer/codecov-setup-guide.md
   - developer/github-actions-guide.md
 
-[Unreleased]: https://github.com/pointmatic/project-guides/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/pointmatic/project-guides/compare/v1.5.1...HEAD
+[1.5.1]: https://github.com/pointmatic/project-guides/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/pointmatic/project-guides/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/pointmatic/project-guides/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/pointmatic/project-guides/compare/v1.3.1...v1.4.0

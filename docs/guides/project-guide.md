@@ -4,7 +4,7 @@ This guide provides step-by-step instructions for an LLM to help a developer cre
 
 ## How to Use This Guide
 
-**For Developers:** After installing project-guides (`pip install project-guides`) and running `project-guides init`, tell your LLM: "Read `docs/guides/project-guide.md` and start." The LLM will walk through planning documents, break work into stories, and implement each story step-by-step. You just say "proceed" after each step.
+**For Developers:** After installing project-guide (`pip install project-guide`) and running `project-guide init`, tell your LLM: "Read `docs/guides/project-guide.md` and start." The LLM will walk through planning documents, break work into stories, and implement each story step-by-step. You just say "proceed" after each step.
 
 **For LLMs:** This guide describes a "HITLoop" (human-in-the-loop) workflow where the developer directs and you execute. Work through each step methodically, presenting your work for approval at each gate. When the developer says "proceed" (or equivalent like "continue", "next", "go ahead"), move to the next step. If it's unclear which step comes next, ask the developer which step to tackle. Never auto-advance past approval gates—always wait for explicit confirmation.
 

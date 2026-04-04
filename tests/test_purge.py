@@ -17,7 +17,7 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from project_guides.cli import main
+from project_guide.cli import main
 
 
 @pytest.fixture

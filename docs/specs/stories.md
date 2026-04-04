@@ -61,11 +61,32 @@ Remove the old `project-guides` CLI entry point. Update all user-facing strings,
   - [x] `project-guide.md` (How to Use section)
   - [x] Any other guide referencing the CLI command
 - [x] Update `CHANGELOG.md`
-- [ ] Build and publish to PyPI
+- [x] Build and publish to PyPI
 - [ ] Verify: `project-guides --help` is no longer available after reinstall
-- [ ] Verify: `project-guide --help` works and shows correct command name
+- [x] Verify: `project-guide --help` works and shows correct command name
 
-### Story I.d: GitHub Repo Rename and PyPI Deprecation [Planned]
+### Story I.d: v1.5.1 Rename Python Module Directory [In Progress]
+
+Rename the Python package directory from `project_guides/` to `project_guide/` so the module name matches the package and CLI command. This is a purely internal refactor with no user-visible behavior change.
+
+- [x] Rename directory: `project_guides/` → `project_guide/`
+- [x] Update `pyproject.toml`
+  - [x] `packages = ["project_guides"]` → `["project_guide"]`
+  - [x] `project-guide = "project_guides.cli:main"` → `"project_guide.cli:main"`
+- [x] Update all internal imports across `project_guide/*.py`
+  - [x] `cli.py` — `from project_guides.xxx import`
+  - [x] `sync.py` — `from project_guides.xxx import` and `importlib.resources.files("project_guides.templates...")` strings
+  - [x] `config.py`, `exceptions.py`, `__init__.py`, `__main__.py`
+- [x] Update all test imports: `from project_guides.xxx import` → `from project_guide.xxx import`
+- [x] Update `.github/workflows/`
+  - [x] `--cov=project_guides` → `--cov=project_guide` in `ci.yml`, `test.yml`, `publish.yml`
+  - [x] `mypy project_guides/` → `mypy project_guide/` in `publish.yml`
+- [x] Bump `version.py` and `pyproject.toml` to `1.5.1`
+- [x] Update `CHANGELOG.md`
+- [x] Run full test suite — all 59 tests must pass
+- [x] Verify: `pyve run project-guide status` works correctly after reinstall
+
+### Story I.e: GitHub Repo Rename and PyPI Archive [Planned]
 
 Admin tasks with no code changes. No version bump.
 

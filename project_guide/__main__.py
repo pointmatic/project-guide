@@ -12,4 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__version__ = "1.5.0"
+from project_guide.cli import main
+
+if __name__ == "__main__":
+    main()

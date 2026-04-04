@@ -14,7 +14,7 @@
 
 
 class ProjectGuidesError(Exception):
-    """Base exception for all project-guides errors."""
+    """Base exception for all project-guide errors."""
     pass
 
 

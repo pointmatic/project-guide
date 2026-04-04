@@ -16,9 +16,9 @@ from pathlib import Path
 
 import pytest
 
-from project_guides.config import Config
-from project_guides.exceptions import GuideNotFoundError
-from project_guides.sync import (
+from project_guide.config import Config
+from project_guide.exceptions import GuideNotFoundError
+from project_guide.sync import (
     backup_guide,
     compare_versions,
     copy_guide,
@@ -27,7 +27,7 @@ from project_guides.sync import (
     get_template_path,
     sync_guides,
 )
-from project_guides.version import __version__
+from project_guide.version import __version__
 
 
 def test_get_template_path_returns_valid_paths():
@@ -262,7 +262,7 @@ def test_sync_guides_dry_run_mode(tmp_path):
 
 def test_sync_guides_current_version(tmp_path):
     """Test that guides at current version are not updated."""
-    from project_guides.version import __version__
+    from project_guide.version import __version__
 
     target_dir = tmp_path / "guides"
     config = Config(
@@ -287,7 +287,7 @@ def test_sync_guides_current_version(tmp_path):
 
 def test_sync_guides_detects_missing_files(tmp_path):
     """Test that missing files are detected and created."""
-    from project_guides.version import __version__
+    from project_guide.version import __version__
 
     target_dir = tmp_path / "guides"
     config = Config(
@@ -314,7 +314,7 @@ def test_sync_guides_detects_missing_files(tmp_path):
 
 def test_sync_guides_detects_user_modifications(tmp_path):
     """Test that user-modified files are detected and updated."""
-    from project_guides.version import __version__
+    from project_guide.version import __version__
 
     target_dir = tmp_path / "guides"
     config = Config(
@@ -345,7 +345,7 @@ def test_sync_guides_detects_user_modifications(tmp_path):
 
 def test_sync_guides_force_overwrites_modified_with_backup(tmp_path):
     """Test that --force backs up and overwrites user-modified files."""
-    from project_guides.version import __version__
+    from project_guide.version import __version__
 
     target_dir = tmp_path / "guides"
     config = Config(
@@ -378,7 +378,7 @@ def test_sync_guides_force_overwrites_modified_with_backup(tmp_path):
 
 def test_file_matches_template_with_identical_content(tmp_path):
     """Test that file_matches_template returns True for identical content."""
-    from project_guides.sync import file_matches_template
+    from project_guide.sync import file_matches_template
 
     target_dir = tmp_path / "guides"
     copy_guide("project-guide.md", target_dir)
@@ -388,7 +388,7 @@ def test_file_matches_template_with_identical_content(tmp_path):
 
 def test_file_matches_template_with_modified_content(tmp_path):
     """Test that file_matches_template returns False for modified content."""
-    from project_guides.sync import file_matches_template
+    from project_guide.sync import file_matches_template
 
     target_dir = tmp_path / "guides"
     copy_guide("project-guide.md", target_dir)
@@ -403,7 +403,7 @@ def test_file_matches_template_with_modified_content(tmp_path):
 
 def test_file_matches_template_with_nonexistent_file(tmp_path):
     """Test that file_matches_template returns False for nonexistent files."""
-    from project_guides.sync import file_matches_template
+    from project_guide.sync import file_matches_template
 
     nonexistent = tmp_path / "nonexistent.md"
     assert not file_matches_template(nonexistent, "project-guide.md")

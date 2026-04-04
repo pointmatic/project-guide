@@ -29,15 +29,15 @@ jobs:
     
     - name: Run linting
       run: |
-        ruff check project_guides/ tests/
+        ruff check project_guide/ tests/
     
     - name: Run type checking
       run: |
-        mypy project_guides/
+        mypy project_guide/
     
     - name: Run tests with coverage
       run: |
-        pytest tests/ --cov=project_guides --cov-report=xml --cov-report=term
+        pytest tests/ --cov=project_guide --cov-report=xml --cov-report=term
     
     - name: Upload coverage to Codecov
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
