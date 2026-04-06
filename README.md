@@ -11,15 +11,20 @@ A Python CLI tool that installs, swaps, and synchronizes battle-tested LLM workf
 
 ## Why project-guide?
 
-Install project-guide in any repository with `pip install project-guide`, run `project-guide init`, then tell your LLM to "Read `@go-project-guide.md` (works in many coding tools), or give it the full path at`docs/project-guide/go-project-guide.md`." The `go-project-guide` prompt provides the LLM with a structured workflow. You just say "go" and the LLM handles each step:
-* Adapts for your current development mode (plan, code, debug, etc.) 
-* Pauses for you to review code, test, and commit changes
-* Lets you stay in charge: guiding features, flow, and taste
-* Handles the typing so you can stay focused on the big picture
+The `go-project-guide` prompt provides the LLM with a structured workflow:
+- Adapts for your current development mode (plan, code, debug, etc.) 
+- Lets you stay in charge: guiding features, flow, and taste
+- Handles the typing so you can stay focused on the big picture
+
+### How It Works
+You set the project mode (plan, code, debug, etc.) 
+- Install project-guide in any repository
+- Initialize the Project-Guide system. 
+- Tell your LLM to read the `go-project-guide.md` (in your IDE, or however you prefer).
 
 ### Human-in-the-Loop Development
 
-This is "HITLoop" (human-in-the-loop) development: you direct, the LLM executes. The pace is "flaming agile"—an entire production-ready backend can be completed in 6-12 hours. 
+This is "HITLoop" (human-in-the-loop) development: you direct, the LLM executes—It is not vibe-coding. Instead you are following the development closely and interactively guiding and improving the flow. The pace is "flaming agile"—an entire production-ready backend can be completed in 6-12 hours. 
 
 ### Customization and Updates
 
@@ -44,7 +49,7 @@ When you customize a prompt for your project, mark it as overridden so future pa
 pip install project-guide
 ```
 
-### Via pipx (recommended for CLI tools)
+### Via pipx (recommended for CLI coding tools)
 
 ```bash
 pipx install project-guide
@@ -86,9 +91,25 @@ Guides status:
 8 updates available
 ```
 
-### 3. Update guides to latest version
+### 3. Warm-up the LLM context
+
+In your LLM chat, type the following: 
+```
+Read `@go-project-guide.md`
+```
+
+This will warm up the LLM context with the instructions for the workflow. When it is ready, it will let you know what the next step is, and you just need to type this:
+
+```
+go
+```
+
+### 4. Update to latest version
+
+Occasionally, we will update the project-guide prompt templates or add new features. You'll need to first update the Python package, then update the system or prompt templates. 
 
 ```bash
+pip install --upgrade project-guide
 project-guide update
 ```
 
@@ -109,7 +130,7 @@ Updated:
 ✓ Successfully updated 8 guides.
 ```
 
-### 4. Customize a guide (optional)
+### 5. Customize a guide (optional)
 
 ```bash
 project-guide override debug-guide.md "Custom debugging workflow for this project"
