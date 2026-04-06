@@ -1,3 +1,5 @@
+[![codecov](https://codecov.io/gh/pointmatic/project-guide/graph/badge.svg)](https://codecov.io/gh/pointmatic/project-guide)
+
 # Guides Directory
 
 This directory contains documentation for LLM-assisted development workflows and developer reference materials.

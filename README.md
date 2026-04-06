@@ -6,7 +6,7 @@
 [![PyPI](https://img.shields.io/pypi/v/project-guide.svg)](https://pypi.org/project/project-guide/)
 [![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://pointmatic.github.io/project-guide/)
 
-A Python CLI tool that installs and synchronizes battle-tested LLM workflow guides across projects, supporting version tracking and project-specific overrides to keep documentation consistent while preserving customizations.
+A Python CLI tool that installs, swaps, and synchronizes battle-tested LLM workflow prompts across projects, supporting version tracking and project-specific overrides to keep documentation consistent while preserving customizations.
 
 ## Why project-guide?
 
@@ -15,11 +15,12 @@ Install project-guide in any repository with `pip install project-guide`, run `p
 This is "HITLoop" (human-in-the-loop) development: the developer directs, the LLM executes. The pace is "flaming agile"—an entire production-ready backend can be completed in 6-12 hours.
 
 **Key Features:**
-- 📚 **Battle-Tested Workflows** - Crafted guides from concept through production release
-- 🔄 **Version Management** - Track and update guides across projects automatically
-- ✏️ **Project-Specific Overrides** - Lock customized guides to prevent overwrites
-- 🔒 **Automatic Backups** - Preserve customizations when forcing updates
-- 🎨 **CLI Interface** - Seven intuitive commands for all operations
+- 📚 **Battle-Tested Workflows** - Crafted workflow prompts from concept through production release in one place
+- **Adaptive** — Switch project between plan, code, and debug modes to get the right instructions for each task
+- 🔄 **Version Management** - Track and update all prompt docs in a project with a single command
+- 🔒 **Custom Doc Lock** - Lock customized prompts to prevent update overwrites
+- **Gentle Force Updates** — Automatic `.bak` files created if you `--force` update a custom prompt document
+- 🎨 **CLI Interface** - Eight intuitive commands for all operations
 - 🧪 **Well Tested** - 82% test coverage with 59 comprehensive tests
 - ⚡ **Zero Configuration** - Works with sensible defaults out of the box
 - 🌐 **Cross-Platform** - Runs on macOS, Linux, and Windows with Python 3.11+

@@ -1,7 +1,7 @@
 [project]
 name = "project-guide"
 version = "1.5.1"
-description = "Stay organized and consistent using LLM workflow guides with project-specific overrides"
+description = "Stay organized and in control with adaptive LLM workflow prompts."
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.11"
@@ -10,11 +10,12 @@ authors = [
 ]
 keywords = [
     "llm",
+    "coding",
     "human-in-the-loop",
     "hitloop",
     "documentation",
     "workflow",
-    "guides",
+    "guide",
     "templates",
     "python",
     "cli",
@@ -25,7 +26,7 @@ keywords = [
     "best-practices",
     "override-support",
     "yaml-config",
-    "cross-platform",
+    "cross-platform"
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -110,3 +111,6 @@ strict_equality = true
 [[tool.mypy.overrides]]
 module = "tests.*"
 disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+addopts = "--cov-fail-under=75"

@@ -10,46 +10,48 @@ Canonical source of truth for all descriptive language used across the project. 
 
 ## Tagline
 
-Stay organized in LLM-based coding
+Calm the chaos
 
 ## Long Tagline
 
-Stay organized and consistent using LLM workflow guides with project-specific overrides
+Calm the chaos of LLM-assisted coding 
 
 ## One-liner
 
-Stay organized and consistent using LLM guides across multiple coding projects.
+Stay organized and in control with adaptive LLM workflow prompts
 
 ### Friendly Brief Description (follows one-liner)
 
-Install project-guide in any repository with `pip install project-guide`, run `project-guide init`, then tell your LLM to "Read `docs/guides/project-guide.md` and start." The guide walks the LLM through planning documents, breaking work into stories, and implementing each story step-by-step. You just say "proceed" after each step. The developer stays in charge—guiding features, flow, and taste—while the LLM handles the typing.
+Install project-guide in any repository with `pip install project-guide`, run `project-guide init`, then tell your LLM to "Read `@project-guide.md` (works in many coding tools), or give itthe full path at`docs/project-guide/go-project-guide.md`." The `go-project-guide` prompt provides the LLM with a structured workflow. You just say "go" and the LLM handles each step, pausing for you to review code, test, and commit changes. You stay in charge—guiding features, flow, and taste while the LLM handles the typing.
 
-This is "HITLoop" (human-in-the-loop) development: the developer directs, the LLM executes. The pace is "flaming agile"—an entire production-ready backend can be completed in 6-12 hours. When you customize a guide for your project, mark it as overridden so future package updates skip it. When you want the latest workflow improvements, run `project-guide update` to sync all non-overridden guides. 
+This is "HITLoop" (human-in-the-loop) development: you direct, the LLM executes. The pace is "flaming agile"—an entire production-ready backend can be completed in 6-12 hours. When you customize a prompt for your project, mark it as overridden so future package updates skip it. When you want the latest workflow improvements, run `project-guide update` to sync all non-overridden prompts. 
 
 ## Two-clause Technical Description
 
-A Python CLI tool that installs and synchronizes battle-tested LLM workflow guides across projects, supporting version tracking and project-specific overrides to keep documentation consistent while preserving customizations.
+A Python CLI tool that installs, swaps, and synchronizes battle-tested LLM workflow prompts across projects, supporting version tracking and project-specific overrides to keep documentation consistent while preserving customizations.
 
 ## Benefits
 
-- **Centralized Templates** — Maintain workflow guides (project-guide.md, best-practices-guide.md, debug-guide.md, documentation-setup-guide.md) in one place
-- **Version Management** — Track guide versions across projects and update to latest versions with a single command
-- **Override Support** — Lock specific guides when they contain project-specific customizations, preventing accidental overwrites
-- **Backup Protection** — Automatic `.bak` file creation when updating overridden guides with `--force` flag
-- **CLI Interface** — Seven intuitive commands: init, status, update, override, unoverride, overrides, purge
-- **Zero Configuration** — Works with sensible defaults (docs/guides directory, no config required for basic use)
+- **Battle-Tested Workflows** - Crafted workflow prompts from concept through production release in one place
+- **Adaptive** — Switch project between plan, code, and debug modes to get the right instructions for each task
+- **Version Management** — Track and update all prompt docs in a project with a single command
+- **Customization Lock** - Lock customized prompts to prevent update overwrites
+- **Gentle Force Updates** — Automatic `.bak` files created if you `--force` update a custom prompt document
+- **CLI Interface** — Eight intuitive commands for all operations
+- **Zero Configuration** — Works with sensible defaults out of the box
 - **Cross-Platform** — Runs on macOS, Linux, and Windows with Python 3.11+
-- **Well Tested** — 82% test coverage with 53 comprehensive tests ensuring reliability
+- **Well Tested** — Comprehensive test coverage for reliability
 - **Lightweight** — Minimal dependencies (click, pyyaml, packaging) for fast installation
-- **Safe Operations** — Never overwrites customized guides without explicit consent, idempotent commands
 
 ## Technical Description
 
-Project-Guide is a Python CLI tool that solves the problem of keeping LLM workflow documentation synchronized with an opinionated source of truthacross multiple projects. Just install the PyPI package with `pip` in any repository and start planning and coding with the LLM. It packages canonical versions of development guides (project-guide.md, best-practices-guide.md, debug-guide.md, documentation-setup-guide.md, and more) and provides commands to install, update, and manage them in a `docs/guides` directory in the repo. The tool tracks which package versions were installed for each guide, allows a project to lock specific guides when customized, and provides clear status reporting. It uses a simple YAML configuration file (`.project-guide.yml`) to store project-specific settings and override metadata. The package is distributed via PyPI and can be installed with `pip` locally or `pipx` for system-wide CLI access.
+Project-Guide is a Python CLI tool that solves the problem of keeping LLM workflow documentation synchronized with an opinionated source of truthacross multiple projects. Just install the PyPI package with `pip` in any repository and start planning and coding with the LLM. It packages canonical versions of LLM prompts and provides commands to install, update, and manage them in a `docs/project-guide` directory in any project repo. 
+
+The tool tracks which package versions were installed for each guide, allows a project to lock specific guides when customized, and provides clear status reporting. It uses a simple YAML configuration file (`.project-guide.yml`) to store project-specific settings and override metadata. The package is distributed via PyPI and can be installed with `pip` locally or `pipx` for system-wide CLI access.
 
 ## Keywords
 
-`llm`, `human-in-the-loop`, `hitloop`, `documentation`, `workflow`, `guides`, `templates`, `python`, `cli`, `version-management`, `synchronization`, `project-management`, `development-tools`, `best-practices`, `override-support`, `yaml-config`, `cross-platform`
+`llm`, `coding`, `human-in-the-loop`, `hitloop`, `documentation`, `workflow`, `guide`, `templates`, `python`, `cli`, `version-management`, `synchronization`, `project-management`, `development-tools`, `best-practices`, `override-support`, `yaml-config`, `cross-platform`
 
 ---
 
@@ -59,9 +61,9 @@ Essential steps for getting started with project-guide:
 
 1. **Install**: `pip install project-guide` (or `pipx install project-guide` for system-wide CLI)
 2. **Initialize**: Navigate to your project directory and run `project-guide init`
-3. **Start**: Tell your LLM: "Read `docs/guides/project-guide.md` and start."
-4. **Collaborate**: Say "proceed" after each step as the LLM walks through planning, stories, and implementation
-5. **Customize**: Mark guides as overridden when you customize them: `project-guide override <guide-name>`
+3. **Start**: Tell your LLM: "Read `docs/project-guide/go-project-guide.md`."
+4. **Collaborate**: Say "go" after each step as the LLM walks through planning, stories, and implementation
+5. **Customize**: Mark a prompt document as overridden if you customize it: `project-guide override <filename>`
 6. **Update**: Pull latest workflow improvements: `project-guide update`
 7. **Check Status**: See which guides are current, outdated, or overridden: `project-guide status`
 
@@ -75,32 +77,31 @@ Short blurbs for landing pages and feature grids. Each card has a title and a on
 
 | # | Title | Description |
 |---|-------|-------------|
-| 1 | Battle-Tested Workflows | Crafted guides walk your LLM from project concept through production release—planning docs, stories breakdown, step-by-step implementation. |
-| 2 | Centralized Guide Templates | Maintain LLM workflow guides in one package and distribute them across all your projects with a single command. |
-| 3 | Smart Version Tracking | Track which guide versions are installed in each project and update to the latest versions automatically. |
-| 4 | Project-Specific Overrides | Lock customized guides to prevent accidental overwrites while still syncing other guides to latest versions. |
-| 5 | Sync Latest Improvements | Pull the newest workflow refinements into all non-overridden guides across projects with one command. |
+| 1 | Battle-Tested Workflows | Crafted workflow prompts from concept through production release in one place |
+| 2 | Adaptive Guidance | Switch project between plan, code, and debug modes to get the right instructions for each task |
+| 3 | Version Management | Track and update all prompt docs in a project with a single command |
+| 4 | Custom Prompt Lock | Lock a customized LLM prompt in any project to prevent future updates for that prompt document |
+| 5 | CLI Interface | Eight intuitive commands for all operations |
+| 6 | Zero Configuration | Works out of the box with sensible defaults |
 
 ### Operational Benefits
 
 | # | Title | Description |
 |---|-------|-------------|
-| 6 | Zero Configuration | Works out of the box with sensible defaults—guides go in `docs/guides`, no config file needed for basic usage. |
-| 7 | Clear Status Reporting | See at a glance which guides are current, outdated, overridden, or missing with color-coded status output. |
-| 8 | Automatic Backups | When updating overridden guides with --force, automatic .bak files preserve your customizations. |
-| 9 | Safe Operations | Idempotent commands and explicit consent requirements ensure you never lose project-specific customizations. |
-| 10 | Lightweight & Fast | Minimal dependencies (click, pyyaml, packaging) mean fast installation and no bloat. |
-| 11 | Cross-Platform | Runs on macOS, Linux, and Windows with Python 3.11+ for consistent workflows everywhere. |
-| 12 | Well Tested | 82% test coverage with 53 comprehensive tests ensuring reliability and stability. |
+| 7 | Clear Status Reporting | See at a glance which prompt documents are current, outdated, overridden, or missing with color-coded status output |
+| 8 | Gentle 'Forced' Updates | Automatic `.bak` files created if you `--force` update a custom prompt document |
+| 9 | Safe Operations | Idempotent commands and explicit consent requirements protect your project-specific customizations |
+| 10 | Lightweight | Minimal dependencies (click, pyyaml, packaging) mean fast installation and no bloat |
+| 11 | Cross-Platform | Runs on macOS, Linux, and Windows with Python 3.11+ for consistent workflows everywhere |
+| 12 | Well Tested | Comprehensive test coverage minimum of 75% ensures reliability |
 
 ### Development Philosophy
 
 | # | Title | Description |
 |---|-------|-------------|
-| 13 | HITLoop Development | You direct features, flow, and taste. The LLM handles the typing. Human-in-the-loop collaboration at its best. |
-| 14 | Flaming Agile Pace | Complete an entire production-ready backend in 6-12 hours with structured, methodical LLM collaboration. |
-| 15 | Structured Workflow | Guides enforce a proven methodology: planning documents, story breakdown, step-by-step implementation, approval gates. |
-
+| 13 | HITLoop Development | You direct features, flow, and taste. The LLM handles the typing. Human-in-the-loop collaboration at its best |
+| 14 | Flaming Agile Pace | Complete an entire production-ready backend in 6-12 hours with structured, methodical LLM collaboration |
+| 15 | Structured Workflow | The workflow enforces a focused methodology: planning, coding, debugging, etc. with approval gates for your review |
 
 ---
 
@@ -108,12 +109,10 @@ Short blurbs for landing pages and feature grids. Each card has a title and a on
 
 | File | Which descriptions to use |
 |------|--------------------------|
-| `README.md` line 8 | Two-clause Technical Description (shortened to one sentence) |
-| `README.md` line 12 | Friendly Brief Description (first sentence) |
-| `docs/site/index.html` hero `<h1>` | Tagline |
-| `docs/site/index.html` hero subtitle | Long Tagline |
-| `docs/site/index.html` feature grid | Feature Cards |
-| `pyproject.toml` description | Long Tagline |
-| `docs/specs/features.md` line 11 | Two-clause Technical Description |
-| GitHub Repository description | One-liner + ": " + Long Tagline |
-| GitHub Repository topics | Keywords (without backticks) |
+| `README.md` line 9 | Two-clause Technical Description |
+| `README.md` line 17 | Benefits (inline) |
+| `docs/index.html` hero `<h1>` | One-liner |
+| `docs/index.html` hero `<p>` | Friendly Brief Description |
+| `docs/index.html` feature grid | Feature Cards |
+| `pyproject.toml` description | One-liner |
+| (GitHub Repository) | Tagline + ": "+ One-liner |

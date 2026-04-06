@@ -97,11 +97,17 @@ Admin tasks with no code changes. No version bump.
   - [x] `README.md` badges and links
   - [x] `pyproject.toml` `[project.urls]` section
   - [x] Any guide files referencing the repo URL
-- [ ] Archive old `project-guides` PyPI package
-  - [ ] Publish a final `project-guides` release with updated README/description: "This package has moved to `project-guide`. Please update your dependencies."
-  - [ ] Go to PyPI → `project-guides` → Settings → Archive project
+- [x] Archive old `project-guides` PyPI package
+  - [x] Publish a final `project-guides` release with updated README/description: "This package has moved to `project-guide`. Please update your dependencies."
+  - [x] Go to PyPI → `project-guides` → Settings → Archive project
 - [x] Update `mkdocs.yml` site URL if applicable
-- [ ] Verify: all links resolve correctly
+- [x] Verify: all links resolve correctly
+
+### Story I.f: Update README, landing page, and descriptions [Planned]
+- [x] Update `docs/specs/descriptions.md` to reflect new package name and concepts (guides -> guide/prompts)
+- [x] Update `README.md` based on `docs/specs/description.md`
+- [x] Update landing page based on `docs/specs/description.md`
+- [x] Add Codecov badge to `README.md` and set minimum coverage to 75%
 
 ---
 
