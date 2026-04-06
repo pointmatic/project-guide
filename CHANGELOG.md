@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.2] - 2026-04-05
+
+### Added
+- 28 new CLI tests covering error paths, edge cases, and user prompts (87 total, up from 59)
+- Codecov badge added to README.md
+
+### Changed
+- Test coverage increased from 79% to 94% (cli.py: 72% → 97%)
+- Minimum coverage threshold raised from 75% to 85% (`--cov-fail-under`)
+
 ## [1.5.1] - 2026-04-04
 
 ### Changed
