@@ -11,11 +11,21 @@ A Python CLI tool that installs, swaps, and synchronizes battle-tested LLM workf
 
 ## Why project-guide?
 
-Install project-guide in any repository with `pip install project-guide`, run `project-guide init`, then tell your LLM to "Read `docs/guides/project-guide.md` and start." The guide walks the LLM through planning documents, breaking work into stories, and implementing each story step-by-step. You just say "proceed" after each step. The developer stays in charge—guiding features, flow, and taste—while the LLM handles the typing.
+Install project-guide in any repository with `pip install project-guide`, run `project-guide init`, then tell your LLM to "Read `@go-project-guide.md` (works in many coding tools), or give it the full path at`docs/project-guide/go-project-guide.md`." The `go-project-guide` prompt provides the LLM with a structured workflow. You just say "go" and the LLM handles each step:
+* Adapts for your current development mode (plan, code, debug, etc.) 
+* Pauses for you to review code, test, and commit changes
+* Lets you stay in charge: guiding features, flow, and taste
+* Handles the typing so you can stay focused on the big picture
 
-This is "HITLoop" (human-in-the-loop) development: the developer directs, the LLM executes. The pace is "flaming agile"—an entire production-ready backend can be completed in 6-12 hours.
+### Human-in-the-Loop Development
 
-**Key Features:**
+This is "HITLoop" (human-in-the-loop) development: you direct, the LLM executes. The pace is "flaming agile"—an entire production-ready backend can be completed in 6-12 hours. 
+
+### Customization and Updates
+
+When you customize a prompt for your project, mark it as overridden so future package updates skip it. When you want the latest workflow improvements, run `project-guide update` to sync all non-overridden prompts. 
+
+## Key Features
 - 📚 **Battle-Tested Workflows** - Crafted workflow prompts from concept through production release in one place
 - **Adaptive** — Switch project between plan, code, and debug modes to get the right instructions for each task
 - 🔄 **Version Management** - Track and update all prompt docs in a project with a single command
