@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.4] - 2026-04-07
+
+### Added
+- Complete `code-velocity-mode.md` -- velocity coding workflow with cycle steps, practices, and mode switching guidance
+- Complete `code-test-first-mode.md` -- TDD workflow with red-green-refactor cycle, test writing guidelines, and test hierarchy
+- `debug-mode.md` already complete from prior work (retained as-is)
+- All cycle mode templates include `{% include "modes/_header-cycle.md" %}`
+
 ## [2.0.3] - 2026-04-07
 
 ### Added

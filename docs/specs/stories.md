@@ -277,20 +277,20 @@ Add the remaining planning mode templates: `plan_features`, `plan_tech_spec`, `p
 - [x] Bump `version.py` and `pyproject.toml` to `2.0.3`
 - [x] Update `CHANGELOG.md`
 
-### Story J.e: v2.0.4 Add Code and Debug Mode Templates [Planned]
+### Story J.e: v2.0.4 Add Code and Debug Mode Templates [Done]
 
 Add `code_velocity`, `code_test_first`, and `debug` mode templates. Migrate relevant content from old `go-project-guide.md` Step 4 and `best-practices-guide.md`.
 
-- [ ] Finalize `code-velocity-mode.md` — velocity coding workflow: commit to main, version-per-story, HITLoop cycle, checklist approach
-- [ ] Finalize `code-test-first-mode.md` — TDD workflow: failing test first, red-green-refactor
-- [ ] Finalize `debug-mode.md` — reproduce, isolate, failing test, fix, verify
-- [ ] Each mode template includes `{% include "_header-cycle.md" %}`
-- [ ] Migrate relevant best practices from `best-practices-guide.md` into the appropriate mode templates
-- [ ] Update `init` to copy code and debug templates
-- [ ] Verify: `project-guide mode code_velocity` renders correctly with cycle header
-- [ ] Verify: `project-guide mode debug` renders correctly
-- [ ] Bump `version.py` and `pyproject.toml` to `2.0.4`
-- [ ] Update `CHANGELOG.md`
+- [x] Finalize `code-velocity-mode.md` — velocity coding workflow: commit to main, version-per-story, HITLoop cycle, checklist approach
+- [x] Finalize `code-test-first-mode.md` — TDD workflow: failing test first, red-green-refactor
+- [x] Finalize `debug-mode.md` — reproduce, isolate, failing test, fix, verify
+- [x] Each mode template includes `{% include "_header-cycle.md" %}`
+- [x] Migrate relevant best practices from `best-practices-guide.md` into the appropriate mode templates
+- [x] Update `init` to copy code and debug templates
+- [x] Verify: `project-guide mode code_velocity` renders correctly with cycle header
+- [x] Verify: `project-guide mode debug` renders correctly
+- [x] Bump `version.py` and `pyproject.toml` to `2.0.4`
+- [x] Update `CHANGELOG.md`
 
 ### Story J.f: v2.0.5 Add Document Mode Templates [Planned]
 
