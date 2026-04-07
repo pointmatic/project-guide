@@ -321,14 +321,21 @@ The old `go-project-guide.md` entry point template contains Steps 0-4 as a monol
 - [x] Bump `version.py` and `pyproject.toml` to `2.0.6`
 - [x] Update `CHANGELOG.md`
 
-### Story J.h: v2.0.7 Test Coverage and Documentation [Planned]
+### Story J.h: v2.0.7 Test Coverage and Documentation [Done]
 
 Ensure test coverage remains at 85%+ after all Phase J changes. Update README and user-facing documentation to reflect the mode system.
 
-- [ ] Review test coverage for all new modules (`metadata.py`, `render.py`) and updated modules (`cli.py`, `config.py`, `sync.py`)
-- [ ] Add missing tests to maintain 85%+ coverage
-- [ ] Update `README.md` with mode system usage examples (`project-guide mode plan_concept`, etc.)
-- [ ] Update landing page if applicable
-- [ ] Final pass: run full test suite, linting, type checking
-- [ ] Bump `version.py` and `pyproject.toml` to `2.0.7`
-- [ ] Update `CHANGELOG.md`
+- [x] Review test coverage for all new modules (`metadata.py`, `render.py`) and updated modules (`cli.py`, `config.py`, `sync.py`)
+- [x] Add missing tests to maintain 85%+ coverage (112 tests, 92% coverage)
+- [x] Update `README.md` with mode system usage examples (`project-guide mode plan_concept`, etc.)
+- [x] Final pass: run full test suite, linting, type checking
+- [x] Bump `version.py` and `pyproject.toml` to `2.0.7`
+- [x] Update `CHANGELOG.md`
+
+### Story J.i. v2.0.8 Landing Page Documentation Updates [Planned]
+
+Update all documentation to reflect the new mode system and workflow changes.
+
+- [ ] Update index.html page (`docs/site/index.html`)
+- [ ] Update MkDocs pages (`docs/site/*.md`)
+

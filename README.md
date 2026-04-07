@@ -37,7 +37,7 @@ When you customize a prompt for your project, mark it as overridden so future pa
 - 🔒 **Custom Doc Lock** - Lock customized prompts to prevent update overwrites
 - **Gentle Force Updates** — Automatic `.bak` files created if you `--force` update a custom prompt document
 - 🎨 **CLI Interface** - Eight intuitive commands for all operations
-- 🧪 **Well Tested** - 82% test coverage with 59 comprehensive tests
+- 🧪 **Well Tested** - 92% test coverage with 112 comprehensive tests
 - ⚡ **Zero Configuration** - Works with sensible defaults out of the box
 - 🌐 **Cross-Platform** - Runs on macOS, Linux, and Windows with Python 3.11+
 
@@ -57,7 +57,7 @@ pipx install project-guide
 
 ## Quick Start
 
-### 1. Initialize guides in your project
+### 1. Initialize in your project
 
 ```bash
 cd /path/to/your/project
@@ -66,74 +66,65 @@ project-guide init
 
 This creates:
 - `.project-guide.yml` - Configuration file
-- `docs/guides/` - Directory with guide templates
+- `docs/project-guide/` - Mode templates, artifact templates, and metadata
+- `docs/specs/go-project-guide.md` - Rendered LLM instructions (default mode)
 
-### 2. Check guide status
+### 2. Tell your LLM to read the guide
+
+```
+Read docs/specs/go-project-guide.md
+```
+
+The LLM follows the instructions, asks clarifying questions, and generates artifacts. Type `go` to advance through steps.
+
+### 3. Switch modes as you progress
 
 ```bash
-project-guide status
+project-guide mode plan_concept      # Define problem & solution
+project-guide mode plan_features     # Define requirements
+project-guide mode plan_tech_spec    # Define architecture
+project-guide mode plan_stories      # Break into stories
+project-guide mode code_velocity     # Implement stories fast
+project-guide mode debug             # Debug with test-first approach
+```
+
+Each mode regenerates `docs/specs/go-project-guide.md` with focused instructions for that workflow.
+
+### 4. List available modes
+
+```bash
+project-guide mode
 ```
 
 Output:
 ```
-project-guide v1.5.1 (installed: v1.2.7)
+Current mode: plan_concept
 
-Guides status:
-  ⚠ README.md                                v1.2.7  (update available)
-  ⚠ best-practices-guide.md                  v1.2.7  (update available)
-  ⚠ debug-guide.md                           v1.2.7  (update available)
-  ⚠ descriptions-guide.md                    v1.2.7  (update available)
-  ⚠ developer/codecov-setup-guide.md         v1.2.7  (update available)
-  ⚠ developer/production-mode.md             v1.2.7  (update available)
-  ⚠ documentation-setup-guide.md             v1.2.7  (update available)
-  ⚠ project-guide.md                         v1.2.7  (update available)
-
-8 updates available
+Available modes:
+  → default                   Getting started -- full project lifecycle overview
+    plan_concept              Generate a high-level concept (problem and solution space)
+    plan_features             Generate feature requirements (what the project does)
+    plan_tech_spec            Generate a technical specification prompt (how it's built)
+    plan_stories              Generate a user stories prompt
+    code_velocity             Generate code with velocity
+    code_test_first           Generate code with a test-first approach
+    debug                     Debug code with a test-first approach
+    ...
 ```
 
-### 3. Warm-up the LLM context
-
-In your LLM chat, type the following: 
-```
-Read `@go-project-guide.md`
-```
-
-This will warm up the LLM context with the instructions for the workflow. When it is ready, it will let you know what the next step is, and you just need to type this:
-
-```
-go
-```
-
-### 4. Update to latest version
-
-Occasionally, we will update the project-guide prompt templates or add new features. You'll need to first update the Python package, then update the system or prompt templates. 
+### 5. Update templates
 
 ```bash
 pip install --upgrade project-guide
 project-guide update
 ```
 
-Overridden guides are skipped by default. Modified guides prompt "Backup and overwrite?" — a `.bak` file is always created before any overwrite. Use `--force` to skip the prompt and overwrite all modified guides automatically (backups still created).
+Overridden templates are skipped. Modified templates prompt for confirmation. Backups are always created before overwrites.
 
-Output:
-```
-Updated:
-  ✓ README.md
-  ✓ best-practices-guide.md
-  ✓ debug-guide.md
-  ✓ descriptions-guide.md
-  ✓ developer/codecov-setup-guide.md
-  ✓ developer/production-mode.md
-  ✓ documentation-setup-guide.md
-  ✓ project-guide.md
-
-✓ Successfully updated 8 guides.
-```
-
-### 5. Customize a guide (optional)
+### 6. Customize a template (optional)
 
 ```bash
-project-guide override debug-guide.md "Custom debugging workflow for this project"
+project-guide override templates/modes/debug-mode.md "Custom debugging for this project"
 ```
 
 ## Command Reference
@@ -147,7 +138,7 @@ project-guide init [OPTIONS]
 ```
 
 **Options:**
-- `--target-dir PATH` - Directory for guides (default: `docs/guides`)
+- `--target-dir PATH` - Directory for templates (default: `docs/project-guide`)
 - `--force` - Overwrite existing configuration
 
 **Examples:**
@@ -162,9 +153,33 @@ project-guide init --target-dir documentation/workflows
 project-guide init --force
 ```
 
+### `mode`
+
+Set or show the active development mode.
+
+```bash
+project-guide mode [MODE_NAME]
+```
+
+**Without argument:** Lists current mode and all available modes.
+
+**With argument:** Switches to the specified mode and re-renders `go-project-guide.md`.
+
+**Examples:**
+```bash
+# Show current mode and list all modes
+project-guide mode
+
+# Switch to velocity coding mode
+project-guide mode code_velocity
+
+# Switch to debugging mode
+project-guide mode debug
+```
+
 ### `status`
 
-Show status of all installed guides.
+Show status of all installed templates and current mode.
 
 ```bash
 project-guide status
@@ -283,39 +298,50 @@ project-guide purge --force
 The `.project-guide.yml` file stores project configuration:
 
 ```yaml
-version: "1.0"
-installed_version: "1.1.2"
-target_dir: "docs/guides"
+version: "2.0"
+installed_version: "2.0.7"
+target_dir: "docs/project-guide"
+current_mode: "code_velocity"
 overrides:
-  debug-guide.md:
-    reason: "Custom debugging workflow with project-specific tools"
-    locked_version: "1.0.0"
-    last_updated: "2026-03-09"
+  templates/modes/debug-mode.md:
+    reason: "Custom debugging workflow for this project"
+    locked_version: "2.0.0"
+    last_updated: "2026-04-07"
 ```
 
 **Fields:**
 - `version` - Config file format version
-- `installed_version` - Version of guides currently installed
-- `target_dir` - Where guides are stored
-- `overrides` - Map of customized guides with metadata
+- `installed_version` - Version of templates currently installed
+- `target_dir` - Where templates are stored
+- `current_mode` - Active development mode
+- `overrides` - Map of customized templates with metadata
 
-## Available Guides
+## Available Modes
 
-### Core Guides
+### Planning Modes
 
-- **`project-guide.md`** - Complete workflow for starting new projects with LLMs
-- **`best-practices-guide.md`** - Development best practices and lessons learned
-- **`debug-guide.md`** - Debugging strategies and troubleshooting workflows
+| Mode | Command | Output |
+|------|---------|--------|
+| **Concept** | `project-guide mode plan_concept` | `docs/specs/concept.md` |
+| **Features** | `project-guide mode plan_features` | `docs/specs/features.md` |
+| **Tech Spec** | `project-guide mode plan_tech_spec` | `docs/specs/tech-spec.md` |
+| **Stories** | `project-guide mode plan_stories` | `docs/specs/stories.md` |
+| **Phase** | `project-guide mode plan_phase` | New phase added to stories |
 
-### Documentation Guides
+### Coding Modes
 
-- **`documentation-setup-guide.md`** - Setting up MkDocs documentation
-- **`README.md`** - README template and guidelines
+| Mode | Command | Workflow |
+|------|---------|----------|
+| **Velocity** | `project-guide mode code_velocity` | Direct commits, fast iteration |
+| **Test-First** | `project-guide mode code_test_first` | TDD red-green-refactor cycle |
+| **Debug** | `project-guide mode debug` | Test-driven debugging |
 
-### Developer Guides
+### Documentation Modes
 
-- **`developer/codecov-setup-guide.md`** - Code coverage with Codecov
-- **`developer/github-actions-guide.md`** - CI/CD with GitHub Actions
+| Mode | Command | Output |
+|------|---------|--------|
+| **Branding** | `project-guide mode document_brand` | `docs/specs/brand-descriptions.md` |
+| **Landing Page** | `project-guide mode document_landing` | GitHub Pages + MkDocs docs |
 
 ## Troubleshooting
 

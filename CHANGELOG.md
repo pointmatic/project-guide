@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.7] - 2026-04-07
+
+### Added
+- 5 new tests for `mode` command (no config, list modes, invalid name, config update, render output)
+- `mode` command added to README Command Reference
+
+### Changed
+- README updated for v2.0: new Quick Start with mode workflow, Available Modes table, updated config example, corrected test stats (112 tests, 92% coverage)
+- Test coverage increased from 90% to 92% (112 tests, up from 107)
+
 ## [2.0.6] - 2026-04-07
 
 ### Changed

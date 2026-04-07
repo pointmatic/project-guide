@@ -160,6 +160,60 @@ def test_status_after_mode_change(runner, tmp_path):
         assert "Generate code with velocity" in result.output
 
 
+def test_mode_no_config(runner, tmp_path):
+    """Test mode command with no config file."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(main, ['mode', 'plan_concept'])
+        assert result.exit_code == 1
+        assert "No .project-guide.yml found" in result.output
+
+
+def test_mode_list_available(runner, tmp_path):
+    """Test mode command with no argument lists available modes."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        runner.invoke(main, ['init'])
+        result = runner.invoke(main, ['mode'])
+        assert result.exit_code == 0
+        assert "Current mode:" in result.output
+        assert "Available modes:" in result.output
+        assert "plan_concept" in result.output
+        assert "code_velocity" in result.output
+
+
+def test_mode_invalid_name(runner, tmp_path):
+    """Test mode command with invalid mode name."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        runner.invoke(main, ['init'])
+        result = runner.invoke(main, ['mode', 'nonexistent'])
+        assert result.exit_code == 1
+        assert "Unknown mode" in result.output
+        assert "Available modes:" in result.output
+
+
+def test_mode_switch_updates_config(runner, tmp_path):
+    """Test mode command updates current_mode in config."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        runner.invoke(main, ['init'])
+        result = runner.invoke(main, ['mode', 'code_velocity'])
+        assert result.exit_code == 0
+        assert "Mode set: code_velocity" in result.output
+
+        config = Config.load(".project-guide.yml")
+        assert config.current_mode == "code_velocity"
+
+
+def test_mode_renders_output(runner, tmp_path):
+    """Test mode command renders go-project-guide.md to spec_artifacts_path."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        runner.invoke(main, ['init'])
+        runner.invoke(main, ['mode', 'debug'])
+
+        output = Path("docs/specs/go-project-guide.md")
+        assert output.exists()
+        content = output.read_text(encoding="utf-8")
+        assert "Debug Guide" in content
+
+
 def test_status_with_overridden_guides(runner, tmp_path):
     """Test status command with overridden guides."""
     with runner.isolated_filesystem(temp_dir=tmp_path):
