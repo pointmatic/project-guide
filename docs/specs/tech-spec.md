@@ -2,7 +2,7 @@
 
 This document defines **how** the `project-guide` project is built — architecture, module layout, dependencies, data models, API signatures, and cross-cutting concerns.
 
-For requirements and behavior, see `features.md`. For the implementation plan, see the stories document (to be created).
+For a high-level concept (why), see `concept.md`. For requirements and behavior (what), see `features.md`. For a breakdown of the implementation plan (step-by-step tasks), see `stories.md`.
 
 ---
 

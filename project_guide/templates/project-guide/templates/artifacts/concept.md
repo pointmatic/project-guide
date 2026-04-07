@@ -1,5 +1,12 @@
 # concept.md — {{project_name}}
 
+This document defines why the `{{project_name}}` project exists. 
+- **Problem space**: problem statement, why, pain points, target users, value criteria
+- **Solution space**: solution statement, goals, scope, constraints
+- **Value mapping**: Pain point to solution mapping
+
+For requirements and behavior (what), see `features.md`. For implementation details (how), see `tech-spec.md`. For a breakdown of the implementation plan (step-by-step tasks), see `stories.md`.
+
 ## Problem Space
  
 ### Problem Statement
@@ -26,5 +33,5 @@
 ### Constraints
 {{constraints}}
 
-### Pain-Point to Solution Mapping
+## Value Mapping
 {{pain_point_to_solution_mapping}}

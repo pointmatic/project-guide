@@ -60,6 +60,18 @@ For requirements and behavior, see `features.md`. For the implementation plan, s
 
 ---
 
+## Performance Implementation
+
+{{performance_implementation}}
+
+---
+
 ## Testing Strategy
 
 {{testing_strategy}}
+
+---
+
+## Packaging and Distribution
+
+{{packaging_and_distribution}}

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.8] - 2026-04-07
+
+### Added
+- New `project_setup` mode -- one-time project scaffolding (LICENSE, copyright headers, package manifest, README with badges, CHANGELOG, .gitignore)
+- `project-setup-mode.md` template with step-by-step setup instructions and approval checklist
+
+### Changed
+- `default-mode.md` slimmed to pure navigation -- project lifecycle overview with mode table, no setup instructions
+- Mode flow updated: `default` -> `project_setup` -> `plan_concept` -> ... -> `code_velocity`
+- `project_setup` added to `project-guide-metadata.yml` between `default` and `plan_concept`
+
 ## [2.0.7] - 2026-04-07
 
 ### Added

@@ -1,6 +1,6 @@
 # Documentation Setup Guide
 
-This guide explains a documentation pattern for GitHub Pages. It features a custom landing page (`index.html`) as the home page combined with MkDocs Material theme built from markdown pages for additional documentation.
+Implement the landing page (GitHub Pages) and extended documentation (MkDocs Material theme). You will create a custom landing page (`index.html`) as the home page combined with MkDocs Material theme built from markdown pages for additional documentation.
 
 {% include "modes/_header-sequence.md" %}
 
@@ -84,8 +84,8 @@ your-repo/
 
 Before proceeding, you must have the following images prepared, which will include the tagline developed in `docs/specs/descriptions.md`:
 
-- **Landing page banner**: `docs/site/images/<repo_name>-banner-landing.png` (1024×650 pixels)
-- **README header**: `docs/site/images/<repo_name>-header-readme.png` (945×100 pixels)
+- **Landing page banner**: `{{ web_root }}/images/<repo_name>-banner-landing.png` (1024×650 pixels)
+- **README header**: `{{ web_root }}/images/<repo_name>-header-readme.png` (945×100 pixels)
 
 **If these images are missing**, the LLM should:
 1. Stop and notify the developer
@@ -136,7 +136,7 @@ theme:
     - content.code.annotate
 
 # Documentation structure
-docs_dir: docs/site
+docs_dir: {{ web_root }}
 site_dir: site
 
 nav:
@@ -175,7 +175,7 @@ plugins:
 
 ## Step 5: Create Landing Page
 
-Create `docs/site/index.html` with this template structure:
+Create `{{ web_root }}/index.html` with this template structure:
 
 ```html
 <!DOCTYPE html>
@@ -362,9 +362,9 @@ Create `docs/site/index.html` with this template structure:
 
 ## Step 6: Create Documentation Pages
 
-Create markdown files in `docs/site/`:
+Create markdown files in `{{ web_root }}/`:
 
-**`docs/site/getting-started.md`:**
+**`{{ web_root }}/getting-started.md`:**
 ```markdown
 # Getting Started
 
@@ -398,7 +398,7 @@ npm install
 - [API Reference](api.md)
 ```
 
-**`docs/site/usage.md`:**
+**`{{ web_root }}/usage.md`:**
 ```markdown
 # Usage Guide
 
@@ -444,7 +444,7 @@ Add to your main `.gitignore` file at the repository root:
 /site/
 ```
 
-**Note:** Use `/site/` (with leading slash) to only ignore the build output directory at the repository root, not the source files in `docs/site/`.
+**Note:** Use `/site/` (with leading slash) to only ignore the build output directory at the repository root, not the source files in `{{ web_root }}/`.
 
 ## Step 8: Create GitHub Actions Workflow
 
@@ -666,7 +666,7 @@ Add CSS:
 
 ### Hero Banner Image
 
-Add image to `docs/site/images/banner.png`, then in `index.html`:
+Add image to `{{ web_root }}/images/banner.png`, then in `index.html`:
 
 ```html
 <section class="hero">
@@ -749,7 +749,7 @@ Requires `mike` for versioning: `pip install mike`
 
 **Error: `Doc file 'page.md' contains a link '../file.md', but the target is not found`**
 
-**Solution:** Ensure all links point to files within `docs/site/`. Use absolute GitHub URLs for files outside docs:
+**Solution:** Ensure all links point to files within `{{ web_root }}/`. Use absolute GitHub URLs for files outside docs:
 ```markdown
 [README](https://github.com/yourusername/your-repo)
 ```
@@ -790,9 +790,9 @@ Reference implementations:
 
 **File checklist:**
 - [ ] `mkdocs.yml` - MkDocs configuration
-- [ ] `docs/site/index.html` - Custom landing page
-- [ ] `docs/site/*.md` - Documentation pages
-- [ ] `docs/site/.gitignore` - Ignore build output
+- [ ] `{{ web_root }}/index.html` - Custom landing page
+- [ ] `{{ web_root }}/*.md` - Documentation pages
+- [ ] `{{ web_root }}/.gitignore` - Ignore build output
 - [ ] `.github/workflows/deploy-docs.yml` - Deployment workflow
 - [ ] GitHub Pages configured to use GitHub Actions
 

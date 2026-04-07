@@ -8,7 +8,7 @@ Define the problem space (problem statement, why, pain points, target users, val
 
 Before starting, the developer must provide (or the LLM must ask for):
 
-1. **A project idea** -- a short description of what the project should do (a few sentences to a few paragraphs). This is often documented in a `docs/specs/concept.md` file.
+1. **A project idea** -- a short description of what the project should do (a few sentences to a few paragraphs). This is often documented in a `docs/specs/idea.md` file.
 
 ## Steps
 

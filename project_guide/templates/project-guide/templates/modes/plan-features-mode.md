@@ -2,7 +2,7 @@
 
 Define **what** the project does -- requirements, inputs, outputs, behavior -- without specifying **how** it is implemented. This is the source of truth for scope.
 
-For implementation details, see `tech-spec.md`. For the implementation plan, see `stories.md`.
+The high-level concept (why) should be captured in `concept.md`. The implementation details (how) should be written in `tech-spec.md`. The breakdown of the implementation plan (step-by-step tasks) should be written in `stories.md`.
 
 {% include "modes/_header-sequence.md" %}
 
@@ -21,7 +21,7 @@ The approved `docs/specs/concept.md` must exist before starting this mode.
 1. Gather information from the developer (ask questions if needed):
    - project_name: The project name
    - programming_language: e.g., Python 3.11+, Node 22, Go 1.23
-   - project_goal: One paragraph on what the project does
+   - project_goal: One paragraph on what the project should accomplish
    - core_requirements: The essential functionality
    - operational_requirements: Error handling, logging, configuration, CLI interface, etc.
    - quality_requirements: Reliability, clarity, minimal dependencies, cross-platform, etc.
@@ -33,7 +33,7 @@ The approved `docs/specs/concept.md` must exist before starting this mode.
    - configuration: Config precedence, config file format/schema
    - testing_requirements: Minimum test coverage expectations
    - security_notes: Security and compliance considerations (if applicable)
-   - performance_notes: Concurrency, rate limiting, atomicity (if applicable)
+   - performance_expectations: User-facing performance requirements (e.g., real-time processing, batch reports within 1 hour, response time under 200ms) (if applicable)
    - acceptance_criteria: Definition of done for the whole project
 
 2. Generate `docs/specs/features.md` using the artifact template at `templates/artifacts/features.md`

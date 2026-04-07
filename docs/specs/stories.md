@@ -332,7 +332,42 @@ Ensure test coverage remains at 85%+ after all Phase J changes. Update README an
 - [x] Bump `version.py` and `pyproject.toml` to `2.0.7`
 - [x] Update `CHANGELOG.md`
 
-### Story J.i. v2.0.8 Landing Page Documentation Updates [Planned]
+### Story J.i: v2.0.8 Project Setup Mode [Done]
+
+Extract project scaffolding (LICENSE, headers, manifest, README, CHANGELOG, .gitignore) from `default-mode.md` into a dedicated `project_setup` sequence mode. Slim `default` to pure navigation.
+
+- [x] Create `project-setup-mode.md` with step-by-step setup instructions and approval checklist
+- [x] Add `project_setup` mode to `project-guide-metadata.yml` (between `default` and `plan_concept`)
+- [x] Slim `default-mode.md` to project lifecycle overview with mode table -- no setup content
+- [x] Update mode flow: `default` -> `project_setup` -> `plan_concept`
+- [x] Verify: `project-guide mode project_setup` renders correctly with setup steps
+- [x] Verify: `default` mode no longer contains setup instructions
+- [x] Bump `version.py` and `pyproject.toml` to `2.0.8`
+- [x] Update `CHANGELOG.md`
+
+### Story J.k: v2.0.9 Refactoring Modes [Planned]
+
+Implement the `refactor_plan` and `refactor_document` cycle modes. The mode steps are (generally):
+
+Enumerate the documents to refactor (to run through the refactor steps)
+
+Steps for each document
+1. Move existing document to `<doc_name>_old.md`
+2. Gather information from old document as the primary source. 
+3. If any necessary information is missing from the old document, ask the developer for the information.
+4. Output new document in the updated format. 
+5. Any leftover information should be added to the end of the new document as a `## Legacy Content` section.
+6. Present the completed document to the developer for approval; iterate as needed.
+
+### Future Story: Code Production Mode [Deferred]
+
+Implement the `code_production` mode...TBD
+
+### Future Story: Audit Modes [Deferred]
+
+Future modes (deferred): `audit_security`, `audit_architecture`, `audit_performance`, `audit_best_practices`, `audit_modularity`, `audit_patterns`, .
+
+### Future Story: Landing Page Documentation Updates [Deferred]
 
 Update all documentation to reflect the new mode system and workflow changes.
 

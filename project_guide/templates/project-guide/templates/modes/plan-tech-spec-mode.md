@@ -2,7 +2,7 @@
 
 Define **how** the project is built -- architecture, module layout, dependencies, data models, API signatures, and cross-cutting concerns.
 
-For requirements and behavior, see `features.md`. For the implementation plan, see `stories.md`.
+The high-level concept (why) should be captured in `concept.md`. The requirements and behavior (what) should be captured in `features.md`. The breakdown of this implementation plan (step-by-step tasks) should be written in `stories.md`.
 
 {% include "modes/_header-sequence.md" %}
 
@@ -30,7 +30,9 @@ The approved `docs/specs/concept.md` and `docs/specs/features.md` must exist bef
    - cli_design: Subcommands table, shared flags, exit codes (if applicable)
    - library_api: Public API with usage examples (if applicable)
    - cross_cutting: Retry strategy, rate limiting, logging, caching, atomic writes, etc.
+   - performance_implementation: Concurrency model, connection pooling, batching strategy, resource limits (if applicable)
    - testing_strategy: Unit tests, integration tests, and what each covers
+   - packaging_and_distribution: Package metadata, registry (PyPI/npm/crates.io), installation methods, console scripts, package data inclusion (if applicable)
 
 3. Generate `docs/specs/tech-spec.md` using the artifact template at `templates/artifacts/tech-spec.md`
 
