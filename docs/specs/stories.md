@@ -531,10 +531,15 @@ The file lives in `docs/project-guide/` — the directory provides context. The 
 - [x] Verify: `project-guide status` shows grouped output with hash-based file state
 - [x] Verify: version upgrade with no template changes shows `Files: 33 current`
 
-### Story J.o: v2.0.14 Adjust status output colors
+### Story J.o: v2.0.14 Adjust status output colors [Done]
 
 - [x] Adjust status output colors for interest and readability
-- [ ] Bump version to 2.0.14
+- [x] Bump version to 2.0.14
+
+### Story J.p: v2.0.15 Add missing prompt to 'Tell LLM to read go.md' [Done]
+
+- [x] Add prompt to 'Tell your LLM: Read docs/project-guide/go-project-guide.md'
+- [x] Bump version to 2.0.15
 
 ---
 

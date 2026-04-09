@@ -307,10 +307,12 @@ def status(verbose):
 
     # --- Guide section ---
     click.echo()
+    guide_path = str(target_dir / 'go.md')
     click.echo(
         click.style("Guide: ", bold=True)
-        + click.style(str(target_dir / 'go.md'), fg='cyan')
+        + click.style(guide_path, fg='cyan')
     )
+    click.secho(f"  Tell your LLM: Read {guide_path}", dim=True)
 
     # --- Files section ---
     click.echo()
