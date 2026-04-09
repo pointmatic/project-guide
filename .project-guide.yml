@@ -1,3 +1,4 @@
-version: '1.0'
-installed_version: 1.5.1
-target_dir: docs/guides
+version: '2.0'
+installed_version: 2.0.9
+target_dir: docs/project-guide
+current_mode: plan_concept

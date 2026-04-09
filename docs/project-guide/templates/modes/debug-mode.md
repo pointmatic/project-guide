@@ -1,13 +1,8 @@
 # Debug Guide for LLMs
 
-This guide provides a structured approach for LLMs to help developers debug issues in existing software projects. It emphasizes test-driven debugging, root cause analysis, and preventing regressions.
+This mode is a structured approach for LLMs to help developers debug issues in existing software projects. It emphasizes test-driven debugging, root cause analysis, and preventing regressions.
 
-**Context:** This guide assumes you're working in a project created using the workflow defined in `project_guide.md`, which means the following documentation structure exists:
-- `docs/specs/features.md` - Feature requirements (what the project does)
-- `docs/specs/tech_spec.md` - Technical specification (how it's built)
-- `docs/specs/stories.md` - Implementation stories and changelog
-
----
+{% include "modes/_header-cycle.md" %}
 
 ## Core Debugging Principles
 

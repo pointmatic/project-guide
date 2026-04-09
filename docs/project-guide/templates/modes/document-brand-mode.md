@@ -1,19 +1,24 @@
-# Descriptions Guide — Generating Project Descriptions
+# Brand Mode — {{ mode_info }}
 
-This guide provides instructions for creating a `docs/specs/descriptions.md` file that serves as the canonical source of truth for all descriptive language used across a project.
+### Description
+
+{{ mode_description }}
+
+{% include "modes/_header-sequence.md" %}
 
 ---
 
 ## Purpose
 
-The `descriptions.md` file centralizes all project descriptions, taglines, and marketing copy in one location. This ensures consistency across:
+The `{filename}` file centralizes all project descriptions, taglines, marketing copy and links to branded assets in one place. This promotes consistency across:
 - README.md
-- Landing page (docs/index.html)
+- Landing page ({{ web_root }}/index.html)
+- MkDocs documentation
 - Package metadata (pyproject.toml, package.json)
 - Feature documentation (features.md)
-- GitHub repository settings
+- GitHub repository and other app/package publication channels
 
-**Benefits:**
+### Benefits
 - Single source of truth for all project descriptions
 - Consistency across all consumer files
 - Easy to update descriptions project-wide
@@ -21,15 +26,35 @@ The `descriptions.md` file centralizes all project descriptions, taglines, and m
 
 ---
 
+## Process
+
 ## When to Create
 
-Create `descriptions.md` as an **early step** in the documentation setup phase, specifically:
+Create `{file_name}` as an **early step** in the documentation setup phase, specifically:
 
 1. **After** the project has core functionality implemented
 2. **Before** creating the landing page or final README
 3. **During** the documentation phase (typically Phase H or F)
 
 This allows you to finalize descriptions once and disseminate them to all consumer files.
+
+
+### Prerequisites
+
+- TBD
+
+### Steps
+1. TBD
+
+### Output
+- `{project_guide_path}/brand-descriptions.md`
+
+### Done Criteria
+- `docs/specs/brand-descriptions.md` is created and filled with appropriate content
+- All consumer files (README.md, {{ web_root }}/index.html, pyproject.toml, features.md) use the canonical descriptions
+- Descriptions are consistent across all consumer files
+
+---
 
 ---
 
@@ -42,7 +67,7 @@ Create `docs/specs/descriptions.md` with the following sections:
 ```markdown
 # descriptions.md — <project-name>
 
-Canonical source of truth for all descriptive language used across the project. All consumer files (README.md, docs/index.html, pyproject.toml, features.md) should draw from these definitions.
+Canonical source of truth for all descriptive language used across the project. All consumer files (README.md, {{ web_root }}/index.html, pyproject.toml, features.md) should draw from these definitions.
 
 ---
 ```
@@ -289,7 +314,7 @@ Short blurbs for landing pages and feature grids. Each card has a title and a on
 | File | Which descriptions to use |
 |------|--------------------------|
 | `README.md` line X | <Description type> |
-| `docs/index.html` hero `<h1>` | <Description type> |
+| `{{ web_root }}/index.html` hero `<h1>` | <Description type> |
 | `pyproject.toml` description | <Description type> |
 | (GitHub Repository) | <Description type> |
 ...
@@ -308,9 +333,9 @@ Short blurbs for landing pages and feature grids. Each card has a title and a on
 |------|--------------------------|
 | `README.md` line 7 | Two-clause Technical Description |
 | `README.md` line 13 | Benefits (inline) |
-| `docs/index.html` hero `<h1>` | One-liner |
-| `docs/index.html` hero `<p>` | Friendly Brief Description |
-| `docs/index.html` feature grid | Feature Cards |
+| `{{ web_root }}/index.html` hero `<h1>` | One-liner |
+| `{{ web_root }}/index.html` hero `<p>` | Friendly Brief Description |
+| `{{ web_root }}/index.html` feature grid | Feature Cards |
 | `pyproject.toml` description | Long Tagline |
 | (GitHub Repository) | One-liner + ":" + Long Tagline |
 ```
@@ -355,7 +380,7 @@ After approval, update all consumer files with the appropriate descriptions:
 
 **Automatic Updates (LLM can do):**
 - `README.md` — update description sections
-- `docs/index.html` — update hero text and feature cards
+- `{{ web_root }}/index.html` — update hero text and feature cards
 - `pyproject.toml` (or `package.json`) — update description field
 - `docs/specs/features.md` — update header description
 
@@ -446,7 +471,7 @@ Canonical source of truth for all descriptive language used across the project.
 | File | Which descriptions to use |
 |------|--------------------------|
 | `README.md` | <type> |
-| `docs/index.html` | <type> |
+| `{{ web_root }}/index.html` | <type> |
 ```
 
 ---

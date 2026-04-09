@@ -69,7 +69,7 @@ def test_render_produces_output(template_dir, sample_mode, sample_metadata):
     render_go_project_guide(template_dir, sample_mode, sample_metadata, output)
 
     assert output.exists()
-    content = output.read_text()
+    content = output.read_text(encoding="utf-8")
     assert "# Guide" in content
     assert "Mode: plan_concept (sequence)" in content
     assert "## Plan Concept" in content
@@ -85,7 +85,7 @@ def test_render_includes_metadata_common_vars(template_dir, sample_mode, sample_
     output = template_dir / "output.md"
     render_go_project_guide(template_dir, sample_mode, sample_metadata, output)
 
-    content = output.read_text()
+    content = output.read_text(encoding="utf-8")
     assert "Project: test-project" in content
 
 
@@ -110,7 +110,7 @@ def test_render_undefined_vars_are_preserved(template_dir, sample_mode, sample_m
     output = template_dir / "output.md"
     render_go_project_guide(template_dir, sample_mode, sample_metadata, output)
 
-    content = output.read_text()
+    content = output.read_text(encoding="utf-8")
     assert "{{ unknown_variable }}" in content
 
 
@@ -128,7 +128,7 @@ def test_render_end_to_end_with_package_templates():
         output = Path("docs/specs/go-project-guide.md")
         assert output.exists()
 
-        content = output.read_text()
+        content = output.read_text(encoding="utf-8")
         assert "Project-Guide" in content
         assert "default" in content or "Default" in content
 
@@ -169,4 +169,4 @@ def test_every_mode_renders_successfully(mode_name):
 
         output = Path("docs/specs/go-project-guide.md")
         assert output.exists()
-        assert len(output.read_text()) > 0
+        assert len(output.read_text(encoding="utf-8")) > 0

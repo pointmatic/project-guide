@@ -71,7 +71,7 @@ def test_init_with_force_flag(runner, tmp_path):
 
         # Modify a template
         template_path = Path("docs/project-guide/templates/modes/plan-concept-mode.md")
-        original_content = template_path.read_text()
+        original_content = template_path.read_text(encoding="utf-8")
         template_path.write_text("Modified content")
 
         # Second init with force
@@ -79,7 +79,7 @@ def test_init_with_force_flag(runner, tmp_path):
         assert result.exit_code == 0
 
         # Verify file was overwritten
-        assert template_path.read_text() == original_content
+        assert template_path.read_text(encoding="utf-8") == original_content
 
 
 def test_init_with_custom_target_dir(runner, tmp_path):
@@ -677,14 +677,14 @@ def test_update_dry_run_with_modified_file(runner, tmp_path):
         runner.invoke(main, ['init'])
 
         Path("docs/project-guide/templates/modes/debug-mode.md").write_text("User-modified content")
-        original = Path("docs/project-guide/templates/modes/debug-mode.md").read_text()
+        original = Path("docs/project-guide/templates/modes/debug-mode.md").read_text(encoding="utf-8")
 
         result = runner.invoke(main, ['update', '--dry-run'])
 
         assert result.exit_code == 0
         assert "would prompt" in result.output.lower()
         # File should not have changed
-        assert Path("docs/project-guide/templates/modes/debug-mode.md").read_text() == original
+        assert Path("docs/project-guide/templates/modes/debug-mode.md").read_text(encoding="utf-8") == original
 
 
 def test_update_dry_run_with_missing_files(runner, tmp_path):

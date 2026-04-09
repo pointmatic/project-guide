@@ -30,3 +30,4 @@ build/
 
 # MkDocs build output
 /site/
+docs/specs/go-project-guide.md
