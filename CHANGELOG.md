@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.10] - 2026-04-08
+
+### Fixed
+- `init` now starts in `default` mode instead of `plan_concept`
+- `files_exist` prerequisites no longer include template paths that resolve to repo-internal locations; only user-created spec artifacts are checked
+
+### Changed
+- Renamed metadata file from `project-guide-metadata.yml` to `.metadata.yml` (hidden, shorter — already scoped by `project-guide/` directory)
+- Added `metadata_file` field to `.project-guide.yml` config — CLI reads the metadata filename from config instead of hardcoding it
+- Render errors now show actionable guidance: run `project-guide status` and `project-guide update`
+- `sync.py` guide discovery now includes dotfiles (`.*.yml` pattern)
+
+### Added
+- Parametrized test that renders every mode from the bundled metadata — proves a fresh install works and catches regressions
+
 ## [2.0.9] - 2026-04-07
 
 ### Added

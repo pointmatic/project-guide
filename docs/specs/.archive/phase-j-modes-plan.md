@@ -215,6 +215,8 @@ Following the project's own best-practices guide ("Spike Early, Spike Often"), P
 
 ## Out of Scope for Phase J
 
+These were added to the end of the `stories.md` file as future feature ideas. 
+
 - Mode auto-detection from `files_exist` prerequisites (future advanced feature)
 - Interactive mode menu (deferred — direct `mode <name>` argument is sufficient for v2.0.0)
 - LLM API calls for artifact generation (future — currently the LLM fills in variables conversationally)

@@ -23,7 +23,7 @@ from project_guide.exceptions import MetadataError
 
 @dataclass
 class ModeDefinition:
-    """A single mode entry from project-guide-metadata.yml."""
+    """A single mode entry from .metadata.yml."""
     name: str
     info: str
     description: str
@@ -37,7 +37,7 @@ class ModeDefinition:
 
 @dataclass
 class Metadata:
-    """Parsed and resolved project-guide-metadata.yml."""
+    """Parsed and resolved .metadata.yml."""
     common: dict[str, str]
     modes: list[ModeDefinition]
 
@@ -77,7 +77,7 @@ def _resolve_dict(data, variables: dict[str, str]):
 
 def load_metadata(path: str | Path) -> Metadata:
     """
-    Load and validate project-guide-metadata.yml.
+    Load and validate .metadata.yml.
 
     Two-pass resolution: the `common` block defines variables, then all
     other fields containing {{var}} are resolved against those variables.

@@ -389,6 +389,48 @@ Implement `refactor_plan` and `refactor_document` cycle modes for migrating exis
 - [x] Bump `version.py` and `pyproject.toml` to `2.0.9`
 - [x] Update `CHANGELOG.md`
 
+### Story J.k: v2.0.10 Fix UX and Config Problems [Done]
+
+Fix three UX/config issues identified in `docs/specs/ux-problems.md`. No backward compatibility needed — `purge` + `init` is the recovery path.
+
+**Fix 1 — Default mode on init:**
+
+`init` hardcodes `current_mode="plan_concept"` and renders in `plan_concept` mode. It should use `default`.
+
+- [x] Update `cli.py` `init`: change `current_mode="plan_concept"` to `"default"` and render in `default` mode
+- [x] Update affected tests
+
+**Fix 2 — Remove template paths from `files_exist`:**
+
+`files_exist` entries include `{{mode_templates_path}}/...` which resolves to a repo-internal path that never exists in an installed project. Template presence is infrastructure, not a user prerequisite — if a template is missing, the render will fail with a clear Jinja2 error.
+
+- [x] Remove all `{{mode_templates_path}}` entries from `files_exist` in the metadata file, keeping only `{{spec_artifacts_path}}` entries (user-created content)
+- [x] Add actionable error guidance: when a Jinja2 render fails due to a missing template, prompt the developer to run `project-guide status` and `project-guide update`
+- [x] Add a parametrized test that iterates every mode in the metadata and asserts the render pipeline succeeds — proves a fresh install works and catches regressions when modes are added
+- [x] Update affected tests
+
+**Fix 3 — Rename metadata file to `.metadata.yml` and add to config:**
+
+`project-guide-metadata.yml` is redundant (already inside `project-guide/`) and is infrastructure, not user content. Rename to `.metadata.yml` (hidden, minimal). Store the filename in `.project-guide.yml` so the CLI never hardcodes it.
+
+- [x] Add `metadata_file: str = ".metadata.yml"` to `Config` dataclass in `config.py`
+- [x] Update `cli.py`: replace all 4 hardcoded `"project-guide-metadata.yml"` with `Path(config.target_dir) / config.metadata_file`; in `init`, set `metadata_file=".metadata.yml"` when creating the config
+- [x] Rename template file: `project_guide/templates/project-guide/project-guide-metadata.yml` → `project_guide/templates/project-guide/.metadata.yml`
+- [x] Update `metadata.py`: docstrings referencing the old filename
+- [x] Update `sync.py` `get_all_guide_names()`: `rglob("*.yml")` does not match dotfiles — add `".*.yml"` pattern or explicitly include `.metadata.yml`
+- [x] Update all test references (`test_metadata.py`, `test_cli.py`, `test_integration.py`)
+- [x] Update `CHANGELOG.md`
+
+**Wrap-up:**
+- [x] Bump `version.py` and `pyproject.toml` to `2.0.10`
+- [x] Run full test suite — 129 tests pass, 92% coverage
+- [x] Verify: `project-guide init` creates `.metadata.yml` and starts in `default` mode
+- [x] Verify: `.project-guide.yml` contains `metadata_file: .metadata.yml`
+- [x] Verify: `project-guide mode plan_phase` shows only spec artifact prerequisites, no template paths
+- [x] Verify: `project-guide update` syncs `.metadata.yml` correctly
+
+## Future
+
 ### Future Story: Landing Page Documentation Updates [Deferred]
 
 Update all documentation to reflect the new mode system and workflow changes.
@@ -412,4 +454,13 @@ Then `plan_phase` mode can create a new `docs/specs/stories.md` file. This requi
 
 Future modes (deferred): `audit_security`, `audit_architecture`, `audit_performance`, `audit_best_practices`, `audit_modularity`, `audit_patterns`
 
+### Out of Scope for Phase J
+
+- Mode auto-detection from `files_exist` prerequisites (future advanced feature)
+- Interactive mode menu (deferred — direct `mode <name>` argument is sufficient for v2.0.0)
+- LLM API calls for artifact generation (future — currently the LLM fills in variables conversationally)
+- Per-project metadata overrides in `.project-guide.yml` (future — metadata.yml is the single source for now)
+- Migration tooling for `docs/guides/` → `docs/project-guide/` (future `refactor` mode)
+- Story detection in `status` command (nice-to-have, can be added in a follow-up phase)
+- Future modes: `code_production`, `audit_*`, `refactor_*`
 

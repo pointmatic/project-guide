@@ -132,7 +132,7 @@ def test_load_metadata_from_package():
     """Test loading the actual bundled metadata file."""
     import importlib.resources
     with importlib.resources.as_file(
-        importlib.resources.files("project_guide.templates").joinpath("project-guide/project-guide-metadata.yml")
+        importlib.resources.files("project_guide.templates").joinpath("project-guide/.metadata.yml")
     ) as path:
         metadata = load_metadata(path)
 

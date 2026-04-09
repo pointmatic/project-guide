@@ -35,7 +35,7 @@ def test_full_init_override_update_workflow(runner, tmp_path):
         result = runner.invoke(main, ['init'])
         assert result.exit_code == 0
         assert Path(".project-guide.yml").exists()
-        assert Path("docs/project-guide/project-guide-metadata.yml").exists()
+        assert Path("docs/project-guide/.metadata.yml").exists()
 
         # Step 2: Override a guide
         result = runner.invoke(main, ['override', 'templates/modes/debug-mode.md', 'Custom debugging workflow'])

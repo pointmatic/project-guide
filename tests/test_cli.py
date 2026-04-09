@@ -44,7 +44,7 @@ def test_init_in_empty_directory(runner, tmp_path):
 
         # Verify templates were created in new structure
         assert Path("docs/specs/go-project-guide.md").exists()
-        assert Path("docs/project-guide/project-guide-metadata.yml").exists()
+        assert Path("docs/project-guide/.metadata.yml").exists()
         assert Path("docs/project-guide/templates/modes/plan-concept-mode.md").exists()
         assert Path("docs/project-guide/developer/codecov-setup-guide.md").exists()
 
@@ -88,7 +88,7 @@ def test_init_with_custom_target_dir(runner, tmp_path):
         result = runner.invoke(main, ['init', '--target-dir', 'custom/path'])
 
         assert result.exit_code == 0
-        assert Path("custom/path/project-guide-metadata.yml").exists()
+        assert Path("custom/path/.metadata.yml").exists()
 
         # Verify config has correct target_dir
         config = Config.load(".project-guide.yml")
@@ -108,7 +108,7 @@ def test_status_with_all_guides_current(runner, tmp_path):
         assert f"project-guide v{__version__}" in result.output
         # Mode info
         assert "Mode:" in result.output
-        assert "plan_concept" in result.output
+        assert "default" in result.output
         assert "Guide:" in result.output
         # Guide sync status
         assert "Guides status:" in result.output
@@ -142,8 +142,8 @@ def test_status_shows_mode_and_prerequisites(runner, tmp_path):
         result = runner.invoke(main, ['status'])
 
         assert result.exit_code == 0
-        assert "Mode:  plan_concept" in result.output
-        assert "Generate a high-level concept" in result.output
+        assert "Mode:  default" in result.output
+        assert "Getting started" in result.output
         assert "go-project-guide.md" in result.output
 
 
@@ -715,7 +715,7 @@ def test_update_all_declined_message(runner, tmp_path):
             guide.write_text("Modified content")
 
         # Decline all prompts (enough for all modified guides)
-        result = runner.invoke(main, ['update'], input=("n\n" * 30))
+        result = runner.invoke(main, ['update'], input=("n\n" * 50))
 
         assert result.exit_code == 0
         assert "No guides updated" in result.output or "declined" in result.output

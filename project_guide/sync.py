@@ -53,7 +53,7 @@ def get_all_guide_names() -> list[str]:
     root = _get_package_template_root()
     guide_names = []
 
-    for pattern in ("*.md", "*.md.j2", "*.yml"):
+    for pattern in ("*.md", "*.md.j2", "*.yml", ".*.yml"):
         for path in sorted(root.rglob(pattern)):
             # Use forward slashes for cross-platform consistency
             rel = path.relative_to(root).as_posix()

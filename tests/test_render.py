@@ -130,4 +130,43 @@ def test_render_end_to_end_with_package_templates():
 
         content = output.read_text()
         assert "Project-Guide" in content
-        assert "plan_concept" in content or "concept" in content.lower()
+        assert "default" in content or "Default" in content
+
+
+def _get_all_mode_names():
+    """Load bundled metadata and return all mode names for parametrization."""
+    import importlib.resources
+
+    from project_guide.metadata import load_metadata
+
+    with importlib.resources.as_file(
+        importlib.resources.files("project_guide.templates").joinpath(
+            "project-guide/.metadata.yml"
+        )
+    ) as path:
+        metadata = load_metadata(path)
+    return metadata.list_mode_names()
+
+
+@pytest.mark.parametrize("mode_name", _get_all_mode_names())
+def test_every_mode_renders_successfully(mode_name):
+    """Every mode in the bundled metadata must render without errors.
+
+    This proves a fresh install works and catches regressions when modes are added.
+    """
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0, f"init failed: {result.output}"
+
+        result = runner.invoke(main, ['mode', mode_name])
+        assert result.exit_code == 0, f"mode {mode_name} failed: {result.output}"
+        assert f"Mode set: {mode_name}" in result.output
+
+        output = Path("docs/specs/go-project-guide.md")
+        assert output.exists()
+        assert len(output.read_text()) > 0

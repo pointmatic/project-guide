@@ -110,15 +110,16 @@ def init(target_dir: str, force: bool):
     click.secho(f"✓ Created {target_dir}/", fg='green')
 
     # Load metadata and render go-project-guide.md
-    metadata_path = target_path / "project-guide-metadata.yml"
+    metadata_file = ".metadata.yml"
+    metadata_path = target_path / metadata_file
     spec_artifacts_path = "docs/specs"
     try:
         metadata = load_metadata(metadata_path)
         spec_artifacts_path = metadata.common.get("spec_artifacts_path", spec_artifacts_path)
-        mode = metadata.get_mode("plan_concept")
+        mode = metadata.get_mode("default")
         output_path = Path(spec_artifacts_path) / "go-project-guide.md"
         render_go_project_guide(target_path, mode, metadata, output_path)
-        click.secho(f"✓ Rendered {output_path} (mode: plan_concept)", fg='green')
+        click.secho(f"✓ Rendered {output_path} (mode: default)", fg='green')
     except (MetadataError, RenderError) as e:
         click.secho(f"Warning: Could not render go-project-guide.md: {e}", fg='yellow')
 
@@ -130,7 +131,8 @@ def init(target_dir: str, force: bool):
         version="2.0",
         installed_version=__version__,
         target_dir=target_dir,
-        current_mode="plan_concept",
+        metadata_file=metadata_file,
+        current_mode="default",
     )
     config.save(str(config_path))
     click.secho(f"✓ Created {config_path}", fg='green')
@@ -176,7 +178,7 @@ def set_mode(mode_name: str | None):
         sys.exit(3)
 
     # Load metadata
-    metadata_path = Path(config.target_dir) / "project-guide-metadata.yml"
+    metadata_path = Path(config.target_dir) / config.metadata_file
     try:
         metadata = load_metadata(metadata_path)
     except MetadataError as e:
@@ -211,6 +213,8 @@ def set_mode(mode_name: str | None):
         render_go_project_guide(target_dir, mode, metadata, output_path)
     except RenderError as e:
         click.secho(f"Error rendering: {e}", fg='red', err=True)
+        click.secho("  Run 'project-guide status' to check for missing files.", fg='yellow', err=True)
+        click.secho("  Run 'project-guide update' to restore missing templates.", fg='yellow', err=True)
         sys.exit(2)
 
     # Update config
@@ -267,7 +271,7 @@ def status():
 
     # Show mode info
     target_dir = Path(config.target_dir)
-    metadata_path = target_dir / "project-guide-metadata.yml"
+    metadata_path = target_dir / config.metadata_file
     try:
         metadata = load_metadata(metadata_path)
         mode = metadata.get_mode(config.current_mode)
@@ -475,7 +479,7 @@ def update(guides: tuple, dry_run: bool, force: bool):
         template_files = [f for f in all_updated if f.startswith("templates/modes/") or f == "go-project-guide.md"]
         if template_files:
             target_dir = Path(config.target_dir)
-            metadata_path = target_dir / "project-guide-metadata.yml"
+            metadata_path = target_dir / config.metadata_file
             try:
                 metadata = load_metadata(metadata_path)
                 mode = metadata.get_mode(config.current_mode)

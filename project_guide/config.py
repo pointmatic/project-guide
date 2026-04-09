@@ -52,6 +52,7 @@ class Config:
     version: str = "2.0"
     installed_version: str = ""
     target_dir: str = "docs/project-guide"
+    metadata_file: str = ".metadata.yml"
     current_mode: str = "default"
     overrides: dict[str, GuideOverride] = field(default_factory=dict)
 
@@ -94,6 +95,7 @@ class Config:
             version=data.get('version', '2.0'),
             installed_version=data.get('installed_version'),
             target_dir=data.get('target_dir', 'docs/project-guide'),
+            metadata_file=data.get('metadata_file', '.metadata.yml'),
             current_mode=data.get('current_mode', 'default'),
             overrides=overrides
         )
@@ -104,6 +106,7 @@ class Config:
             "version": self.version,
             "installed_version": self.installed_version,
             "target_dir": self.target_dir,
+            "metadata_file": self.metadata_file,
             "current_mode": self.current_mode,
         }
 
