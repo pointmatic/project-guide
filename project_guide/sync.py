@@ -192,21 +192,21 @@ def sync_files(
     dry_run: bool = False
 ) -> tuple[list[str], list[str], list[str], list[str], list[str]]:
     """
-    Sync tracked files to latest version.
+    Sync tracked files to latest version using content hash comparison.
 
     Args:
         config: Project configuration
         files: List of specific files to sync, or None for all files
-        force: If True, update even overridden files (creates backups)
+        force: If True, update even overridden/modified files (creates backups)
         dry_run: If True, show what would change without applying
 
     Returns:
         Tuple of (updated, skipped, current, missing, modified) file name lists
-        - updated: Files that were/will be updated (outdated version)
+        - updated: Files that were updated (force mode only)
         - skipped: Files skipped due to override (unless force=True)
-        - current: Files that match template and are up-to-date
+        - current: Files whose content matches the bundled template
         - missing: Files that don't exist and were/will be created
-        - modified: Files with user edits detected (version current but content differs)
+        - modified: Files whose content differs from the bundled template
                     These are NOT automatically updated; caller must handle them
     """
     updated = []
@@ -219,7 +219,6 @@ def sync_files(
     files_to_sync = get_all_file_names() if files is None else files
 
     target_dir = Path(config.target_dir)
-    package_version = get_package_version()
 
     for file_name in files_to_sync:
         target_file = target_dir / file_name
@@ -231,37 +230,21 @@ def sync_files(
 
         # Check if file exists
         if not target_file.exists():
-            # File is missing - always needs to be created
             missing.append(file_name)
             if not dry_run:
                 copy_file(file_name, target_dir, force=True)
             continue
 
-        # File exists - check version and content
-        if config.installed_version and compare_versions(config.installed_version, package_version) == 0:
-            # Version is current - check if content matches template
-            if file_matches_template(target_file, file_name):
-                # File matches template exactly - mark as current
-                current.append(file_name)
-                continue
-            else:
-                # User has modified this file - report for caller to handle
-                if force:
-                    # --force: backup and overwrite without prompting
-                    if not dry_run:
-                        apply_file_update(file_name, config, make_backup=True)
-                    updated.append(file_name)
-                else:
-                    # No --force: defer to caller to prompt
-                    modified.append(file_name)
-                continue
-
-        # Outdated version - update unconditionally
-        if not dry_run:
-            if config.is_overridden(file_name) and force:
-                backup_file(target_file)
-            copy_file(file_name, target_dir, force=True)
-
-        updated.append(file_name)
+        # File exists - use content hash to determine freshness
+        if file_matches_template(target_file, file_name):
+            current.append(file_name)
+        elif force:
+            # --force: backup and overwrite without prompting
+            if not dry_run:
+                apply_file_update(file_name, config, make_backup=True)
+            updated.append(file_name)
+        else:
+            # Content differs - defer to caller to prompt
+            modified.append(file_name)
 
     return (updated, skipped, current, missing, modified)

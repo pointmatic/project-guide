@@ -25,7 +25,7 @@ from project_guide.metadata import load_metadata
 from project_guide.render import render_go_project_guide
 from project_guide.sync import (
     apply_file_update,
-    compare_versions,
+    file_matches_template,
     get_all_file_names,
     sync_files,
 )
@@ -109,17 +109,17 @@ def init(target_dir: str, force: bool):
 
     click.secho(f"✓ Created {target_dir}/", fg='green')
 
-    # Load metadata and render go-project-guide.md
+    # Load metadata and render go.md
     metadata_file = ".metadata.yml"
     metadata_path = target_path / metadata_file
-    output_path = target_path / "go-project-guide.md"
+    output_path = target_path / "go.md"
     try:
         metadata = load_metadata(metadata_path)
         mode = metadata.get_mode("default")
         render_go_project_guide(target_path, mode, metadata, output_path)
         click.secho(f"✓ Rendered {output_path} (mode: default)", fg='green')
     except (MetadataError, RenderError) as e:
-        click.secho(f"Warning: Could not render go-project-guide.md: {e}", fg='yellow')
+        click.secho(f"Warning: Could not render go.md: {e}", fg='yellow')
 
     # Add rendered output to .gitignore
     _ensure_gitignore_entry(target_dir)
@@ -139,20 +139,29 @@ def init(target_dir: str, force: bool):
 
 
 def _ensure_gitignore_entry(target_dir: str) -> None:
-    """Add go-project-guide.md to .gitignore if not already present."""
+    """Add project-guide entries to .gitignore if not already present."""
     gitignore_path = Path(".gitignore")
-    entry = f"{target_dir}/go-project-guide.md"
+    entries = [
+        f"{target_dir}/go.md",
+        f"{target_dir}/**/*.bak.*",
+    ]
 
     if gitignore_path.exists():
         content = gitignore_path.read_text()
-        if entry in content:
+        missing = [e for e in entries if e not in content]
+        if not missing:
             return
         if not content.endswith("\n"):
             content += "\n"
-        content += f"{entry}\n"
+        content += "\n# project-guide\n"
+        for entry in missing:
+            content += f"{entry}\n"
         gitignore_path.write_text(content)
     else:
-        gitignore_path.write_text(f"{entry}\n")
+        lines = "# project-guide\n"
+        for entry in entries:
+            lines += f"{entry}\n"
+        gitignore_path.write_text(lines)
 
 
 @main.command(name="mode")
@@ -203,9 +212,9 @@ def set_mode(mode_name: str | None):
             click.echo(f"  {m.name:25} {m.info}")
         sys.exit(1)
 
-    # Render go-project-guide.md to target_dir
+    # Render go.md to target_dir
     target_dir = Path(config.target_dir)
-    output_path = target_dir / "go-project-guide.md"
+    output_path = target_dir / "go.md"
     try:
         render_go_project_guide(target_dir, mode, metadata, output_path)
     except RenderError as e:
@@ -262,95 +271,96 @@ def status(verbose):
         click.secho("  Use 'project-guide mode refactor_document' to migrate descriptions, landing page, MkDocs.", fg='yellow')
         click.echo()
 
-    # Header
-    package_version = __version__
+    # --- Header ---
     target_dir = Path(config.target_dir)
-    click.echo(f"project-guide v{package_version}")
-    click.echo(f"  Target: {config.target_dir}")
+    version_str = f"project-guide v{__version__}"
+    if config.installed_version and config.installed_version != __version__:
+        version_str += f" (installed: v{config.installed_version})"
+    click.echo(version_str)
 
-    # Mode info
+    # --- Mode section ---
+    click.echo()
     metadata_path = target_dir / config.metadata_file
     try:
         metadata = load_metadata(metadata_path)
         mode = metadata.get_mode(config.current_mode)
-        click.echo(f"  Mode:   {mode.name} — {mode.info}")
-        click.echo(f"  Guide:  {target_dir / 'go-project-guide.md'}")
+        click.echo(f"Mode: {mode.name} — {mode.info}")
 
-        # Prerequisites
+        # Prerequisites — only show when the mode has them
         if mode.files_exist:
-            met = [f for f in mode.files_exist if Path(f).exists()]
             missing_prereqs = [f for f in mode.files_exist if not Path(f).exists()]
             if missing_prereqs:
-                click.echo()
-                click.secho("Prerequisites:", fg='yellow')
+                met = [f for f in mode.files_exist if Path(f).exists()]
+                click.secho("  Prerequisites:", fg='yellow')
                 for f in met:
-                    click.secho(f"  ✓ {f}", fg='green')
+                    click.secho(f"    ✓ {f}", fg='green')
                 for f in missing_prereqs:
-                    click.secho(f"  ✗ {f}", fg='yellow')
+                    click.secho(f"    ✗ {f}", fg='yellow')
             else:
                 click.echo("  Prerequisites: all met")
-        else:
-            click.echo("  Prerequisites: none")
     except (MetadataError, FileNotFoundError):
-        click.echo(f"  Mode:   {config.current_mode}")
+        click.echo(f"Mode: {config.current_mode}")
+    click.echo("  Run 'project-guide mode' to see available modes.")
 
+    # --- Guide section ---
     click.echo()
+    click.echo(f"Guide: {target_dir / 'go.md'}")
 
-    # Collect file statuses
+    # --- Files section ---
+    click.echo()
     all_files = get_all_file_names()
-    from project_guide.sync import file_matches_template
 
     current_count = 0
+    overridden_count = 0
+    needs_update_count = 0
+    missing_count = 0
     problem_lines: list[tuple[str, str, str]] = []  # (file_name, detail, color)
 
     for file_name in all_files:
         target_file = target_dir / file_name
 
         if config.is_overridden(file_name):
+            overridden_count += 1
             override = config.overrides[file_name]
             problem_lines.append((
                 file_name,
-                f"v{override.locked_version}  (overridden: \"{override.reason}\")",
+                f"(overridden: \"{override.reason}\")",
                 "yellow",
             ))
         elif not target_file.exists():
+            missing_count += 1
             problem_lines.append((file_name, "(missing)", "red"))
-        elif config.installed_version and compare_versions(config.installed_version, package_version) == 0:
-            if file_matches_template(target_file, file_name):
-                current_count += 1
-            else:
-                problem_lines.append((file_name, f"v{package_version}  (modified)", "yellow"))
+        elif file_matches_template(target_file, file_name):
+            current_count += 1
         else:
-            problem_lines.append((
-                file_name,
-                f"v{config.installed_version}  (update available)",
-                "yellow",
-            ))
+            needs_update_count += 1
+            problem_lines.append((file_name, "(needs updating)", "yellow"))
 
-    # Show summary or details
+    # Build summary line
+    summary_parts = []
+    if current_count > 0:
+        summary_parts.append(f"{current_count} current")
+    if needs_update_count > 0:
+        summary_parts.append(f"{needs_update_count} need updating")
+    if missing_count > 0:
+        summary_parts.append(f"{missing_count} missing")
+    if overridden_count > 0:
+        summary_parts.append(f"{overridden_count} overridden")
+
+    summary = ", ".join(summary_parts) if summary_parts else "no tracked files"
+
     if problem_lines:
-        click.echo("Files:")
-        for file_name, detail, color in problem_lines:
-            click.secho(f"  ✗ {file_name:40} {detail}", fg=color)
-        if current_count > 0:
-            click.echo(f"  ✓ {current_count} current")
-
-        click.echo()
-        has_actionable = any(c in ("red",) or "update available" in d or "modified" in d
-                            for _, d, c in problem_lines)
-        if has_actionable:
-            click.echo("Run 'project-guide update' to sync.")
+        click.echo(f"Files: {summary}")
+        if verbose:
+            for file_name, detail, color in problem_lines:
+                click.secho(f"  ✗ {file_name:40} {detail}", fg=color)
+        click.echo("  Run 'project-guide update' to sync.")
     elif verbose:
-        click.echo("Files:")
+        click.secho(f"Files: {summary}", fg='green')
         for file_name in all_files:
-            click.secho(f"  ✓ {file_name:40} v{package_version}  (current)", fg='green')
-        click.echo()
-        click.secho("All files are up to date.", fg='green')
+            click.secho(f"  ✓ {file_name}", fg='green')
     else:
-        click.secho(f"Files: {current_count} current", fg='green')
-
-    click.echo()
-    click.echo("Run 'project-guide mode' to see available modes.")
+        click.secho(f"Files: {summary}", fg='green')
 
 
 @main.command()
@@ -466,7 +476,7 @@ def update(files: tuple, dry_run: bool, force: bool):
         config.installed_version = __version__
         config.save(str(config_path))
 
-        # Re-render go-project-guide.md if any templates were updated
+        # Re-render go.md if any templates were updated
         template_files = [f for f in all_updated if f.startswith("templates/")]
         if template_files:
             target_dir = Path(config.target_dir)
@@ -474,11 +484,11 @@ def update(files: tuple, dry_run: bool, force: bool):
             try:
                 metadata = load_metadata(metadata_path)
                 mode = metadata.get_mode(config.current_mode)
-                output_path = target_dir / "go-project-guide.md"
+                output_path = target_dir / "go.md"
                 render_go_project_guide(target_dir, mode, metadata, output_path)
-                click.secho("✓ Re-rendered go-project-guide.md", fg='green')
+                click.secho("✓ Re-rendered go.md", fg='green')
             except (MetadataError, RenderError) as e:
-                click.secho(f"Warning: Could not re-render go-project-guide.md: {e}", fg='yellow')
+                click.secho(f"Warning: Could not re-render go.md: {e}", fg='yellow')
 
     # Print summary
     click.echo()

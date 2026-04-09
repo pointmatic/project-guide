@@ -6,7 +6,7 @@ This document provides step-by-step instructions for an LLM to assist a human de
 After installing project-guide (`pip install project-guide`) and running `project-guide init`, instruct your LLM as follows in the chat interface: 
 
 ```
-Read `{{ target_dir }}/go-project-guide.md`
+Read `{{ target_dir }}/go.md`
 ```
 
 After reading, the LLM will respond:

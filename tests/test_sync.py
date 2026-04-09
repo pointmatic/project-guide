@@ -73,7 +73,7 @@ def test_get_all_file_names_returns_all_files():
     assert "developer/codecov-setup-guide.md" in file_names
 
     # Entry point template should be included (it's a source file, not a rendered artifact)
-    assert "templates/go-project-guide.md" in file_names
+    assert "templates/go.md" in file_names
 
     # Should be sorted
     assert file_names == sorted(file_names)
@@ -210,15 +210,16 @@ def test_sync_files_with_overrides_skipped(tmp_path):
 
 
 def test_sync_files_with_force_flag(tmp_path):
-    """Test that force flag updates overridden files."""
+    """Test that force flag updates modified overridden files."""
     target_dir = tmp_path / "project-guide"
     config = Config(
         installed_version="0.5.0",
         target_dir=str(target_dir)
     )
 
-    # Create an existing file and mark it as overridden
+    # Create file, modify it, and mark as overridden
     copy_file("templates/modes/debug-mode.md", target_dir)
+    (target_dir / "templates/modes/debug-mode.md").write_text("Custom content")
     config.add_override("templates/modes/debug-mode.md", "Custom content", "0.5.0")
 
     updated, skipped, current, missing, modified = sync_files(

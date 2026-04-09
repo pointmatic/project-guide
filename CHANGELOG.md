@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.13] - 2026-04-09
+
+### Changed
+- `status` command redesigned with grouped sections: Mode (with prerequisites), Guide, Files — each with contextual action prompts
+- File sync now uses content hash comparison instead of version comparison — a version bump no longer marks unchanged files as stale
+- `(installed: vX.X.X)` only shown in status when it differs from package version
+- Prerequisites line omitted when the mode has none
+- Renamed `go-project-guide.md` → `go.md` — shorter, easier to autocomplete
+
+### Removed
+- Version-based file freshness check — `compare_versions` no longer used by `status` or `sync_files`
+
 ## [2.0.12] - 2026-04-08
 
 ### Changed

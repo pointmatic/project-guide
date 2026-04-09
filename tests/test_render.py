@@ -31,7 +31,7 @@ def template_dir(tmp_path):
     modes_dir.mkdir()
 
     # Entry point template lives inside templates/
-    (templates_dir / "go-project-guide.md").write_text(
+    (templates_dir / "go.md").write_text(
         "# Guide\n\n{% include 'modes/_header-common.md' %}\n\n{% include mode_template %}\n"
     )
 
@@ -98,7 +98,7 @@ def test_render_missing_templates_dir(tmp_path, sample_mode, sample_metadata):
 
 
 def test_render_missing_entry_point(tmp_path, sample_mode, sample_metadata):
-    """Test RenderError when go-project-guide.md template is missing."""
+    """Test RenderError when go.md template is missing."""
     (tmp_path / "templates").mkdir()
     with pytest.raises(RenderError, match="Template not found"):
         render_go_project_guide(tmp_path, sample_mode, sample_metadata, tmp_path / "out.md")
@@ -127,7 +127,7 @@ def test_render_end_to_end_with_package_templates():
         result = runner.invoke(main, ['init'])
         assert result.exit_code == 0
 
-        output = Path("docs/project-guide/go-project-guide.md")
+        output = Path("docs/project-guide/go.md")
         assert output.exists()
 
         content = output.read_text(encoding="utf-8")
@@ -169,6 +169,6 @@ def test_every_mode_renders_successfully(mode_name):
         assert result.exit_code == 0, f"mode {mode_name} failed: {result.output}"
         assert f"Mode set: {mode_name}" in result.output
 
-        output = Path("docs/project-guide/go-project-guide.md")
+        output = Path("docs/project-guide/go.md")
         assert output.exists()
         assert len(output.read_text(encoding="utf-8")) > 0

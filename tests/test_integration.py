@@ -19,7 +19,6 @@ from click.testing import CliRunner
 
 from project_guide.cli import main
 from project_guide.config import Config
-from project_guide.version import __version__
 
 
 @pytest.fixture
@@ -29,7 +28,7 @@ def runner():
 
 
 def test_full_init_override_update_workflow(runner, tmp_path):
-    """Test complete workflow: init → override → update."""
+    """Test complete workflow: init → override → modify → update."""
     with runner.isolated_filesystem(temp_dir=tmp_path):
         # Step 1: Initialize project
         result = runner.invoke(main, ['init'])
@@ -37,7 +36,7 @@ def test_full_init_override_update_workflow(runner, tmp_path):
         assert Path(".project-guide.yml").exists()
         assert Path("docs/project-guide/.metadata.yml").exists()
 
-        # Step 2: Override a guide
+        # Step 2: Override a file
         result = runner.invoke(main, ['override', 'templates/modes/debug-mode.md', 'Custom debugging workflow'])
         assert result.exit_code == 0
 
@@ -48,29 +47,22 @@ def test_full_init_override_update_workflow(runner, tmp_path):
         result = runner.invoke(main, ['status'])
         assert result.exit_code == 0
         assert "overridden" in result.output
-        assert "Custom debugging workflow" in result.output
 
-        # Step 4: Simulate version upgrade by modifying config
-        config.installed_version = "0.12.0"
-        config.save(".project-guide.yml")
+        # Step 4: Modify a non-overridden file to trigger update
+        Path("docs/project-guide/templates/modes/plan-concept-mode.md").write_text("Modified")
 
-        # Step 5: Update (should skip overridden guide, update others)
-        result = runner.invoke(main, ['update'])
+        # Step 5: Update (should skip overridden file, prompt for modified)
+        result = runner.invoke(main, ['update'], input="y\n")
         assert result.exit_code == 0
-        assert "Skipped (overridden)" in result.output or "Updated" in result.output
-        assert "templates/modes/debug-mode.md" in result.output
+        assert "templates/modes/plan-concept-mode.md" in result.output
 
-        # Step 6: Force update (should create backup and update overridden guide)
-        # Reset version again to trigger update
-        config = Config.load(".project-guide.yml")
-        config.installed_version = "0.12.0"
-        config.save(".project-guide.yml")
+        # Step 6: Modify the overridden file and force update
+        Path("docs/project-guide/templates/modes/debug-mode.md").write_text("Custom")
 
         result = runner.invoke(main, ['update', '--force'])
         assert result.exit_code == 0
-        assert "Updated" in result.output or "Already current:" in result.output
 
-        # Verify backup was created
+        # Verify backup was created for modified overridden file
         backup_files = list(Path("docs/project-guide/templates/modes").glob("debug-mode.md.bak.*"))
         assert len(backup_files) >= 1
 
@@ -82,59 +74,41 @@ def test_full_init_override_update_workflow(runner, tmp_path):
         assert not config.is_overridden("templates/modes/debug-mode.md")
 
 
-def test_version_upgrade_scenario(runner, tmp_path):
-    """Test upgrading from old version to new version."""
+def test_hash_based_status(runner, tmp_path):
+    """Test that status uses content hash, not version, to determine file state."""
     with runner.isolated_filesystem(temp_dir=tmp_path):
-        # Initialize with current version
         result = runner.invoke(main, ['init'])
         assert result.exit_code == 0
 
-        # Simulate old version
+        # Set installed_version to something old — files should still be current
         config = Config.load(".project-guide.yml")
-        config.installed_version = "0.10.0"
+        config.installed_version = "0.1.0"
         config.save(".project-guide.yml")
 
-        # Check status - should show updates available
-        result = runner.invoke(main, ['status'])
-        assert result.exit_code == 0
-        assert "update available" in result.output
-
-        # Update to latest
-        result = runner.invoke(main, ['update'])
-        assert result.exit_code == 0
-        assert "Updated" in result.output
-
-        # Verify version was updated
-        config = Config.load(".project-guide.yml")
-        assert config.installed_version == __version__
-
-        # Status should now show guides as current
         result = runner.invoke(main, ['status'])
         assert result.exit_code == 0
         assert "current" in result.output
+        # Should NOT show "need updating" since content hasn't changed
+        assert "need updating" not in result.output
 
 
 def test_force_update_creates_backups(runner, tmp_path):
-    """Test that force update creates backups for all guides."""
+    """Test that force update creates backups for modified files."""
     with runner.isolated_filesystem(temp_dir=tmp_path):
-        # Initialize
         result = runner.invoke(main, ['init'])
         assert result.exit_code == 0
 
-        # Override multiple guides
+        # Override and modify files
         runner.invoke(main, ['override', 'templates/modes/debug-mode.md', 'Custom debug'])
         runner.invoke(main, ['override', 'templates/modes/plan-concept-mode.md', 'Custom project'])
-
-        # Modify installed version
-        config = Config.load(".project-guide.yml")
-        config.installed_version = "0.12.0"
-        config.save(".project-guide.yml")
+        Path("docs/project-guide/templates/modes/debug-mode.md").write_text("Custom debug")
+        Path("docs/project-guide/templates/modes/plan-concept-mode.md").write_text("Custom project")
 
         # Force update
         result = runner.invoke(main, ['update', '--force'])
         assert result.exit_code == 0
 
-        # Verify backups were created for overridden guides
+        # Verify backups were created for modified overridden files
         debug_backups = list(Path("docs/project-guide/templates/modes").glob("debug-mode.md.bak.*"))
         project_backups = list(Path("docs/project-guide/templates/modes").glob("plan-concept-mode.md.bak.*"))
 
@@ -150,7 +124,6 @@ def test_multiple_projects_in_isolation(runner, tmp_path):
     project1 = tmp_path / "project1"
     project1.mkdir()
 
-    # Change to project1 directory
     original_dir = os.getcwd()
     try:
         os.chdir(project1)
@@ -179,7 +152,7 @@ def test_multiple_projects_in_isolation(runner, tmp_path):
         assert config2.is_overridden("templates/modes/plan-concept-mode.md")
         assert not config2.is_overridden("templates/modes/debug-mode.md")
 
-        # Verify projects are independent by checking files directly
+        # Verify projects are independent
         config1_check = Config.load(str(project1 / ".project-guide.yml"))
         assert config1_check.is_overridden("templates/modes/debug-mode.md")
         assert not config1_check.is_overridden("templates/modes/plan-concept-mode.md")
@@ -194,52 +167,35 @@ def test_multiple_projects_in_isolation(runner, tmp_path):
 def test_dry_run_doesnt_modify_files(runner, tmp_path):
     """Test that dry-run mode doesn't actually modify files."""
     with runner.isolated_filesystem(temp_dir=tmp_path):
-        # Initialize
         result = runner.invoke(main, ['init'])
         assert result.exit_code == 0
 
-        # Modify a guide file
-        guide_path = Path("docs/project-guide/templates/modes/debug-mode.md")
-        guide_path.read_text(encoding="utf-8")
-        guide_path.write_text("MODIFIED CONTENT", encoding="utf-8")
-
-        # Simulate old version
-        config = Config.load(".project-guide.yml")
-        config.installed_version = "0.10.0"
-        config.save(".project-guide.yml")
+        # Modify a file
+        file_path = Path("docs/project-guide/templates/modes/debug-mode.md")
+        file_path.write_text("MODIFIED CONTENT", encoding="utf-8")
 
         # Dry-run update
         result = runner.invoke(main, ['update', '--dry-run'])
         assert result.exit_code == 0
-        assert "Would update" in result.output
+        assert "Modified" in result.output or "would prompt" in result.output.lower()
         assert "Run without --dry-run to apply changes" in result.output
 
         # Verify file wasn't modified
-        assert guide_path.read_text(encoding="utf-8") == "MODIFIED CONTENT"
-
-        # Verify config wasn't updated
-        config_check = Config.load(".project-guide.yml")
-        assert config_check.installed_version == "0.10.0"
+        assert file_path.read_text(encoding="utf-8") == "MODIFIED CONTENT"
 
 
 def test_specific_file_update(runner, tmp_path):
     """Test updating only specific files."""
     with runner.isolated_filesystem(temp_dir=tmp_path):
-        # Initialize
         result = runner.invoke(main, ['init'])
         assert result.exit_code == 0
 
-        # Simulate old version
-        config = Config.load(".project-guide.yml")
-        config.installed_version = "0.10.0"
-        config.save(".project-guide.yml")
+        # Modify specific files
+        Path("docs/project-guide/templates/modes/debug-mode.md").write_text("Modified")
+        Path("docs/project-guide/templates/modes/plan-concept-mode.md").write_text("Modified")
 
-        # Update only specific files
-        result = runner.invoke(main, ['update', '--files', 'templates/modes/debug-mode.md', '--files', 'templates/modes/plan-concept-mode.md'])
+        # Update only specific files, approve prompts
+        result = runner.invoke(main, ['update', '--files', 'templates/modes/debug-mode.md', '--files', 'templates/modes/plan-concept-mode.md'], input="y\ny\n")
         assert result.exit_code == 0
         assert "templates/modes/debug-mode.md" in result.output
         assert "templates/modes/plan-concept-mode.md" in result.output
-
-        # Verify config was updated
-        config = Config.load(".project-guide.yml")
-        assert config.installed_version == __version__

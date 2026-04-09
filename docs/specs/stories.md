@@ -477,16 +477,82 @@ The `status` command outputs 40+ lines dominated by a per-file sync list. On the
 - [x] Update `CHANGELOG.md`
 - [x] Run full test suite — all tests pass at 85%+ coverage
 
+### Story J.n: v2.0.13 Status UX, Hash-Based Sync, and Rename go.md [Done]
+
+Three related improvements: redesign `status` output with grouped sections, replace version-based sync logic with content hash comparison, and rename `go-project-guide.md` → `go.md`.
+
+**Redesign `status` output — grouped sections with contextual actions:**
+
+```
+project-guide v2.0.13 (installed: v2.0.12)
+
+Mode: default — Getting started -- full project lifecycle overview
+  Prerequisites: all met
+  Run 'project-guide mode' to see available modes.
+
+Guide: docs/project-guide/go.md
+
+Files: 3 current, 28 need updating, 2 missing
+  Run 'project-guide update' to sync.
+```
+
+- [x] Group output into three sections: Mode, Guide, Files — each with its own contextual action prompt
+- [x] Omit `Prerequisites` line when the mode has none
+- [x] Show `(installed: vX.X.X)` only when it differs from package version
+- [x] Files section is always a summary count; `--verbose` for per-file list
+- [x] Action prompts only when relevant (`update` prompt only when files need syncing)
+- [x] Update affected tests
+
+**Hash-based sync — replace version comparison with content hash:**
+
+The current logic assumes all files are stale when the package version differs from `installed_version`. In reality, most files don't change between versions. Use the existing `file_matches_template()` hash comparison as the sole source of truth for file freshness.
+
+- [x] Update `status` command: always use `file_matches_template()` to determine file state, remove version-first branching
+- [x] Update `sync_files()`: same — hash check determines whether a file needs updating, not version comparison
+- [x] `installed_version` remains as a global "last time update ran" data point, shown in the header, not per-file
+- [x] Remove per-file version display from `--verbose` output (the version was the global `installed_version` repeated — not meaningful per-file)
+- [x] Update affected tests
+
+**Rename `go-project-guide.md` → `go.md`:**
+
+The file lives in `docs/project-guide/` — the directory provides context. The shorter name is easier to type and autocomplete (`@go<tab>`).
+
+- [x] Rename template source: `templates/go-project-guide.md` → `templates/go.md`
+- [x] Update `render.py`: `get_template("go.md")`
+- [x] Update `cli.py`: all references to `go-project-guide.md` → `go.md` (init, mode, update, status, gitignore)
+- [x] Update `_header-common.md`: developer instruction path
+- [x] Update all test references
+- [x] Update `CHANGELOG.md`
+
+**Wrap-up:**
+- [x] Bump `version.py` and `pyproject.toml` to `2.0.13`
+- [x] Run full test suite — 129 tests pass, 91% coverage
+- [x] Verify: `project-guide init` renders `docs/project-guide/go.md`
+- [x] Verify: `project-guide status` shows grouped output with hash-based file state
+- [x] Verify: version upgrade with no template changes shows `Files: 33 current`
+
 ---
 
 ## Future
 
-### Future Story: Landing Page Documentation Updates [Deferred]
+### Story J.?: v2.0.? (part 1) Refactor Planning Documents
+
+- [ ] Update concept (`docs/specs/concepts.md`)
+- [ ] Update features (`docs/specs/features.md`)
+- [ ] Update tech-spec (`docs/specs/tech-spec.md`)
+
+### Story J.?: v2.0.? (part 2) Refactor Landing Page Documentation [Planned]
 
 Update all documentation to reflect the new mode system and workflow changes.
 
+- [ ] Update README (`README.md`)
 - [ ] Update index.html page (`docs/site/index.html`)
 - [ ] Update MkDocs pages (`docs/site/*.md`)
+
+
+---
+
+## Future
 
 ### Future Story: Code Production Mode [Deferred]
 

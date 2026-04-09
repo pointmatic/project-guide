@@ -27,7 +27,7 @@ def render_go_project_guide(
     output_path: Path,
 ) -> None:
     """
-    Render go-project-guide.md from the entry point template and mode template.
+    Render go.md from the entry point template and mode template.
 
     Args:
         template_dir: Path to the project's template directory (e.g., docs/project-guide)
@@ -68,12 +68,12 @@ def render_go_project_guide(
     }
 
     try:
-        template = env.get_template("go-project-guide.md")
+        template = env.get_template("go.md")
         rendered = template.render(**context)
     except TemplateNotFound as e:
         raise RenderError(f"Template not found: {e}")
     except Exception as e:
-        raise RenderError(f"Failed to render go-project-guide.md: {e}")
+        raise RenderError(f"Failed to render go.md: {e}")
 
     # Write output
     output_path.parent.mkdir(parents=True, exist_ok=True)

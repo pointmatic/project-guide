@@ -25,10 +25,9 @@ build/
 .env
 .venv
 
-
-
-
 # MkDocs build output
 /site/
-docs/specs/go-project-guide.md
-docs/project-guide/go-project-guide.md
+
+# project-guide
+docs/project-guide/go.md
+docs/project-guide/**/*.bak.*
