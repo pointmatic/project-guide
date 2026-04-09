@@ -43,7 +43,7 @@ def test_init_in_empty_directory(runner, tmp_path):
         assert Path(".project-guide.yml").exists()
 
         # Verify templates were created in new structure
-        assert Path("docs/specs/go-project-guide.md").exists()
+        assert Path("docs/project-guide/go-project-guide.md").exists()
         assert Path("docs/project-guide/.metadata.yml").exists()
         assert Path("docs/project-guide/templates/modes/plan-concept-mode.md").exists()
         assert Path("docs/project-guide/developer/codecov-setup-guide.md").exists()
@@ -201,15 +201,15 @@ def test_refactor_modes_render(runner, tmp_path):
             assert result.exit_code == 0, f"{name} failed: {result.output}"
             assert f"Mode set: {name}" in result.output
 
-            content = Path("docs/specs/go-project-guide.md").read_text(encoding="utf-8")
+            content = Path("docs/project-guide/go-project-guide.md").read_text(encoding="utf-8")
             assert "Restart the cycle" in content  # cycle header
             assert "Legacy Content" in content  # step 5
 
         # Verify distinct content
         runner.invoke(main, ['mode', 'refactor_plan'])
-        plan = Path("docs/specs/go-project-guide.md").read_text(encoding="utf-8")
+        plan = Path("docs/project-guide/go-project-guide.md").read_text(encoding="utf-8")
         runner.invoke(main, ['mode', 'refactor_document'])
-        doc = Path("docs/specs/go-project-guide.md").read_text(encoding="utf-8")
+        doc = Path("docs/project-guide/go-project-guide.md").read_text(encoding="utf-8")
         assert plan != doc
         assert "concept.md" in plan
         assert "descriptions.md" in doc
@@ -258,12 +258,12 @@ def test_mode_switch_updates_config(runner, tmp_path):
 
 
 def test_mode_renders_output(runner, tmp_path):
-    """Test mode command renders go-project-guide.md to spec_artifacts_path."""
+    """Test mode command renders go-project-guide.md to target_dir."""
     with runner.isolated_filesystem(temp_dir=tmp_path):
         runner.invoke(main, ['init'])
         runner.invoke(main, ['mode', 'debug'])
 
-        output = Path("docs/specs/go-project-guide.md")
+        output = Path("docs/project-guide/go-project-guide.md")
         assert output.exists()
         content = output.read_text(encoding="utf-8")
         assert "Debug Guide" in content

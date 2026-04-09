@@ -429,6 +429,32 @@ Fix three UX/config issues identified in `docs/specs/ux-problems.md`. No backwar
 - [x] Verify: `project-guide mode plan_phase` shows only spec artifact prerequisites, no template paths
 - [x] Verify: `project-guide update` syncs `.metadata.yml` correctly
 
+### Story J.l: v2.0.11 Move Rendered Guide to project-guide Directory [Done]
+
+The rendered `go-project-guide.md` is mode instructions, not a spec artifact. It currently lives in `docs/specs/` because the Jinja2 template source has the same name in `docs/project-guide/`. Fix this by moving the template source into `docs/project-guide/templates/` and rendering the output to `docs/project-guide/go-project-guide.md`.
+
+**Move template source:**
+- [x] Move `project_guide/templates/project-guide/go-project-guide.md` → `project_guide/templates/project-guide/templates/go-project-guide.md`
+- [x] Update `render.py`: Jinja2 loader simplified to search only `templates/` subdirectory
+- [x] Update `cli.py` `init`: render output to `docs/project-guide/go-project-guide.md` instead of `docs/specs/go-project-guide.md`
+
+**Update render output path:**
+- [x] All CLI commands (`init`, `mode`, `update`, `status`) now render to `target_dir / go-project-guide.md`
+- [x] `target_dir` added as a Jinja2 context variable for templates
+
+**Gitignore and cleanup:**
+- [x] `_ensure_gitignore_entry()` now receives `target_dir` — entry is `docs/project-guide/go-project-guide.md`
+- [x] `_header-common.md` updated to `Read {{ target_dir }}/go-project-guide.md`
+
+**Tests and wrap-up:**
+- [x] Updated `test_cli.py`, `test_render.py`, `test_sync.py` — all output path assertions and fixtures
+- [x] Bump `version.py` and `pyproject.toml` to `2.0.11`
+- [x] Update `CHANGELOG.md`
+- [x] Run full test suite — 129 tests pass, 92% coverage
+- [x] Verify: `project-guide init` renders `docs/project-guide/go-project-guide.md`
+- [x] Verify: `project-guide mode code_velocity` re-renders in the correct location
+- [x] Verify: developer instruction is `Read docs/project-guide/go-project-guide.md`
+
 ## Future
 
 ### Future Story: Landing Page Documentation Updates [Deferred]

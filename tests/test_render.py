@@ -24,14 +24,16 @@ from project_guide.render import render_go_project_guide
 @pytest.fixture
 def template_dir(tmp_path):
     """Create a minimal template directory for rendering tests."""
-    # Entry point template (source lives in template dir, rendered output goes elsewhere)
-    (tmp_path / "go-project-guide.md").write_text(
+    # Templates subdirectory
+    templates_dir = tmp_path / "templates"
+    templates_dir.mkdir(parents=True)
+    modes_dir = templates_dir / "modes"
+    modes_dir.mkdir()
+
+    # Entry point template lives inside templates/
+    (templates_dir / "go-project-guide.md").write_text(
         "# Guide\n\n{% include 'modes/_header-common.md' %}\n\n{% include mode_template %}\n"
     )
-
-    # Templates subdirectory
-    modes_dir = tmp_path / "templates" / "modes"
-    modes_dir.mkdir(parents=True)
 
     (modes_dir / "_header-common.md").write_text(
         "Mode: {{ mode_name }} ({{ sequence_or_cycle }})\n\n---\n"
@@ -125,7 +127,7 @@ def test_render_end_to_end_with_package_templates():
         result = runner.invoke(main, ['init'])
         assert result.exit_code == 0
 
-        output = Path("docs/specs/go-project-guide.md")
+        output = Path("docs/project-guide/go-project-guide.md")
         assert output.exists()
 
         content = output.read_text(encoding="utf-8")
@@ -167,6 +169,6 @@ def test_every_mode_renders_successfully(mode_name):
         assert result.exit_code == 0, f"mode {mode_name} failed: {result.output}"
         assert f"Mode set: {mode_name}" in result.output
 
-        output = Path("docs/specs/go-project-guide.md")
+        output = Path("docs/project-guide/go-project-guide.md")
         assert output.exists()
         assert len(output.read_text(encoding="utf-8")) > 0

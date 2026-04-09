@@ -35,14 +35,14 @@ def render_go_project_guide(
         metadata: The parsed metadata (for context variables)
         output_path: Where to write the rendered output
     """
-    # The Jinja2 loader searches the templates/ subdirectory for includes
-    # and the parent directory for the entry point
+    # The Jinja2 loader searches the templates/ subdirectory where the
+    # entry point and all mode/artifact templates live
     templates_subdir = template_dir / "templates"
     if not templates_subdir.exists():
         raise RenderError(f"Templates directory not found: {templates_subdir}")
 
     env = Environment(
-        loader=FileSystemLoader([str(template_dir), str(templates_subdir)], encoding="utf-8"),
+        loader=FileSystemLoader([str(templates_subdir)], encoding="utf-8"),
         keep_trailing_newline=True,
         undefined=_LenientUndefined,
     )
@@ -63,6 +63,7 @@ def render_go_project_guide(
         "sequence_or_cycle": mode.sequence_or_cycle,
         "next_mode": mode.next_mode or "",
         "mode_template": mode_template_rel,
+        "target_dir": str(template_dir),
         **metadata.common,
     }
 

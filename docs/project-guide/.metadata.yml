@@ -31,8 +31,6 @@ modes:
     artifacts: 
       - file: "{{spec_artifacts_path}}/concept.md"
         action: create
-    files_exist:
-        - "{{mode_templates_path}}/plan-concept-mode.md"
   - name: plan_features
     info: Generate feature requirements (what the project does)
     description: This is what the project does (functional and presentation requirements, not technical implementation).
@@ -45,7 +43,6 @@ modes:
         action: create
     files_exist:
       - "{{spec_artifacts_path}}/concept.md"
-      - "{{mode_templates_path}}/plan-features-mode.md"
   - name: plan_tech_spec
     info: Generate a technical specification prompt (how it's built)
     description: This details the requirements for how the project is built (architecture, modules, dependencies, but not code).
@@ -59,7 +56,6 @@ modes:
     files_exist:
       - "{{spec_artifacts_path}}/concept.md"
       - "{{spec_artifacts_path}}/features.md"
-      - "{{mode_templates_path}}/plan-tech-spec-mode.md"
   - name: plan_stories
     info: Generate a user stories prompt
     description: Based on the concept, features, and technical specification documents, scaffold the project, determine the implementation phases, and breakdown all that into stories.
@@ -74,7 +70,6 @@ modes:
       - "{{spec_artifacts_path}}/concept.md"
       - "{{spec_artifacts_path}}/features.md"
       - "{{spec_artifacts_path}}/tech-spec.md"
-      - "{{mode_templates_path}}/plan-stories-mode.md"
 
   # Setup
   - name: project_setup
@@ -103,7 +98,6 @@ modes:
     files_exist:
       - "{{spec_artifacts_path}}/concept.md"
       - "{{spec_artifacts_path}}/features.md"
-      - "{{mode_templates_path}}/document-brand-mode.md"
   - name: document_landing
     info: Generate a GitHub landing page and markdown support documentation using MkDocs
     description: TBD.
@@ -121,7 +115,6 @@ modes:
       - "{{spec_artifacts_path}}/tech-spec.md"
       - "{{spec_artifacts_path}}/stories.md"
       - "{{spec_artifacts_path}}/brand-descriptions.md"
-      - "{{mode_templates_path}}/document-landing-mode.md"
  
   # Post-Release
   - name: plan_phase
@@ -140,7 +133,6 @@ modes:
       - "{{spec_artifacts_path}}/features.md"
       - "{{spec_artifacts_path}}/tech-spec.md"
       - "{{spec_artifacts_path}}/stories.md"
-      - "{{mode_templates_path}}/plan-phase-mode.md"
 
   # Code modes
   - name: code_velocity
@@ -152,7 +144,6 @@ modes:
     files_exist:
       - "{{spec_artifacts_path}}/stories.md"
       - "{{root_artifacts_path}}/CHANGELOG.md"
-      - "{{mode_templates_path}}/code-velocity-mode.md"
   - name: code_test_first
     info: Generate code with a test-first approach
     description: TBD.
@@ -161,7 +152,6 @@ modes:
     mode_template: "{{mode_templates_path}}/code-test-first-mode.md"
     files_exist:
       - "{{spec_artifacts_path}}/stories.md"
-      - "{{mode_templates_path}}/code-test-first-mode.md"
   - name: debug
     info: Debug code with a test-first approach
     description: TBD.
@@ -170,7 +160,6 @@ modes:
     mode_template: "{{mode_templates_path}}/debug-mode.md"
     files_exist:
       - "{{spec_artifacts_path}}/stories.md"
-      - "{{mode_templates_path}}/debug-mode.md"
 
   # Refactoring modes
   - name: refactor_plan
@@ -179,13 +168,9 @@ modes:
     sequence_or_cycle: cycle
     generation_type: document
     mode_template: "{{mode_templates_path}}/refactor-plan-mode.md"
-    files_exist:
-      - "{{mode_templates_path}}/refactor-plan-mode.md"
   - name: refactor_document
     info: Migrate documentation artifacts (descriptions, landing page, MkDocs) to v2.x format
     description: Refactor existing documentation files into the v2.x format, covering brand descriptions, landing page, and MkDocs configuration.
     sequence_or_cycle: cycle
     generation_type: document
     mode_template: "{{mode_templates_path}}/refactor-document-mode.md"
-    files_exist:
-      - "{{mode_templates_path}}/refactor-document-mode.md"

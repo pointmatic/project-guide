@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.11] - 2026-04-08
+
+### Changed
+- Rendered `go-project-guide.md` now outputs to `docs/project-guide/` instead of `docs/specs/` — it's mode instructions, not a spec artifact
+- Entry point template moved from `project-guide/go-project-guide.md` to `project-guide/templates/go-project-guide.md`
+- Jinja2 loader simplified to search only the `templates/` subdirectory
+- Developer instruction in `_header-common.md` updated to `Read docs/project-guide/go-project-guide.md`
+- `.gitignore` entry updated to `docs/project-guide/go-project-guide.md`
+- `target_dir` now available as a Jinja2 context variable in templates
+
 ## [2.0.10] - 2026-04-08
 
 ### Fixed

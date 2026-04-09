@@ -51,14 +51,14 @@ def get_all_guide_names() -> list[str]:
     Always returns forward-slash paths for cross-platform consistency.
     """
     root = _get_package_template_root()
-    guide_names = []
+    guide_names: set[str] = set()
 
     for pattern in ("*.md", "*.md.j2", "*.yml", ".*.yml"):
-        for path in sorted(root.rglob(pattern)):
+        for path in root.rglob(pattern):
             # Use forward slashes for cross-platform consistency
             rel = path.relative_to(root).as_posix()
             if rel not in _EXCLUDED_FROM_SYNC:
-                guide_names.append(rel)
+                guide_names.add(rel)
 
     return sorted(guide_names)
 

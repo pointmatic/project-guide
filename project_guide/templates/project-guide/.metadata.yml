@@ -71,6 +71,24 @@ modes:
       - "{{spec_artifacts_path}}/features.md"
       - "{{spec_artifacts_path}}/tech-spec.md"
 
+  # Post-Release
+  - name: plan_phase
+    info: Generate a feature phase prompt, which includes a mini-concept, features, and technical details
+    description: Based on a specific request from the developer, develop a combined concept, features, and technical specification document that describes the gap to fill, then create a new phase in the stories document, and breakdown all that into stories.
+    sequence_or_cycle: sequence
+    generation_type: document
+    mode_template: "{{mode_templates_path}}/plan-phase-mode.md"
+    next_mode: "{{default_code_mode}}"
+    artifacts:
+      - file: "{{spec_artifacts_path}}/new-phase-{{phase_name}}.md"
+      - file: "{{spec_artifacts_path}}/stories.md"
+        action: modify
+    files_exist:
+      - "{{spec_artifacts_path}}/concept.md"
+      - "{{spec_artifacts_path}}/features.md"
+      - "{{spec_artifacts_path}}/tech-spec.md"
+      - "{{spec_artifacts_path}}/stories.md"
+
   # Setup
   - name: project_setup
     info: Scaffold the project foundation (LICENSE, headers, manifest, README, CHANGELOG)
@@ -116,24 +134,6 @@ modes:
       - "{{spec_artifacts_path}}/stories.md"
       - "{{spec_artifacts_path}}/brand-descriptions.md"
  
-  # Post-Release
-  - name: plan_phase
-    info: Generate a feature phase prompt, which includes a mini-concept, features, and technical details
-    description: Based on a specific request from the developer, develop a combined concept, features, and technical specification document that describes the gap to fill, then create a new phase in the stories document, and breakdown all that into stories.
-    sequence_or_cycle: sequence
-    generation_type: document
-    mode_template: "{{mode_templates_path}}/plan-phase-mode.md"
-    next_mode: "{{default_code_mode}}"
-    artifacts:
-      - file: "{{spec_artifacts_path}}/new-phase-{{phase_name}}.md"
-      - file: "{{spec_artifacts_path}}/stories.md"
-        action: modify
-    files_exist:
-      - "{{spec_artifacts_path}}/concept.md"
-      - "{{spec_artifacts_path}}/features.md"
-      - "{{spec_artifacts_path}}/tech-spec.md"
-      - "{{spec_artifacts_path}}/stories.md"
-
   # Code modes
   - name: code_velocity
     info: Generate code with velocity
@@ -169,7 +169,7 @@ modes:
     generation_type: document
     mode_template: "{{mode_templates_path}}/refactor-plan-mode.md"
   - name: refactor_document
-    info: Migrate documentation artifacts (descriptions, landing page, MkDocs) to v2.x format
+    info: Migrate documentation artifacts (README, brand descriptions, landing page, MkDocs) to v2.x format
     description: Refactor existing documentation files into the v2.x format, covering brand descriptions, landing page, and MkDocs configuration.
     sequence_or_cycle: cycle
     generation_type: document
