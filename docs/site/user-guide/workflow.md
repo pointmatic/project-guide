@@ -29,39 +29,23 @@ Decide the style of development.
 
 There are several kinds of modes to choose from. See details in [Modes](modes.md).
 
-**Default**
-
-There are some basic instructions for the LLM to follow. Switch to a more specific mode to take advantage of `project-guide`.
-
-**First Time**
-
-Use when you're starting a new project or adding `project-guide` to an existing project.
-
-- **Plan**: `plan_concept` –> `plan_features` –> `plan_tech_spec` –> `plan_stories`
-- **Scaffold**: (new project only) `project_scaffold`
-
-**Build**
-
-Work from a list of stories in `docs/project-guide/stories.md`.
-- **Code**: Either `code_velocity` or `code_test_first`
-- **Review**: Monitor the output as the LLM works, then look over the results and provide feedback.
-- **Repeat**: Continue cycling through code and review until the build is complete.
-
-**Targeted Development**
-
-Work from a specific story in `docs/project-guide/stories.md`.
-- **Debug**: Use `debug` mode for a test-first then fix approach.
-- **Improve**: Plan a new phase with `plan_phase` which follows a mini Ready-Set-Go sequence.
-
-**Documentation**
-
-- **Brand Descriptions**: Use `document_brand` to develop your marketing messaging.
-- **Landing Page**: Use `document_landing` to help other developers understand and use your project.
-
-**Refactor**
-
-- **Plan**: Use `refactor_plan` to update existing planning documents.
-- **Document**: Use `refactor_document` to update existing documentation files.
+- **Default**: There are some basic instructions for the LLM to follow. Switch to a more specific mode to take advantage of `project-guide`.
+- **First Time**: Use when you're starting a new project or adding `project-guide` to an existing project.
+  - **Plan**: `plan_concept` –> `plan_features` –> `plan_tech_spec` –> `plan_stories`
+  - **Scaffold**: (new project only) `project_scaffold`
+- **Build**: Work from a list of stories in `docs/project-guide/stories.md`.
+  - **Code**: Either `code_velocity` or `code_test_first`
+  - **Review**: Monitor the output as the LLM works, then look over the results and provide feedback.
+  - **Repeat**: Continue cycling through code and review until the build is complete.
+- **Targeted Development**: Work from a specific story in `docs/project-guide/stories.md`.
+  - **Debug**: Use `debug` mode for a test-first then fix approach.
+  - **Improve**: Plan a new phase with `plan_phase` which follows a mini Ready-Set-Go sequence.
+- **Documentation**:
+  - **Brand Descriptions**: Use `document_brand` to develop your marketing messaging.
+  - **Landing Page**: Use `document_landing` to help other developers understand and use your project.
+- **Refactor**:
+  - **Plan**: Use `refactor_plan` to update existing planning documents.
+  - **Document**: Use `refactor_document` to update existing documentation files.
 
 ## The HITLoop Cycle
 
