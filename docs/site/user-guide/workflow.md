@@ -2,328 +2,95 @@
 
 Learn how to use project-guide effectively in your LLM-assisted development workflow.
 
-## The HITLoop Workflow
+## The HITLoop Philosophy
 
-project-guide supports "HITLoop" (human-in-the-loop) development where:
-- **You direct**: Features, architecture, priorities, taste
+Project-Guide has an opinionated human-in-the-loop (HITLoop) approach -- that is...good software needs humans to gather context from the real world and real experience to apply wisdom and intuition in what makes it valuable.
+
+- **You direct**: Concept, features, architecture, priorities, taste
 - **LLM executes**: Planning, coding, testing, documentation
-- **Result**: Production-ready projects in 6-12 hours
+- **You review**: Approve, refine, guide
+- **Result**: Production-ready single-purpose projects in 6-12 hours
 
-## Initial Setup
+## Workflow Pattern
 
-### 1. Install project-guide
+### Setup
+1. Setup your local repository
+2. Install project-guide
+3. Initialize project guide
 
-```bash
-pip install project-guide
-```
+For step-by-step setup instructions, see [Getting Started](../getting-started.md).
 
-### 2. Initialize Your Project
+### Get in the Mode
+Decide the style of development.
+- **Go**: Get coding now (change mode to `code_velocity` or `code_test_first`)
+- **Ready-Set-Go**: Plan the concept, features, and tech-spec, scaffold the project, then start coding.
 
-```bash
-cd /path/to/your/project
-project-guide init
-```
+### Modes
+There are several kinds of modes to choose from. See details in [Modes](modes.md).
 
-This creates:
-- `docs/project-guide/` with all workflow files rendered from templates
-- `docs/project-guide/go.md` as the LLM entry point
-- `.project-guide.yml` configuration
+**Default**
+There are some basic instructions for the LLM to follow. Switch to a more specific mode to take advantage of `project-guide`.
 
-### 3. Choose a Mode
+**First Time**
+Use when you're starting a new project or adding `project-guide` to an existing project.
 
-project-guide ships with 15 modes for different workflows. Pick the one that fits:
+- **Plan**: `plan_concept` –> `plan_features` –> `plan_tech_spec` –> `plan_stories`
+- **Scaffold**: (new project only) `project_scaffold`
 
-```bash
-# List all available modes
-project-guide mode
+**Build**
+Work from a list of stories in `docs/project-guide/stories.md`.
+- **Code**: Either `code_velocity` or `code_test_first`
+- **Review**: Monitor the output as the LLM works, then look over the results and provide feedback.
+- **Repeat**: Continue cycling through code and review until the build is complete.
 
-# Switch to a mode
-project-guide mode plan_concept
-```
+**Targeted Development**
+Work from a specific story in `docs/project-guide/stories.md`.
+- **Debug**: Use `debug` mode for a test-first then fix approach.
+- **Improve**: Plan a new phase with `plan_phase` which follows a mini Ready-Set-Go sequence.
 
-Switching modes re-renders `go.md` so the LLM sees the right workflow immediately.
+**Documentation**
+- **Brand Descriptions**: Use `document_brand` to develop your marketing messaging.
+- **Landing Page**: Use `document_landing` to help other developers understand and use your project.
 
-### 4. Start the LLM Workflow
+**Refactor**
+- **Plan**: Use `refactor_plan` to update existing planning documents.
+- **Document**: Use `refactor_document` to update existing documentation files.
 
-Tell your LLM:
+## The HITLoop Cycle
 
-```
-Read `docs/project-guide/go.md` and start.
-```
+Within any cycle mode, the rhythm is the same:
 
-The guide walks the LLM through the steps defined by the active mode.
+1. **LLM proposes** a step based on the active mode's instructions
+2. **You review** the proposal
+3. **You approve** by typing `go`, or redirect with feedback
+4. **LLM executes** the approved step
+5. **Repeat** until the cycle is complete or you switch modes
 
-### 5. Guide Each Step
+The LLM never auto-advances past an approval gate. You stay in control.
 
-As the LLM completes steps, say:
+## When to Switch Modes
 
-```
-go
-```
+Mode switching is the core of the workflow. Common transitions:
 
-You stay in control, approving each step before moving forward.
+| Situation | Switch to |
+|-----------|-----------|
+| Finished planning, ready to build | `code_velocity` or `code_test_first` |
+| Bug discovered during build | `debug` |
+| New feature phase needed | `plan_phase` |
+| Existing planning docs need updates | `refactor_plan` |
+| Existing documentation needs updates | `refactor_document` |
+| Preparing for release | `document_brand` then `document_landing` |
 
-## Common Workflows
+After switching, tell the LLM to re-read `docs/project-guide/go.md`. A fresh chat window is most efficient.
 
-### Starting a New Project
+## Customization and Updates
 
-```bash
-# 1. Create project directory
-mkdir my-project && cd my-project
-
-# 2. Initialize git
-git init
-
-# 3. Install project-guide
-pip install project-guide
-
-# 4. Initialize files
-project-guide init
-
-# 5. Choose your mode
-project-guide mode plan_concept
-
-# 6. Start LLM collaboration
-# Tell LLM: "Read `docs/project-guide/go.md` and start."
-```
-
-### Switching Modes Mid-Project
-
-As your project evolves, switch modes to match the current phase:
-
-```bash
-# Finished planning, ready to build
-project-guide mode code_velocity
-
-# Need to track down a bug
-project-guide mode debug
-
-# Time to write documentation
-project-guide mode documentation
-```
-
-Each switch re-renders `go.md` so the LLM picks up the new workflow.
-
-### Adding Files to an Existing Project
-
-```bash
-# Navigate to project
-cd existing-project
-
-# Initialize project-guide
-project-guide init
-
-# Check status
-project-guide status
-```
-
-### Updating Files Across Projects
-
-```bash
-# Update project-guide package
-pip install --upgrade project-guide
-
-# Update files in each project
-cd project1
-project-guide update
-
-cd ../project2
-project-guide update
-```
-
-### Customizing a File
-
-```bash
-# 1. Edit the file
-vim docs/project-guide/templates/modes/debug-mode.md
-
-# 2. Mark as overridden (positional args: file path, then reason)
-project-guide override templates/modes/debug-mode.md "Added team-specific workflow"
-
-# 3. Verify override
-project-guide status
-```
-
-### Syncing Latest Improvements
-
-Hash-based sync means only files whose content has actually changed are flagged:
-
-```bash
-# Check which files have changed
-project-guide status
-
-# Preview what would be updated
-project-guide update --dry-run
-
-# Update non-overridden files
-project-guide update
-
-# Review changes
-git diff docs/project-guide/
-```
-
-## Multi-Project Management
-
-### Keeping Files in Sync
-
-When working on multiple projects:
-
-1. **Update package globally** (if using pipx):
-   ```bash
-   pipx upgrade project-guide
-   ```
-
-2. **Update each project**:
-   ```bash
-   for project in project1 project2 project3; do
-     cd $project
-     project-guide update
-     cd ..
-   done
-   ```
-
-3. **Review changes**:
-   ```bash
-   git diff docs/project-guide/
-   ```
-
-### Managing Project-Specific Customizations
-
-For files customized per project:
-
-```bash
-# Project A: Custom mode template
-cd projectA
-project-guide override templates/modes/debug-mode.md "Custom debugging workflow"
-
-# Project B: Custom developer setup
-cd ../projectB
-project-guide override developer/setup.md "Internal toolchain references"
-
-# Both: Update non-overridden files
-project-guide update
-```
-
-## Override Management
-
-### When to Override
-
-Override a file when:
-- You've customized it for your project's specific needs
-- The file contains project-specific instructions
-- You want to prevent updates from overwriting changes
-
-### When NOT to Override
-
-Don't override if:
-- You want to receive workflow improvements
-- The customization is minor (consider contributing upstream instead)
-- You're just experimenting (test changes first)
-
-### Reviewing Overridden Files
-
-Periodically review overridden files:
-
-```bash
-# List all overrides
-project-guide overrides
-
-# Force update to see what's new (creates .bak.<timestamp> backups)
-project-guide update --force
-diff docs/project-guide/templates/modes/debug-mode.md \
-     docs/project-guide/templates/modes/debug-mode.md.bak.*
-
-# Decide: keep override or adopt new version
-```
-
-## Best Practices
-
-### 1. Version Control
-
-Always commit files to version control:
-
-```bash
-git add docs/project-guide/ .project-guide.yml
-git commit -m "Initialize project-guide"
-```
-
-Note: `.bak` files are gitignored and will not be committed.
-
-### 2. Document Overrides
-
-Use a clear reason when overriding:
-
-```bash
-project-guide override templates/modes/debug-mode.md \
-  "Added company-specific security requirements"
-```
-
-### 3. Regular Updates
-
-Update files regularly to get improvements:
-
-```bash
-# Weekly or monthly
-project-guide update
-git diff docs/project-guide/
-git commit -m "Update project-guide to latest"
-```
-
-### 4. Review Before Committing
-
-Always review file updates before committing:
-
-```bash
-project-guide update
-git diff docs/project-guide/
-# Review changes, then commit
-```
-
-### 5. Team Coordination
-
-For team projects:
-- Document which files are overridden and why
-- Share override decisions with the team
-- Consider contributing improvements back to project-guide
-
-## Troubleshooting
-
-### Files Not Updating
-
-Check if files are overridden:
-
-```bash
-project-guide status
-project-guide overrides
-```
-
-### Accidental Override
-
-Remove override to allow updates:
-
-```bash
-project-guide unoverride templates/modes/debug-mode.md
-project-guide update
-```
-
-### Lost Customizations
-
-If you updated with `--force`, restore from the timestamped backup:
-
-```bash
-# Find the backup
-ls docs/project-guide/templates/modes/debug-mode.md.bak.*
-
-# Restore it
-mv docs/project-guide/templates/modes/debug-mode.md.bak.<timestamp> \
-   docs/project-guide/templates/modes/debug-mode.md
-
-# Re-override
-project-guide override templates/modes/debug-mode.md "Restored customization"
-```
+When you customize a file for project-specific needs, lock it with `project-guide override` so future package updates skip it. Run `project-guide update` regularly to pull in workflow improvements for non-locked files. See [Override Management](overrides.md) for details.
 
 ## Next Steps
 
-- [Commands Reference](commands.md) - Detailed command documentation
-- [Override Management](overrides.md) - Master the override system
-- [Configuration](configuration.md) - Customize behavior
+- [Getting Started](../getting-started.md) - Install and initialize
+- [Modes](modes.md) - Detailed reference for all 15 modes
+- [Commands Reference](commands.md) - All CLI commands
+- [Override Management](overrides.md) - Lock customized files
+- [Configuration](configuration.md) - `.project-guide.yml` reference

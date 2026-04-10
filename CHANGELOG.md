@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.17] - 2026-04-09
+
+### Changed
+- **Renamed `project_setup` mode to `project_scaffold`** — "setup" was too generic; "scaffold" matches the mode's actual purpose (creating project files) and industry conventions. Breaking change for anyone using `project-guide mode project_setup`.
+- Renamed template file: `project-setup-mode.md` → `project-scaffold-mode.md`
+- Slimmed down `docs/site/user-guide/workflow.md` from 376 lines to ~85 lines, removing duplication with getting-started, commands, and overrides pages
+
+### Added
+- `docs/site/user-guide/modes.md` — comprehensive reference for all 15 modes with type, prerequisites, artifacts, and Mode Flow diagram
+- "When to Switch Modes" table and "The HITLoop Cycle" section in workflow guide
+
 ## [2.0.13] - 2026-04-09
 
 ### Changed

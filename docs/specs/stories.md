@@ -576,6 +576,49 @@ The Getting Started section had three pages (installation, quick-start, configur
 - [x] Fixed `.gitignore` entries: removed stale `go-project-guide.md` paths, added `docs/project-guide/go.md` and `docs/project-guide/**/*.bak.*` under `# project-guide` comment
 - [x] Added `Tell your LLM: Read docs/project-guide/go.md` prompt to `status` Guide section
 
+### Story J.s: v2.0.17 Modes Doc, Rename project_setup to project_scaffold, Slim Workflow Doc [Done]
+
+User-facing changes that warrant a version bump.
+
+**Add Modes documentation page:**
+- [x] Create `docs/site/user-guide/modes.md` documenting all 15 modes with type, prerequisites, artifacts, next mode, description, and command
+- [x] Add Mode Flow diagram showing the typical project lifecycle
+- [x] Add Modes page to `mkdocs.yml` nav between Commands and Workflow
+
+**Rename `project_setup` → `project_scaffold`:**
+
+The "setup" name was too generic — could mean install dependencies, configure environment, set up CI, etc. The mode specifically scaffolds project files (LICENSE, headers, manifest, README, CHANGELOG, .gitignore), so "scaffold" is more accurate and matches industry conventions.
+
+- [x] Rename template file: `project-setup-mode.md` → `project-scaffold-mode.md`
+- [x] Update `.metadata.yml`: `name: project_scaffold`, template path, comment header (`# Scaffold`), description
+- [x] Update `next_mode: project_scaffold` in `plan_stories` mode
+- [x] Update `default-mode.md`: lifecycle table row, "Scaffold (sequence)" section
+- [x] Update `project-scaffold-mode.md`: heading "Project Scaffold Mode", description, fix `next_mode` reference (was hardcoded `plan_concept`, now uses `{{ next_mode }}`)
+- [x] Update `docs/site/user-guide/modes.md`: section heading, mode entry, command, mode flow diagram
+- [x] Update `docs/specs/concept.md`: 15 modes list
+- [x] Update `docs/specs/features.md`: file structure listing, modes table
+- [x] Historical references in `CHANGELOG.md` and `stories.md` Story J.i left as-is (describe past work with old name)
+
+**Slim down `workflow.md`:**
+
+The workflow guide was 376 lines and mostly duplicated content from `getting-started.md`, `commands.md`, and `overrides.md`. Reduced to ~85 lines focused on the workflow itself.
+
+- [x] Removed Initial Setup section (duplicates getting-started.md)
+- [x] Removed Common Workflows section (duplicates commands and overrides)
+- [x] Removed Multi-Project Management section
+- [x] Removed Override Management section (duplicates overrides.md)
+- [x] Removed Best Practices section (generic, not workflow-specific)
+- [x] Removed Troubleshooting section (duplicates other pages)
+- [x] Added "The HITLoop Cycle" section (propose → review → approve → execute rhythm)
+- [x] Added "When to Switch Modes" table
+- [x] Added "Customization and Updates" paragraph linking to overrides.md
+- [x] Updated "Next Steps" to link to canonical pages
+
+**Wrap-up:**
+- [x] Bump `version.py` and `pyproject.toml` to `2.0.17`
+- [x] Update `CHANGELOG.md`
+- [x] Run full test suite — 129 tests pass (parametrized mode test confirms `project_scaffold` renders)
+
 ---
 
 ## Future

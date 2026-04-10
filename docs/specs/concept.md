@@ -46,7 +46,7 @@ A mode-driven template system that dynamically renders a single entry-point docu
 
 ### Scope
 - **CLI tool**: `project-guide init`, `mode`, `status`, `update`, `override`, `unoverride`, `overrides`, `purge`
-- **15 modes**: `default`, `project_setup`, `plan_concept`, `plan_features`, `plan_tech_spec`, `plan_stories`, `plan_phase`, `code_velocity`, `code_test_first`, `debug`, `document_brand`, `document_landing`, `refactor_plan`, `refactor_document`, and a future `code_production`
+- **15 modes**: `default`, `project_scaffold`, `plan_concept`, `plan_features`, `plan_tech_spec`, `plan_stories`, `plan_phase`, `code_velocity`, `code_test_first`, `debug`, `document_brand`, `document_landing`, `refactor_plan`, `refactor_document`, and a future `code_production`
 - **Jinja2 rendering**: mode templates + header partials rendered into a single entry-point document
 - **Hash-based file sync**: content-hash comparison determines file freshness, not version numbers
 - **Override system**: lock files from updates when they contain project-specific customizations

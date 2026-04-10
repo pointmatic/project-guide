@@ -62,7 +62,7 @@ modes:
     sequence_or_cycle: sequence
     generation_type: document
     mode_template: "{{mode_templates_path}}/plan-stories-mode.md"
-    next_mode: project_setup
+    next_mode: project_scaffold
     artifacts:
       - file: "{{spec_artifacts_path}}/stories.md"
         action: create
@@ -89,13 +89,13 @@ modes:
       - "{{spec_artifacts_path}}/tech-spec.md"
       - "{{spec_artifacts_path}}/stories.md"
 
-  # Setup
-  - name: project_setup
+  # Scaffold
+  - name: project_scaffold
     info: Scaffold the project foundation (LICENSE, headers, manifest, README, CHANGELOG)
-    description: One-time project setup after planning. Creates license, copyright headers, package manifest, README with badges, CHANGELOG, and .gitignore based on decisions made during planning.
+    description: One-time project scaffolding after planning. Creates license, copyright headers, package manifest, README with badges, CHANGELOG, and .gitignore based on decisions made during planning.
     sequence_or_cycle: sequence
     generation_type: document
-    mode_template: "{{mode_templates_path}}/project-setup-mode.md"
+    mode_template: "{{mode_templates_path}}/project-scaffold-mode.md"
     next_mode: "{{default_code_mode}}"
     files_exist:
       - "{{spec_artifacts_path}}/concept.md"

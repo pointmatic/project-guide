@@ -1,6 +1,6 @@
-# Project Setup Mode
+# Project Scaffold Mode
 
-Scaffold the project foundation: license, copyright headers, package manifest, README with badges, CHANGELOG, and .gitignore. This is a one-time setup after planning is complete, using decisions made in the concept, features, tech-spec, and stories documents.
+Scaffold the project foundation: license, copyright headers, package manifest, README with badges, CHANGELOG, and .gitignore. This is a one-time scaffolding step after planning is complete, using decisions made in the concept, features, tech-spec, and stories documents.
 
 {% include "modes/_header-sequence.md" %}
 
@@ -127,8 +127,8 @@ Present the scaffolded project to the developer for review:
 - [ ] CHANGELOG.md initialized
 - [ ] .gitignore configured
 
-Once approved, proceed to planning:
+Once approved, proceed to coding:
 
 ```bash
-project-guide mode plan_concept
+project-guide mode {{ next_mode }}
 ```

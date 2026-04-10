@@ -44,6 +44,7 @@ nav:
       - Installation Options: user-guide/install-options.md
       - Configuration: user-guide/configuration.md
       - Commands: user-guide/commands.md
+      - Modes: user-guide/modes.md
       - Workflow: user-guide/workflow.md
       - Override Management: user-guide/overrides.md
   - Developer Guide:

@@ -41,9 +41,9 @@ Read docs/project-guide/go.md
 
 The guide walks your LLM through structured development steps based on the active mode.
 
-## 4. Guide the Workflow
+## 4. Control the Workflow
 
-As the LLM completes each step, type:
+As the LLM completes each step, when you're ready, type:
 
 ```
 go

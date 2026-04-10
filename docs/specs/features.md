@@ -44,7 +44,7 @@ For a high-level concept (why), see `concept.md`. For implementation details (ho
 
 ### Non-goals
 
-1. **Not a project scaffolding tool** — manages workflow documentation, not project structure (though `project_setup` mode guides the LLM through scaffolding)
+1. **Not a project scaffolding tool** — manages workflow documentation, not project structure (though `project_scaffold` mode guides the LLM through scaffolding)
 2. **Not a code generator** — provides structure for the LLM to follow; code is generated conversationally
 3. **Not an LLM API client** — no API calls; the LLM reads rendered markdown documents
 4. **Not language-specific** — default templates assume Python but modes are language-agnostic
@@ -138,7 +138,7 @@ project-root/
             │   ├── plan-tech-spec-mode.md
             │   ├── plan-stories-mode.md
             │   ├── plan-phase-mode.md
-            │   ├── project-setup-mode.md
+            │   ├── project-scaffold-mode.md
             │   ├── code-velocity-mode.md
             │   ├── code-test-first-mode.md
             │   ├── debug-mode.md
@@ -204,7 +204,7 @@ The system renders a single entry-point document (`go.md`) from Jinja2 templates
 | Mode | Type | Description |
 |-|-|-|
 | `default` | sequence | Project lifecycle overview for new users |
-| `project_setup` | sequence | Scaffold LICENSE, headers, manifest, README, CHANGELOG |
+| `project_scaffold` | sequence | Scaffold LICENSE, headers, manifest, README, CHANGELOG |
 | `plan_concept` | sequence | Define problem and solution space |
 | `plan_features` | sequence | Define feature requirements |
 | `plan_tech_spec` | sequence | Define technical specification |
