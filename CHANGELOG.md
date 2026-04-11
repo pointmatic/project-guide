@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.4] - 2026-04-11
+
+### Added
+- **`plan_phase` mode appends to `project-essentials.md`** (Story M.e) — wires the third and final planning mode to the M.a render hook, completing the M.c/M.d/M.e lifecycle coverage. Where M.c populates on initial tech-spec creation and M.d revisits on refactor, M.e runs once per new phase plan and **appends** (rather than revisits or rewrites) new must-know facts to the file. The append-only semantics are a deliberate design constraint — `plan_phase` runs frequently over a project's lifetime and should not be the place to refactor or reorder existing project-essentials content; that's `refactor_plan`'s Final Step job.
+- **New step 7 in `plan-phase-mode.md`** appended after Step 6 (stories approval), runs **once** at the end of phase planning (not per-story). Structure:
+  - **Create-if-absent branch**: if `docs/specs/project-essentials.md` doesn't exist (legacy project), the mode creates it from the artifact template first, following the same create path as `refactor_plan`'s Final Step. Legacy projects are explicitly flagged as the highest-value case.
+  - **Modify branch**: if the file exists, the mode reads it, keeps the current content in mind for the phase-specific prompt, and appends new `###` subsections under appropriate categories.
+  - **Phase-specific worked examples** with framing appropriate to "adding capability to an existing codebase": new architecture boundary (example cites Phase K's action-type registration pattern); new workflow rule or CLI contract (example cites Phase L's `--no-input` error-message contract that downstream tools pin); new hidden coupling between files (example cites Phase M's own `_header-common.md` guard + M.b validator); new deferred-but-documented item.
+  - **Principle anchor**: "if the phase introduced a new *invariant* or *convention* that someone working in this codebase a year from now would waste an hour rediscovering, it belongs in project-essentials." Straightforward feature additions with no new invariants should skip this step.
+  - **Skip-if-none escape hatch** is explicit — not every phase introduces new must-know facts.
+  - **Append-only semantics** are explicit: "append (do not rewrite or reorder)". Add new `###` subsections under the appropriate category (or create a new category if none fits). Do not edit existing content.
+  - **Heading convention reminder** (no top-level `#`; `###` for subsections) is present so the append nests correctly under the wrapper's `## Project Essentials`.
+- **`plan_phase` metadata entry** now declares three `artifacts` (was two): `new-phase-{{phase_name}}.md` (no action — document artifact), `stories.md` (`action: modify`), and the new `project-essentials.md` (`action: modify`). The new wiring does not disturb the existing two declarations — the M.e story's test explicitly guards against that regression.
+
+### Changed
+- **`{% raw %}...{% endraw %}` escape on the "hidden coupling" worked example** in `plan-phase-mode.md`. The example references `_header-common.md`'s `{% if project_essentials %}` guard literally inside a backtick code span — without the `{% raw %}` escape, Jinja2 parses the literal as an actual tag and the render fails with `Unexpected end of template`. This is the first time any bundled template has needed `{% raw %}` escaping, and it's a useful datapoint for the M.b validator's known-limitation note (templates that want to emit literal `{{ var }}` or `{% ... %}` strings need `{% raw %}`). Discovered during the first M.e test run; documented inline in the template.
+
+### Tests
+- **2 new tests in `tests/test_render.py`** under the "Story M.e" heading:
+  - `test_plan_phase_mode_prompts_for_project_essentials_append` — end-to-end render. Asserts: append step present and runs once; append-only semantics explicit ("do not rewrite or reorder"); create-if-absent branch present with legacy-project framing; at least two phase-specific worked example categories (architecture boundary, workflow rule / CLI contract); skip-if-none escape hatch; artifact template reference; heading convention reminder.
+  - `test_plan_phase_metadata_declares_project_essentials_modify_artifact` — loads bundled metadata, asserts exactly one `project-essentials.md` artifact with `ActionType.MODIFY`. Also sanity-checks that the existing `new-phase-*.md` and `stories.md` declarations are still present, guarding against a clobber regression.
+- **`test_every_mode_renders_successfully` parametrized test continues to pass unchanged** — and was specifically what caught the missing `{% raw %}` escape on the first run, since the `plan_phase` mode render failed until the escape was added.
+
+### Notes
+- **Phase M wiring is now complete** (M.c/M.d/M.e). All three planning modes populate, refresh, or append to `project-essentials.md` at their respective lifecycle touchpoints:
+  - `plan_tech_spec` → `action: create` (initial population after tech-spec approval)
+  - `refactor_plan` → `action: modify` (terminal revisit, create-if-legacy, refresh-if-exists)
+  - `plan_phase` → `action: modify` (append-only, create-if-legacy)
+  - All three use concrete worked examples with lifecycle-specific framing (initial / refactor-driven / phase-driven). All three have end-to-end render tests and metadata wiring tests. All three follow the heading convention that lets the content nest under `_header-common.md`'s `## Project Essentials` wrapper.
+- **What M.f (next and final Phase M story) adds**: a documentation pass — README / modes catalogue / CHANGELOG consolidation. No code changes; just closes out Phase M.
+- Full test suite: **248 passed** (+2 new M.e tests). Ruff clean across `project_guide/` and `tests/`. mypy clean on the unchanged production modules (no code changes in this story).
+- Verified end-to-end by running `pyve run project-guide update && pyve run project-guide mode plan_phase` in this repo. The rendered `go.md` contains the new step 7 at the expected position (after the stories-approval step 6) AND the M.a-injected `## Project Essentials` section at the top. The `{% if project_essentials %}` literal inside the worked example renders correctly (line 162 of the rendered output), confirming the `{% raw %}` escape works.
+
 ## [2.3.3] - 2026-04-11
 
 ### Added

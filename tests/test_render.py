@@ -669,6 +669,103 @@ def test_refactor_plan_metadata_declares_project_essentials_modify_artifact():
 # --- End Story M.d tests ---------------------------------------------------
 
 
+# --- Story M.e: plan_phase appends to project-essentials.md ----------------
+
+
+def test_plan_phase_mode_prompts_for_project_essentials_append():
+    """Rendering plan_phase emits the append-new-facts step.
+
+    End-to-end render: init a fresh project, switch to plan_phase, and
+    read the resulting go.md. The append step must be present, must come
+    after the stories-approval step, must use append-only semantics (not
+    refresh/modify), must handle the create-if-absent case for legacy
+    projects, and must include at least one concrete phase-specific
+    worked example.
+    """
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        result = runner.invoke(main, ['mode', 'plan_phase'])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    # Append step present and runs after stories approval
+    assert "append any new must-know facts" in content.lower()
+    assert "once" in content  # runs once per phase, not per-story
+
+    # Append-only semantics are explicit (not refresh/rewrite)
+    assert "append" in content.lower()
+    assert "do not rewrite or reorder" in content.lower() or "append-only" in content.lower()
+
+    # Create-if-absent branch for legacy projects
+    assert "does NOT exist" in content or "does not exist" in content
+    assert "legacy project" in content.lower()
+
+    # Phase-specific worked example categories
+    assert "architecture boundary" in content.lower() or "integration surface" in content.lower()
+    assert "workflow rule" in content.lower() or "CLI contract" in content.lower()
+
+    # Skip-if-none escape hatch
+    assert "Skip if there are none" in content or "skip this step" in content
+
+    # References the artifact template for the create branch
+    assert "templates/artifacts/project-essentials.md" in content
+
+    # Heading convention reminder
+    assert "do NOT include a top-level" in content
+
+
+def test_plan_phase_metadata_declares_project_essentials_modify_artifact():
+    """plan_phase declares project-essentials.md as a modify artifact.
+
+    Third planning-mode wiring checkpoint: plan_phase now carries three
+    artifacts (new-phase-*.md, stories.md, project-essentials.md), the
+    last two both with action: modify.
+    """
+    import importlib.resources
+
+    from project_guide.actions import ActionType
+    from project_guide.metadata import load_metadata
+
+    with importlib.resources.as_file(
+        importlib.resources.files("project_guide.templates").joinpath(
+            "project-guide/.metadata.yml"
+        )
+    ) as path:
+        metadata = load_metadata(path)
+
+    mode = metadata.get_mode("plan_phase")
+    essentials_artifacts = [
+        a for a in mode.artifacts if a.file and "project-essentials.md" in a.file
+    ]
+    assert len(essentials_artifacts) == 1, (
+        f"expected exactly one project-essentials.md artifact on plan_phase, "
+        f"got {len(essentials_artifacts)}"
+    )
+    assert essentials_artifacts[0].action is ActionType.MODIFY
+
+    # Sanity: the other two expected artifacts are still there — the
+    # M.e wiring must not clobber the existing new-phase-*.md and
+    # stories.md declarations.
+    artifact_files = [a.file for a in mode.artifacts if a.file]
+    assert any("new-phase-" in f for f in artifact_files), (
+        f"new-phase-*.md missing from plan_phase artifacts: {artifact_files}"
+    )
+    assert any("stories.md" in f for f in artifact_files), (
+        f"stories.md missing from plan_phase artifacts: {artifact_files}"
+    )
+
+
+# --- End Story M.e tests ---------------------------------------------------
+
+
 @pytest.mark.parametrize("mode_name", _get_all_mode_names())
 def test_every_mode_renders_successfully(mode_name):
     """Every mode in the bundled metadata must render without errors.

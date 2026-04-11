@@ -293,17 +293,25 @@ When `refactor_plan` updates the concept/features/tech-spec, give the developer 
   - [x] `test_refactor_plan_metadata_declares_project_essentials_modify_artifact` — loads bundled metadata, asserts exactly one `project-essentials.md` artifact with `ActionType.MODIFY`. The "exactly one" check guards against copy-paste duplicates.
 - [x] Verify: rendered `refactor_plan` mode includes the revisit step — confirmed via the end-to-end test above and by running `pyve run project-guide update && pyve run project-guide mode refactor_plan` in this repo. All four sub-steps (F.1 through F.4) render at the expected terminal position; the M.a-injected `## Project Essentials` section also appears at the top, proving composition works for cycle-type modes as well.
 
-### Story M.e: v2.3.4 plan_phase Appends to project-essentials.md [Planned]
+### Story M.e: v2.3.4 plan_phase Appends to project-essentials.md [Done]
 
 When `plan_phase` plans a new phase, prompt the developer to append any new must-know facts the phase introduces.
 
-- [ ] Update `project_guide/templates/project-guide/templates/modes/plan-phase-mode.md` to add a step after phase approval
-- [ ] Prompt: "Does this phase introduce any new must-know facts that should be added to project-essentials.md? (e.g., new architecture, new workflow rule, new gotcha)"
-- [ ] Append (do not overwrite) to `project-essentials.md` if the developer provides facts
-- [ ] Mode template handles the create case for legacy projects (file does not yet exist)
-- [ ] Add `project-essentials.md` to `plan_phase`'s `artifacts` list in `.metadata.yml` with `action: modify`
-- [ ] Tests for the rendered mode template
-- [ ] Verify: rendered `plan_phase` mode includes the append prompt
+- [x] Update `project_guide/templates/project-guide/templates/modes/plan-phase-mode.md` to add a step after phase approval — new step 7 added after step 6 (stories approval), runs **once** at the end of phase planning (not per-story).
+- [x] Prompt: rendered verbatim as "Does this phase introduce any new must-know facts that future LLMs should know? New architecture boundaries, new workflow rules, new gotchas?" with four concrete worked example categories, each with phase-specific framing (not M.c's initial-lifecycle framing or M.d's refactor-driven framing):
+  - [x] New architecture boundary (example cites Phase K's action-type registration pattern)
+  - [x] New workflow rule or CLI contract (example cites Phase L's `--no-input` error-message contract)
+  - [x] New hidden coupling between files (example cites Phase M's `_header-common.md` guard + M.b validator)
+  - [x] New deferred-but-documented item
+  - [x] Principle: "if the phase introduced a new *invariant* or *convention* that someone working in this codebase a year from now would waste an hour rediscovering, it belongs in project-essentials"
+- [x] Append (do not overwrite) to `project-essentials.md` if the developer provides facts — append-only semantics are explicit in the template prose: "append (do not rewrite or reorder)" with the rationale "plan_phase runs once per phase and is not the place to refactor existing project-essentials content — that's refactor_plan's Final Step job".
+- [x] Mode template handles the create case for legacy projects (file does not yet exist) — explicit create-if-absent branch at the top of step 7, cross-references refactor_plan's create path, flags legacy projects as the highest-value case.
+- [x] Add `project-essentials.md` to `plan_phase`'s `artifacts` list in `.metadata.yml` with `action: modify` — added as the third artifact entry; the existing `new-phase-*.md` and `stories.md` entries are preserved (guarded by the metadata test's "sanity: other artifacts still there" check).
+- [x] Tests for the rendered mode template (2 new tests under a "Story M.e" heading in `tests/test_render.py`):
+  - [x] `test_plan_phase_mode_prompts_for_project_essentials_append` — end-to-end render. Asserts all the above assertions (append step, once-not-per-story, append-only semantics, create-if-absent branch with legacy framing, phase-specific worked examples, skip-if-none escape hatch, artifact template reference, heading convention reminder).
+  - [x] `test_plan_phase_metadata_declares_project_essentials_modify_artifact` — loads bundled metadata, asserts exactly one `project-essentials.md` artifact with `ActionType.MODIFY`, sanity-checks that the existing `new-phase-*.md` and `stories.md` artifacts are still present.
+- [x] Verify: rendered `plan_phase` mode includes the append prompt — confirmed via the end-to-end test above and by running `pyve run project-guide update && pyve run project-guide mode plan_phase` in this repo. Step 7 renders at line 152 of the rendered `go.md`, and the `{% if project_essentials %}` literal in the worked example renders correctly as a code-span literal thanks to the `{% raw %}...{% endraw %}` escape documented in the CHANGELOG.
+- [x] **Additional scope — discovered during implementation**: the first M.e test run failed with `Unexpected end of template. Jinja was looking for 'endif'`. The cause was my worked example for "New hidden coupling" referenced the literal string `{% if project_essentials %}` inside a backtick code span, and Jinja parsed it as an actual tag before the markdown layer got it. Fixed by wrapping with `{% raw %}...{% endraw %}`. This is the first bundled template to need raw escaping, and it validates the M.b validator's known-limitation note (templates that want to emit literal `{{ var }}` or `{% ... %}` strings need `{% raw %}`). The `test_every_mode_renders_successfully` parametrized test is specifically what caught this — it's exactly the cross-mode regression guard the M.b story was designed to provide.
 
 ### Story M.f: v2.3.5 Phase M Documentation and CHANGELOG [Planned]
 

@@ -97,6 +97,8 @@ modes:
       - file: "{{spec_artifacts_path}}/new-phase-{{phase_name}}.md"
       - file: "{{spec_artifacts_path}}/stories.md"
         action: modify
+      - file: "{{spec_artifacts_path}}/project-essentials.md"
+        action: modify
     files_exist:
       - "{{spec_artifacts_path}}/concept.md"
       - "{{spec_artifacts_path}}/features.md"
