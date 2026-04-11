@@ -18,6 +18,7 @@ from pathlib import Path
 
 import yaml
 
+from project_guide.actions import Artifact
 from project_guide.exceptions import MetadataError
 
 
@@ -31,7 +32,7 @@ class ModeDefinition:
     generation_type: str = "document"
     mode_template: str = ""
     next_mode: str | None = None
-    artifacts: list[dict] = field(default_factory=list)
+    artifacts: list[Artifact] = field(default_factory=list)
     files_exist: list[str] = field(default_factory=list)
 
 
@@ -52,6 +53,26 @@ class Metadata:
     def list_mode_names(self) -> list[str]:
         """Return all available mode names."""
         return [m.name for m in self.modes]
+
+
+def _parse_artifacts(mode_name: str, raw_artifacts: object) -> list[Artifact]:
+    """
+    Convert a mode's raw `artifacts:` list (already variable-resolved) into a
+    list of `Artifact` dataclass instances.
+
+    Raises `MetadataError` if `artifacts` is not a list, or if any entry has
+    an unknown `action:` value. Artifacts without an `action:` field are
+    tolerated — some entries (e.g. the generated per-phase planning doc)
+    declare only a target path.
+    """
+    if not isinstance(raw_artifacts, list):
+        raise MetadataError(
+            f"Mode '{mode_name}': 'artifacts' must be a list"
+        )
+    return [
+        Artifact.from_dict(raw, mode_name=mode_name, index=i)
+        for i, raw in enumerate(raw_artifacts)
+    ]
 
 
 def _resolve_variables(value: str, variables: dict[str, str]) -> str:
@@ -122,6 +143,8 @@ def load_metadata(path: str | Path) -> Metadata:
         if not name:
             raise MetadataError("Each mode must have a 'name' field")
 
+        artifacts = _parse_artifacts(name, resolved_mode.get("artifacts", []))
+
         try:
             mode = ModeDefinition(
                 name=name,
@@ -131,7 +154,7 @@ def load_metadata(path: str | Path) -> Metadata:
                 generation_type=resolved_mode.get("generation_type", "document"),
                 mode_template=resolved_mode.get("mode_template", ""),
                 next_mode=resolved_mode.get("next_mode"),
-                artifacts=resolved_mode.get("artifacts", []),
+                artifacts=artifacts,
                 files_exist=resolved_mode.get("files_exist", []),
             )
         except (TypeError, ValueError) as e:

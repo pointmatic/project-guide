@@ -50,3 +50,8 @@ class MetadataError(ProjectGuidesError):
 class RenderError(ProjectGuidesError):
     """Exception raised for template rendering failures."""
     pass
+
+
+class ActionError(ProjectGuidesError):
+    """Exception raised when an artifact action (create/modify/archive) fails."""
+    pass

@@ -43,18 +43,18 @@ Move the phase letter rules into a shared include and codify the `## Future` sec
 - [x] Verify: rendered `plan_stories` mode and `plan_phase` mode both contain the phase letter rules exactly once (story originally said `default`, corrected — `default` was a typo for `plan_stories`, which is where the rules belong)
 - [x] Add tests for the updated `stories.md` artifact template (renders with empty and populated `## Future`)
 
-### Story K.c: v2.1.2 Archive Action Type [Planned]
+### Story K.c: v2.1.2 Archive Action Type [Done]
 
 Add a new `archive` action type to the metadata schema and action handler. Carries the version-derivation and move-and-recreate semantics validated in K.a.
 
-- [ ] Extend `project_guide/metadata.py` to recognize `action: archive` on artifacts
-- [ ] Implement archive action semantics: derive version from latest story in source file, move to `<dirname>/.archive/<basename>-vX.Y.Z.md`, re-render fresh artifact preserving `## Future`
-- [ ] Add validation: `archive` action requires the source file to exist
-- [ ] Unit tests for version derivation (single story, multiple stories, no versioned stories)
-- [ ] Unit tests for phase letter derivation (single phase, multiple phases, post-Z letters)
-- [ ] Unit tests for `## Future` extraction and re-injection (present, absent, empty)
-- [ ] Unit tests for the archive action against a fixture `stories.md`
-- [ ] Verify: existing `create` and `modify` action types still work unchanged
+- [x] Extend `project_guide/metadata.py` to recognize `action: archive` on artifacts (shared `VALID_ARTIFACT_ACTIONS` constant lives in `project_guide/actions.py`; `metadata.py` imports it and validates any `action:` value against the set, tolerating artifacts without an `action:` field)
+- [x] Implement archive action semantics: derive version from latest story in source file, move to `<dirname>/.archive/<basename>-vX.Y.Z.md`, re-render fresh artifact preserving `## Future` (new `project_guide/actions.py` module; `perform_archive` returns an `ArchiveResult` dataclass; best-effort rollback restores the source if the fresh re-render fails)
+- [x] Add validation: `archive` action requires the source file to exist (runtime check in `perform_archive`; also validates the artifact template path so a broken install errors cleanly before mutating state)
+- [x] Unit tests for version derivation (single story, multiple stories, no versioned stories) — 4 tests including a "prose mentions v99.99.99" negative case
+- [x] Unit tests for phase letter derivation (single phase, multiple phases, post-Z letters) — 5 tests including `Z < AA < AB` and `ZZ < AAA`
+- [x] Unit tests for `## Future` extraction and re-injection (present, absent, empty) — 3 extraction tests + 2 render-fresh tests covering default vs carried Future blocks
+- [x] Unit tests for the archive action against a fixture `stories.md` — 6 tests: happy path, no-Future case, missing source, existing archive target, missing template, no-versions-in-source, plus a real-file round-trip against `.archive/stories-v2.0.20.md` (Phase J)
+- [x] Verify: existing `create` and `modify` action types still work unchanged — 3 new metadata tests (valid archive, valid create/modify round-trip, missing action tolerated, unknown action rejected)
 
 ### Story K.d: v2.1.3 archive_stories Mode [Planned]
 

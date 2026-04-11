@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.2] - 2026-04-10
+
+### Added
+- **`archive` artifact action type** (Story K.c) — new `project_guide/actions.py` module implements the deterministic archive pipeline:
+  - `detect_latest_version(text)` — scans `### Story X.y: vN.N.N` headings and returns the numerically highest version (not lexical).
+  - `detect_latest_phase_letter(text)` — scans `## Phase <Letter>:` headings using base-26-no-zero ordering (`A` < `Z` < `AA` < `ZZ` < `AAA`).
+  - `extract_future_section(text)` — returns the `## Future` block verbatim to EOF, or `""` if absent.
+  - `render_fresh_stories_artifact(template, context, future)` — re-renders the bundled `stories.md` artifact template with an empty body, substituting the template's default `## Future` block with a carried section when provided.
+  - `perform_archive(source, template, context)` — end-to-end runtime: moves `source` to `<dirname>/.archive/<stem>-vX.Y.Z<suffix>`, re-renders a fresh source with Future preserved, best-effort rollback on failure. Returns `ArchiveResult(archived_to, source_rewritten, version, phase_letter, future_carried)`.
+- **`ActionType` StrEnum** and **`Artifact` dataclass** in `project_guide/actions.py`. `ActionType.CREATE`/`MODIFY`/`ARCHIVE` are the canonical action values; `StrEnum` means `ActionType.ARCHIVE == "archive"` is `True`, so YAML round-trips as bare strings. `Artifact` is a typed, validated representation of a mode's artifact entry (`file | webpage | framework` + `action`).
+- **`ActionError` exception** in `project_guide/exceptions.py` for archive action failures at runtime.
+
+### Changed
+- **BREAKING: `ModeDefinition.artifacts` is now `list[Artifact]`, not `list[dict]`.** Every mode's `artifacts:` list is parsed into typed `Artifact` dataclass instances during metadata load. Consumers must use attribute access (`artifact.file`, `artifact.action`) instead of dict access (`artifact["file"]`). No CLI/runtime code in this package consumed the old dict shape, so this is only visible to tests and any future external integrations. Pre-release (Phase K) acceptable churn.
+- **`metadata.py` validates artifact action values at load time** — any `action:` field on an artifact must be one of `ActionType.{CREATE,MODIFY,ARCHIVE}`. Artifacts without an `action:` field continue to be tolerated (legacy form). Typos like `action: arhive` now fail at metadata load time with a helpful error message listing valid values.
+
+### Tests
+- New `tests/test_actions.py` — 30 tests covering: ActionType enum and StrEnum behavior, Artifact dataclass parsing (file/webpage/framework targets, missing action, unknown action, non-mapping input), version/phase/future detection (including negative cases and base-26 ordering), fresh-render behavior, and a real-file round-trip against `.archive/stories-v2.0.20.md` (the Phase J archive).
+- Updated tests in `tests/test_metadata.py` — 4 new tests verifying `action: archive` parses to `ActionType.ARCHIVE`, `action: create`/`modify` still parse, missing `action:` yields `artifact.action is None`, and unknown actions raise `MetadataError`. Existing tests updated to use attribute access on `Artifact`.
+- **168 tests pass** (up from 133).
+
+### Notes
+- This story adds the action **type** only. Wiring the action into a CLI-invocable `archive_stories` mode (new mode template, metadata entry, and the mode command routing it to `perform_archive`) is the next story, K.d.
+- The `ActionType`/`Artifact` refactor replaced an earlier in-progress design using bare string constants (`ACTION_CREATE`, `ACTION_MODIFY`, `ACTION_ARCHIVE`, `VALID_ARTIFACT_ACTIONS` frozenset) after a mid-story decision to prioritize code clarity over backward compatibility. No releases shipped with the string-constant form.
+
 ## [2.1.1] - 2026-04-10
 
 ### Added

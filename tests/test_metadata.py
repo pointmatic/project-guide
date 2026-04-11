@@ -14,6 +14,7 @@
 
 import pytest
 
+from project_guide.actions import ActionType
 from project_guide.exceptions import MetadataError
 from project_guide.metadata import load_metadata
 
@@ -60,7 +61,8 @@ def test_load_metadata_resolves_variables(sample_metadata_yml):
 
     mode = metadata.get_mode("plan_concept")
     assert mode.mode_template == "templates/modes/plan-concept-mode.md"
-    assert mode.artifacts[0]["file"] == "docs/specs/concept.md"
+    assert mode.artifacts[0].file == "docs/specs/concept.md"
+    assert mode.artifacts[0].action is ActionType.CREATE
     assert mode.files_exist[0] == "templates/modes/plan-concept-mode.md"
 
 
@@ -125,6 +127,93 @@ def test_load_metadata_mode_missing_name(tmp_path):
     path.write_text("common: {}\nmodes:\n  - info: test\n    description: test\n    sequence_or_cycle: sequence\n")
 
     with pytest.raises(MetadataError, match="must have a 'name'"):
+        load_metadata(path)
+
+
+def test_load_metadata_accepts_archive_action(tmp_path):
+    """action: archive is a valid artifact action (added in Phase K)."""
+    path = tmp_path / "archive_action.yml"
+    path.write_text(
+        "common: {}\n"
+        "modes:\n"
+        "  - name: archive_stories\n"
+        "    info: Archive stories\n"
+        "    description: Move stories to archive.\n"
+        "    sequence_or_cycle: sequence\n"
+        "    generation_type: document\n"
+        "    mode_template: modes/archive-stories-mode.md\n"
+        "    artifacts:\n"
+        "      - file: docs/specs/stories.md\n"
+        "        action: archive\n"
+    )
+    metadata = load_metadata(path)
+    mode = metadata.get_mode("archive_stories")
+    assert mode.artifacts[0].action is ActionType.ARCHIVE
+    assert mode.artifacts[0].file == "docs/specs/stories.md"
+
+
+def test_load_metadata_accepts_create_and_modify_actions(tmp_path):
+    """Existing `create` and `modify` actions continue to work unchanged."""
+    path = tmp_path / "both_actions.yml"
+    path.write_text(
+        "common: {}\n"
+        "modes:\n"
+        "  - name: mode_a\n"
+        "    info: A\n"
+        "    description: A\n"
+        "    sequence_or_cycle: sequence\n"
+        "    generation_type: document\n"
+        "    mode_template: modes/a.md\n"
+        "    artifacts:\n"
+        "      - file: docs/specs/a.md\n"
+        "        action: create\n"
+        "      - file: docs/specs/b.md\n"
+        "        action: modify\n"
+    )
+    metadata = load_metadata(path)
+    mode = metadata.get_mode("mode_a")
+    assert mode.artifacts[0].action is ActionType.CREATE
+    assert mode.artifacts[1].action is ActionType.MODIFY
+
+
+def test_load_metadata_tolerates_artifact_without_action(tmp_path):
+    """Artifacts without an `action:` field are allowed (legacy form)."""
+    path = tmp_path / "no_action.yml"
+    path.write_text(
+        "common: {}\n"
+        "modes:\n"
+        "  - name: mode_a\n"
+        "    info: A\n"
+        "    description: A\n"
+        "    sequence_or_cycle: sequence\n"
+        "    generation_type: document\n"
+        "    mode_template: modes/a.md\n"
+        "    artifacts:\n"
+        "      - file: docs/specs/a.md\n"
+    )
+    metadata = load_metadata(path)
+    mode = metadata.get_mode("mode_a")
+    assert mode.artifacts[0].action is None
+    assert mode.artifacts[0].file == "docs/specs/a.md"
+
+
+def test_load_metadata_rejects_unknown_action(tmp_path):
+    """A typo or unknown action value must raise MetadataError."""
+    path = tmp_path / "bad_action.yml"
+    path.write_text(
+        "common: {}\n"
+        "modes:\n"
+        "  - name: mode_a\n"
+        "    info: A\n"
+        "    description: A\n"
+        "    sequence_or_cycle: sequence\n"
+        "    generation_type: document\n"
+        "    mode_template: modes/a.md\n"
+        "    artifacts:\n"
+        "      - file: docs/specs/a.md\n"
+        "        action: arhive\n"  # typo
+    )
+    with pytest.raises(MetadataError, match="unknown action 'arhive'"):
         load_metadata(path)
 
 
