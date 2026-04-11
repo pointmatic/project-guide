@@ -15,6 +15,7 @@
 from pathlib import Path
 from unittest.mock import patch
 
+import click
 import pytest
 from click.testing import CliRunner
 
@@ -122,6 +123,101 @@ def test_init_with_custom_target_dir(runner, tmp_path):
         # Verify config has correct target_dir
         config = Config.load(".project-guide.yml")
         assert config.target_dir == "custom/path"
+
+
+# --- Story L.b: --no-input flag, auto-detection, and the _require_setting
+#     contract. See project_guide/runtime.py for the trigger priority.
+
+
+def test_init_with_no_input_flag_on_fresh_project(runner, tmp_path, monkeypatch):
+    """--no-input on a fresh project → normal install, exit 0."""
+    # Clear any ambient env that would make this test non-discriminating
+    monkeypatch.delenv("PROJECT_GUIDE_NO_INPUT", raising=False)
+    monkeypatch.delenv("CI", raising=False)
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(main, ['init', '--no-input'])
+        assert result.exit_code == 0
+        assert "Initializing project-guide" in result.output
+        assert "Successfully initialized" in result.output
+        assert Path(".project-guide.yml").exists()
+        assert Path("docs/project-guide/go.md").exists()
+
+
+def test_init_with_no_input_and_force_on_initialized_project(runner, tmp_path, monkeypatch):
+    """--no-input --force on an initialized project → overwrite, exit 0."""
+    monkeypatch.delenv("PROJECT_GUIDE_NO_INPUT", raising=False)
+    monkeypatch.delenv("CI", raising=False)
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        # First init
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        # Modify a template, then re-init with --no-input --force
+        template_path = Path("docs/project-guide/templates/modes/plan-concept-mode.md")
+        original_content = template_path.read_text(encoding="utf-8")
+        template_path.write_text("Modified content")
+
+        result = runner.invoke(main, ['init', '--no-input', '--force'])
+        assert result.exit_code == 0
+        assert template_path.read_text(encoding="utf-8") == original_content
+
+
+def test_init_with_ci_env_var_is_idempotent_on_rerun(runner, tmp_path, monkeypatch):
+    """CI=1 composes cleanly with L.a idempotency: re-run still exits 0.
+
+    This is the regression test for the compose: auto-detection (L.b) +
+    idempotent re-run (L.a) must both apply on the second call. Any regression
+    that re-introduces `click.Abort()` on re-init would fail here in CI.
+    """
+    monkeypatch.setenv("CI", "1")
+    monkeypatch.delenv("PROJECT_GUIDE_NO_INPUT", raising=False)
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        # First init under CI=1 — plain `init`, no explicit flag
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        # Second init under CI=1 — must still exit 0 per L.a
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+        assert "already initialized" in result.output
+
+
+def test_init_with_non_tty_stdin_behaves_like_no_input(runner, tmp_path, monkeypatch):
+    """Non-TTY stdin (CliRunner with input=...) behaves like --no-input.
+
+    CliRunner's ``input`` parameter produces a non-TTY stdin; the runtime
+    module's TTY-fallback branch treats that as skip-input. End-to-end this
+    means piped stdin never hangs on a prompt.
+    """
+    monkeypatch.delenv("PROJECT_GUIDE_NO_INPUT", raising=False)
+    monkeypatch.delenv("CI", raising=False)
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        # Feed empty stdin — CliRunner makes this a non-TTY file-like object
+        result = runner.invoke(main, ['init'], input="")
+        assert result.exit_code == 0
+        assert Path(".project-guide.yml").exists()
+
+
+def test_require_setting_contract_exit_code_and_message(runner):
+    """FR-L4 regression guard: exercise _require_setting via a dummy command.
+
+    Today no production prompt site calls _require_setting, so this test
+    registers a throwaway click command at import time and invokes it through
+    CliRunner. The day someone adds a real prompt to init, this contract test
+    remains the source of truth for the exact error message format.
+    """
+    from project_guide.runtime import _require_setting
+
+    @click.command()
+    def _dummy():
+        _require_setting("project name", "project-name", "PROJECT_GUIDE_PROJECT_NAME")
+
+    result = runner.invoke(_dummy, [])
+    assert result.exit_code == 1
+    assert (
+        "project name is required when --no-input is active. "
+        "Provide via --project-name or PROJECT_GUIDE_PROJECT_NAME."
+    ) in result.output
 
 
 def test_status_with_all_guides_current(runner, tmp_path):

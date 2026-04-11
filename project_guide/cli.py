@@ -24,6 +24,7 @@ from project_guide.config import Config
 from project_guide.exceptions import ActionError, ConfigError, MetadataError, RenderError, SyncError
 from project_guide.metadata import load_metadata
 from project_guide.render import render_go_project_guide
+from project_guide.runtime import should_skip_input
 from project_guide.sync import (
     file_matches_template,
     get_all_file_names,
@@ -82,9 +83,26 @@ def _copy_template_tree(src_dir: Path, dest_dir: Path, force: bool = False) -> i
 @main.command()
 @click.option('--target-dir', default='docs/project-guide', help='Target directory for the guide')
 @click.option('--force', is_flag=True, help='Overwrite existing files')
-def init(target_dir: str, force: bool):
+@click.option(
+    '--no-input',
+    'no_input',
+    is_flag=True,
+    default=False,
+    help=(
+        'Do not read from stdin; use defaults where sensible. Fail loudly '
+        'if any prompt has no default. (Also auto-enabled by CI=1 or '
+        'non-TTY stdin.)'
+    ),
+)
+def init(target_dir: str, force: bool, no_input: bool):
     """Initialize project-guide in a new project."""
     config_path = Path(".project-guide.yml")
+
+    # Compute once, up front, so any future prompt site in this command has
+    # a single source of truth. Today `init` has no interactive prompts, so
+    # this value is plumbed through but not consulted — that's intentional:
+    # the contract needs to exist *before* the first prompt is added.
+    skip_input = should_skip_input(no_input)  # noqa: F841  (reserved for future prompts)
 
     # Idempotency: if the project is already initialized and --force was not
     # given, exit 0 silently with an informational message. This makes

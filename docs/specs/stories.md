@@ -129,33 +129,34 @@ Change `project-guide init` to exit 0 silently when the project is already initi
 - [x] Add new test: `init --force` on an initialized project still overwrites (regression guard for the `--force` branch) — the existing `test_init_with_force_flag` already covers this; verified unchanged
 - [x] Verify: `project-guide init && project-guide init` succeeds end-to-end in a `CliRunner.isolated_filesystem()` (covered by the two idempotency tests)
 
-### Story L.b: v2.2.1 --no-input Flag, Trigger Helper, and Prompt Contract [Planned]
+### Story L.b: v2.2.1 --no-input Flag, Trigger Helper, and Prompt Contract [Done]
 
 Add the `--no-input` flag to `init`, land the shared `should_skip_input()` helper, and establish the missing-required-setting contract for any prompt that gets added to `init` in the future. Because `init` has no interactive prompts today, this story is plumbing + contract + regression-guard tests — no production prompt code exercises the contract yet, but the helper is the single idiom every future prompt must use.
 
-- [ ] Create `project_guide/runtime.py` with `should_skip_input(flag: bool = False) -> bool`
-  - [ ] Trigger priority (first match wins): explicit `flag` → `PROJECT_GUIDE_NO_INPUT` env var → `CI` env var → `sys.stdin.isatty() == False` → otherwise interactive
-  - [ ] Env-var truthiness: case-insensitive match against `{"1", "true", "yes", "on"}`
-  - [ ] Safely handle the edge case where `sys.stdin` is `None` or closed (subprocess contexts): catch `AttributeError`/`ValueError` and treat as non-TTY
-- [ ] Add `--no-input` click option to `init` in `project_guide/cli.py`
-  - [ ] Boolean flag, default `False`, no short form
-  - [ ] Help text: "Do not read from stdin; use defaults where sensible. Fail loudly if any prompt has no default. (Also auto-enabled by CI=1 or non-TTY stdin.)"
-  - [ ] Compute `skip_input = should_skip_input(no_input)` early in `init` — threads through for future prompt sites
-- [ ] Add a module-level helper (or `click.ClickException` subclass) `_require_setting(name: str, cli_flag: str, env_var: str)` that raises with the message: `<name> is required when --no-input is active. Provide via --<cli_flag> or <env_var>.` and causes exit code 1. This is the landing spot for future prompt call sites.
-- [ ] Create `tests/test_runtime.py`:
-  - [ ] `should_skip_input(True)` returns `True` regardless of env/TTY
-  - [ ] `PROJECT_GUIDE_NO_INPUT=1` (and `true`, `YES`, `on`) returns `True`; empty/unset returns fall-through behavior
-  - [ ] `CI=1` returns `True` when flag and `PROJECT_GUIDE_NO_INPUT` are not set
-  - [ ] Non-TTY stdin returns `True` when nothing else is set (monkeypatch `sys.stdin.isatty`)
-  - [ ] Priority order: flag beats env, env beats CI, CI beats TTY
-  - [ ] Safety: stdin `None` or closed returns `True` (non-TTY fallback)
-- [ ] Add to `tests/test_cli.py`:
-  - [ ] `init --no-input` on a fresh project → normal install, exit 0
-  - [ ] `init --no-input --force` on an initialized project → overwrite, exit 0
-  - [ ] `init` with `CI=1` env var (via `monkeypatch.setenv`) behaves the same as `--no-input` — specifically, it still exits 0 on re-run per L.a (idempotency + auto-detection compose cleanly)
-  - [ ] `init` with non-TTY stdin (via `CliRunner(input=...)`) behaves the same as `--no-input`
-  - [ ] Regression guard for the FR-L4 contract: a unit test that injects a dummy prompt through `_require_setting` verifies the exit-1 path and the exact error message format. This is the guard that protects the contract the day someone adds a real prompt to `init`.
-- [ ] Verify: `CI=1 project-guide init` and `project-guide init --no-input` both work end-to-end on a fresh fixture project
+- [x] Create `project_guide/runtime.py` with `should_skip_input(flag: bool = False) -> bool`
+  - [x] Trigger priority (first match wins): explicit `flag` → `PROJECT_GUIDE_NO_INPUT` env var → `CI` env var → `sys.stdin.isatty() == False` → otherwise interactive
+  - [x] Env-var truthiness: case-insensitive match against `{"1", "true", "yes", "on"}` (implemented as `_TRUTHY_ENV_VALUES` module-level frozenset)
+  - [x] Safely handle the edge case where `sys.stdin` is `None` or closed (subprocess contexts): catch `AttributeError`/`ValueError` and treat as non-TTY (`_stdin_is_non_tty` helper)
+- [x] Add `--no-input` click option to `init` in `project_guide/cli.py`
+  - [x] Boolean flag, default `False`, no short form
+  - [x] Help text: "Do not read from stdin; use defaults where sensible. Fail loudly if any prompt has no default. (Also auto-enabled by CI=1 or non-TTY stdin.)"
+  - [x] Compute `skip_input = should_skip_input(no_input)` early in `init` — threads through for future prompt sites (marked `# noqa: F841` with a comment explaining this is plumbing for the first future prompt)
+- [x] Add a module-level helper (or `click.ClickException` subclass) `_require_setting(name: str, cli_flag: str, env_var: str)` that raises with the message: `<name> is required when --no-input is active. Provide via --<cli_flag> or <env_var>.` and causes exit code 1. This is the landing spot for future prompt call sites.
+- [x] Create `tests/test_runtime.py` (31 tests total):
+  - [x] `should_skip_input(True)` returns `True` regardless of env/TTY
+  - [x] `PROJECT_GUIDE_NO_INPUT=1` (and `true`, `YES`, `on`, etc.) returns `True`; empty/falsy/unset falls through (parametrized 8+6+1 cases)
+  - [x] `CI=1` returns `True` when flag and `PROJECT_GUIDE_NO_INPUT` are not set (+ case-insensitive parametrized cases + falsy fall-through)
+  - [x] Non-TTY stdin returns `True` when nothing else is set (monkeypatched `sys.stdin`)
+  - [x] Priority order: flag beats env, env beats CI, CI beats TTY (3 dedicated priority tests)
+  - [x] Safety: stdin `None` or closed returns `True` (non-TTY fallback) — both branches covered
+  - [x] `_require_setting` contract tests (2 tests: exit code + exact message format)
+- [x] Add to `tests/test_cli.py` (5 new tests):
+  - [x] `init --no-input` on a fresh project → normal install, exit 0
+  - [x] `init --no-input --force` on an initialized project → overwrite, exit 0
+  - [x] `init` with `CI=1` env var (via `monkeypatch.setenv`) behaves the same as `--no-input` — specifically, it still exits 0 on re-run per L.a (idempotency + auto-detection compose cleanly)
+  - [x] `init` with non-TTY stdin (via `runner.invoke(main, ['init'], input="")`) behaves the same as `--no-input`
+  - [x] Regression guard for the FR-L4 contract: `test_require_setting_contract_exit_code_and_message` registers a throwaway `@click.command` that calls `_require_setting` and asserts exit 1 + exact message format. This is the guard that protects the contract the day someone adds a real prompt to `init`.
+- [x] Verify: `CI=1 project-guide init` and `project-guide init --no-input` both work end-to-end on a fresh fixture project (covered by `test_init_with_ci_env_var_is_idempotent_on_rerun` and `test_init_with_no_input_flag_on_fresh_project`)
 
 ### Story L.c: v2.2.2 Phase L Documentation and CHANGELOG [Planned]
 

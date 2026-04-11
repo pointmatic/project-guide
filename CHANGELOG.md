@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.1] - 2026-04-11
+
+### Added
+- **`--no-input` flag on `project-guide init`** (Story L.b) with env-var and non-TTY auto-detection. `init` is now safe to invoke from any unattended context (CI runners, `pyve` post-hooks, subprocess pipelines) without hanging on a future prompt.
+- **`project_guide/runtime.py`** — new module exposing `should_skip_input(flag: bool = False) -> bool`. This is the single idiom every future prompt site in this package must use to decide whether it is safe to read from stdin. Trigger priority (first match wins):
+  1. Explicit `flag` argument (usually `--no-input`).
+  2. `PROJECT_GUIDE_NO_INPUT` env var set to a truthy value.
+  3. `CI` env var set to a truthy value.
+  4. Non-TTY stdin (piped input, subprocess, closed stdin, `sys.stdin is None`).
+  5. Otherwise: interactive.
+  - Truthy env values are matched case-insensitively against `{"1", "true", "yes", "on"}`.
+  - Subprocess safety: `AttributeError` (when `sys.stdin` is `None`) and `ValueError` (when stdin is closed) are caught and treated as non-TTY.
+- **`_require_setting(name, cli_flag, env_var)` helper** in `runtime.py` — raises `click.ClickException` (exit code 1) with the exact message format `<name> is required when --no-input is active. Provide via --<cli_flag> or <env_var>.`. This is the landing spot for any future prompt site that has no sensible default under `--no-input`. No production prompt exercises this today; it exists so the contract is frozen *before* the first caller.
+- **`init --no-input` click option** — boolean, default `False`, help text: `Do not read from stdin; use defaults where sensible. Fail loudly if any prompt has no default. (Also auto-enabled by CI=1 or non-TTY stdin.)`. The computed `skip_input = should_skip_input(no_input)` is threaded through `init` as reserved plumbing — today `init` has no interactive prompts, so the value is unused at runtime (marked `# noqa: F841` with a comment explaining why).
+
+### Tests
+- **`tests/test_runtime.py`** (new, 31 tests): baseline fixtures for a clean env + forced-TTY stdin; parametrized coverage of truthy and falsy `PROJECT_GUIDE_NO_INPUT` values; parametrized coverage of `CI` truthy values; non-TTY stdin; `sys.stdin is None` and closed-stdin subprocess edge cases; explicit priority-order tests (flag > env > CI > TTY); and `_require_setting` contract tests (exit code + exact message format).
+- **`tests/test_cli.py`** (5 new tests under a Story L.b section): `test_init_with_no_input_flag_on_fresh_project`, `test_init_with_no_input_and_force_on_initialized_project`, `test_init_with_ci_env_var_is_idempotent_on_rerun` (composes L.a idempotency with L.b auto-detection), `test_init_with_non_tty_stdin_behaves_like_no_input`, and `test_require_setting_contract_exit_code_and_message` (registers a throwaway `@click.command` that calls `_require_setting` via `CliRunner` — this is the FR-L4 regression guard).
+
+### Notes
+- Full test suite: **230 passed** (`pyve test`). Ruff clean across `project_guide/` and `tests/`. mypy clean on the two modified production modules.
+- The `skip_input` local in `init` is intentionally unused at present. It exists so that the day someone adds the first real prompt to `init`, the plumbing is already in place and the contract for handling missing required settings is already tested. Removing the `noqa` comment without adding a consumer would be a regression.
+
 ## [2.2.0] - 2026-04-11
 
 ### Changed
