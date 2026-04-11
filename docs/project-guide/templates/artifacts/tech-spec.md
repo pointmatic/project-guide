@@ -2,7 +2,7 @@
 
 This document defines **how** the `{{project_name}}` project is built -- architecture, module layout, dependencies, data models, API signatures, and cross-cutting concerns.
 
-For requirements and behavior, see `features.md`. For the implementation plan, see `stories.md`.
+For requirements and behavior, see `features.md`. For the implementation plan, see `stories.md`. For project-specific must-know facts (workflow rules, architecture quirks, hidden coupling), see `project-essentials.md` — `plan_tech_spec` populates it after this document is approved.
 
 ---
 

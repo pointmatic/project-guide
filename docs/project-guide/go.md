@@ -32,6 +32,7 @@ When you have completed the steps, pause for the developer to review, correct, r
 - When the developer says "go" (or equivalent like "continue", "next", "proceed"), continue with the next action. 
 - If the next action is unclear, tell the developer you don't have a clear direction on what to do next, then suggest something. 
 - Never auto-advance past an approval gate—always wait for explicit confirmation. 
+- At approval gates, present the completed work and wait. Do **not** propose follow-up actions outside the current mode step — in particular, do not prompt for git operations (commits, pushes, PRs, branch creation), CI runs, or deploys unless the current step explicitly calls for them. The developer initiates these on their own schedule.
 - After compacting memory, re-read this guide to refresh your context.
 
 ---
@@ -78,6 +79,14 @@ Any future interactive prompt added to a CLI command **must** use the `should_sk
 - **Commit messages reference the story ID**: `"Story M.a: v2.3.0 project-essentials render hook"`.
 - **Direct commits to main** in `code_velocity` mode — no branches, no PRs.
 - **Bump version in three places** per story: `project_guide/version.py`, `pyproject.toml`, and `CHANGELOG.md` (new `## [X.Y.Z]` entry dated).
+
+### Approval gate discipline
+
+At approval gates, present the completed work and wait. **Do not prompt for, offer, or initiate git operations** (commits, pushes, PRs, branch creation), CI runs, or deploys unless the current step explicitly calls for them. This applies to every mode, not just `code_velocity`.
+
+**Why:** in the `code_velocity` cycle, the template lists "direct commits to main" and "commit messages reference story IDs" as conventions — those are *developer-lane* conventions describing what the developer does on their own schedule. They are not instructions for the LLM to offer or bundle commits. The `_header-common.md` **Rules** block makes this universal at read time. The `code_velocity` and `code_test_first` "Present" steps reinforce it with explicit "Do not propose commits, pushes, or bundling options. Do not offer 'want me to also...?' follow-ups" language.
+
+**How to apply:** when presenting a completed story, end with a concise status + suggested next story. Do not offer "commit first or continue?" options. Do not mention bundling commits. The developer decides; the LLM presents and waits.
 
 
 ---
@@ -155,9 +164,9 @@ This is a fresh project. Direct the developer to `project-guide mode plan_concep
 |------|---------|--------|
 | **Concept** | `project-guide mode plan_concept` | `docs/specs/concept.md` |
 | **Features** | `project-guide mode plan_features` | `docs/specs/features.md` |
-| **Tech Spec** | `project-guide mode plan_tech_spec` | `docs/specs/tech-spec.md` |
+| **Tech Spec** | `project-guide mode plan_tech_spec` | `docs/specs/tech-spec.md` + `docs/specs/project-essentials.md` (initial) |
 | **Stories** | `project-guide mode plan_stories` | `docs/specs/stories.md` |
-| **Phase** | `project-guide mode plan_phase` | Add a new phase to an existing project |
+| **Phase** | `project-guide mode plan_phase` | Add a new phase to `stories.md` + append to `project-essentials.md` |
 
 ### Scaffold (sequence)
 | Mode | Command | Purpose |
@@ -181,4 +190,10 @@ This is a fresh project. Direct the developer to `project-guide mode plan_concep
 | Mode | Command | Purpose |
 |------|---------|---------|
 | **Archive Stories** | `project-guide mode archive_stories` | Move completed `stories.md` to `.archive/` and re-render an empty one for the next phase |
+
+### Refactoring (cycle)
+| Mode | Command | Purpose |
+|------|---------|---------|
+| **Refactor Plan** | `project-guide mode refactor_plan` | Update `concept.md`/`features.md`/`tech-spec.md` for new features or legacy migration; terminal step refreshes `project-essentials.md` |
+| **Refactor Document** | `project-guide mode refactor_document` | Update README, brand descriptions, landing page, and MkDocs config |
 

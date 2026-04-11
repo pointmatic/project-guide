@@ -14,17 +14,24 @@ For each story:
 6. **Mark tasks** as `[x]` in `stories.md` and change story suffix to `[Done]`
 7. **Bump version** in package manifest and source (if the story has a version)
 8. **Update CHANGELOG.md** with the version entry
-9. **Present** the completed story to the developer for approval
+9. **Present** the completed story concisely: what changed (files + line refs), verification results (test counts, lint status), and the suggested next story. Do not propose commits, pushes, or bundling options. Do not offer "want me to also…?" follow-ups.
 10. **Wait** for the developer to say "go" before starting the next story
 
 ## Velocity Practices
 
-- **Direct commits to main** -- no branches, no PRs, no code review
-- **Version bump per story** -- v0.1.0, v0.2.0, v0.3.0, etc.
+**LLM's role in each cycle:**
+
+- **Version bump per story** -- v0.1.0, v0.2.0, v0.3.0, etc. — bump in package manifest and source
 - **Minimal process overhead** -- focus on making it work, not making it perfect
-- **Commit messages** reference story IDs: `"Story A.a: v0.1.0 Hello World"`
 - **Tests run after every story** -- not after every file, but before presenting to developer
 - **Fix linting immediately** -- small incremental fixes, not batch cleanup
+- **Update CHANGELOG.md** with the version entry before presenting
+
+**Developer's role (do NOT prompt for, offer, or initiate):**
+
+- **Direct commits to main** -- no branches, no PRs, no code review (velocity convention)
+- **Commit messages** reference story IDs: `"Story A.a: v0.1.0 Hello World"`
+- **Decides when to commit** -- the LLM presents, the developer commits. Multiple stories may be bundled into one commit at the developer's discretion — that is not the LLM's call to make or suggest.
 
 ## Story Ordering
 

@@ -19,7 +19,7 @@ For each story:
 5. **Mark tasks** as `[x]` in `stories.md` and change story suffix to `[Done]`
 6. **Bump version** in package manifest and source (if the story has a version)
 7. **Update CHANGELOG.md** with the version entry
-8. **Present** the completed story to the developer for approval
+8. **Present** the completed story concisely: what changed (files + line refs), verification results (test counts, lint status, red-green-refactor summary), and the suggested next story. Do not propose commits, pushes, or bundling options. Do not offer "want me to also…?" follow-ups.
 9. **Wait** for the developer to say "go" before starting the next story
 
 ## Red-Green-Refactor

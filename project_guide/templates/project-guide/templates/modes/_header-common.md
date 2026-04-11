@@ -30,6 +30,7 @@ When you have completed the steps, pause for the developer to review, correct, r
 - When the developer says "go" (or equivalent like "continue", "next", "proceed"), continue with the next action. 
 - If the next action is unclear, tell the developer you don't have a clear direction on what to do next, then suggest something. 
 - Never auto-advance past an approval gate—always wait for explicit confirmation. 
+- At approval gates, present the completed work and wait. Do **not** propose follow-up actions outside the current mode step — in particular, do not prompt for git operations (commits, pushes, PRs, branch creation), CI runs, or deploys unless the current step explicitly calls for them. The developer initiates these on their own schedule.
 - After compacting memory, re-read this guide to refresh your context.
 
 ---

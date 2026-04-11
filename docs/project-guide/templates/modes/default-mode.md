@@ -66,9 +66,9 @@ This is a fresh project. Direct the developer to `project-guide mode plan_concep
 |------|---------|--------|
 | **Concept** | `project-guide mode plan_concept` | `docs/specs/concept.md` |
 | **Features** | `project-guide mode plan_features` | `docs/specs/features.md` |
-| **Tech Spec** | `project-guide mode plan_tech_spec` | `docs/specs/tech-spec.md` |
+| **Tech Spec** | `project-guide mode plan_tech_spec` | `docs/specs/tech-spec.md` + `docs/specs/project-essentials.md` (initial) |
 | **Stories** | `project-guide mode plan_stories` | `docs/specs/stories.md` |
-| **Phase** | `project-guide mode plan_phase` | Add a new phase to an existing project |
+| **Phase** | `project-guide mode plan_phase` | Add a new phase to `stories.md` + append to `project-essentials.md` |
 
 ### Scaffold (sequence)
 | Mode | Command | Purpose |
@@ -92,3 +92,9 @@ This is a fresh project. Direct the developer to `project-guide mode plan_concep
 | Mode | Command | Purpose |
 |------|---------|---------|
 | **Archive Stories** | `project-guide mode archive_stories` | Move completed `stories.md` to `.archive/` and re-render an empty one for the next phase |
+
+### Refactoring (cycle)
+| Mode | Command | Purpose |
+|------|---------|---------|
+| **Refactor Plan** | `project-guide mode refactor_plan` | Update `concept.md`/`features.md`/`tech-spec.md` for new features or legacy migration; terminal step refreshes `project-essentials.md` |
+| **Refactor Document** | `project-guide mode refactor_document` | Update README, brand descriptions, landing page, and MkDocs config |

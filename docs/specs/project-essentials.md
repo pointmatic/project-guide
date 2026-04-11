@@ -38,3 +38,11 @@ Any future interactive prompt added to a CLI command **must** use the `should_sk
 - **Commit messages reference the story ID**: `"Story M.a: v2.3.0 project-essentials render hook"`.
 - **Direct commits to main** in `code_velocity` mode — no branches, no PRs.
 - **Bump version in three places** per story: `project_guide/version.py`, `pyproject.toml`, and `CHANGELOG.md` (new `## [X.Y.Z]` entry dated).
+
+### Approval gate discipline
+
+At approval gates, present the completed work and wait. **Do not prompt for, offer, or initiate git operations** (commits, pushes, PRs, branch creation), CI runs, or deploys unless the current step explicitly calls for them. This applies to every mode, not just `code_velocity`.
+
+**Why:** in the `code_velocity` cycle, the template lists "direct commits to main" and "commit messages reference story IDs" as conventions — those are *developer-lane* conventions describing what the developer does on their own schedule. They are not instructions for the LLM to offer or bundle commits. The `_header-common.md` **Rules** block makes this universal at read time. The `code_velocity` and `code_test_first` "Present" steps reinforce it with explicit "Do not propose commits, pushes, or bundling options. Do not offer 'want me to also...?' follow-ups" language.
+
+**How to apply:** when presenting a completed story, end with a concise status + suggested next story. Do not offer "commit first or continue?" options. Do not mention bundling commits. The developer decides; the LLM presents and waits.

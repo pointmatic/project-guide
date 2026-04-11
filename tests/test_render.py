@@ -766,6 +766,144 @@ def test_plan_phase_metadata_declares_project_essentials_modify_artifact():
 # --- End Story M.e tests ---------------------------------------------------
 
 
+# --- Story M.g: approval-gate lane rule and code-mode lane separation ------
+
+
+@pytest.mark.parametrize("mode_name", _get_all_mode_names())
+def test_header_common_approval_gate_rule_renders_in_every_mode(mode_name):
+    """The M.g approval-gate rule must appear in every rendered mode.
+
+    Critical parametrized test: the rule is injected via `_header-common.md`,
+    which is included once by `llm_entry_point.md`, so every rendered `go.md`
+    must contain the pinned substring. If any mode misses it, either the
+    include chain is broken or someone removed the rule from
+    `_header-common.md`.
+    """
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        result = runner.invoke(main, ['mode', mode_name])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    # Pinned substring from the new rule — if this ever changes, update both
+    # `_header-common.md` and this test in the same commit.
+    assert "do not prompt for git operations" in content, (
+        f"mode {mode_name!r} is missing the M.g approval-gate rule"
+    )
+    # The rule sits under the **Rules** block, after "Never auto-advance"
+    rules_idx = content.find("**Rules**")
+    rule_idx = content.find("do not prompt for git operations")
+    assert rules_idx >= 0 and rule_idx > rules_idx, (
+        f"mode {mode_name!r}: approval-gate rule is not inside the Rules block"
+    )
+
+
+def test_code_velocity_mode_separates_llm_lane_from_developer_lane():
+    """code_velocity's Velocity Practices section must label the two lanes.
+
+    The two-lane structure is load-bearing: it forces future template
+    authors to classify every workflow item as LLM-lane or developer-lane,
+    which prevents the commit-prompt overreach bug from recurring.
+    """
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        result = runner.invoke(main, ['mode', 'code_velocity'])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    # Both lane headers present
+    assert "**LLM's role in each cycle:**" in content
+    assert "**Developer's role (do NOT prompt for, offer, or initiate):**" in content
+
+    # The "do NOT prompt" language is in the developer-lane header —
+    # this is the load-bearing phrase for future template authors
+    dev_lane_idx = content.find("**Developer's role")
+    assert "do NOT prompt for, offer, or initiate" in content[dev_lane_idx:dev_lane_idx + 200]
+
+    # Commit-related content appears in the developer lane, not before it.
+    # "Direct commits to main" is the specific bullet that used to live
+    # in the pre-M.g unlabeled bullet list.
+    commit_idx = content.find("Direct commits to main")
+    assert commit_idx > dev_lane_idx, (
+        "'Direct commits to main' must appear after the developer-lane header"
+    )
+
+    # The LLM-lane header must come BEFORE the developer-lane header
+    llm_lane_idx = content.find("**LLM's role in each cycle:**")
+    assert llm_lane_idx < dev_lane_idx
+
+
+def test_code_velocity_present_step_forbids_followup_prompts():
+    """code_velocity step 9 must explicitly forbid follow-up proposals.
+
+    Belt-and-suspenders reinforcement: the universal rule in
+    `_header-common.md` should be sufficient, but pinning the forbidden
+    patterns in the code-mode-specific step catches LLMs that skim
+    the header and jump straight to the cycle steps.
+    """
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        result = runner.invoke(main, ['mode', 'code_velocity'])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    # Both pinned forbid-patterns present in step 9's prose
+    assert "Do not propose commits" in content
+    assert 'want me to also' in content
+
+
+def test_code_test_first_present_step_forbids_followup_prompts():
+    """code_test_first step 8 must also forbid follow-up proposals.
+
+    code_test_first does not get the Velocity Practices lane restructure
+    (it has no analogous section), but its Present step gets the same
+    tightening as code_velocity step 9.
+    """
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        result = runner.invoke(main, ['mode', 'code_test_first'])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    assert "Do not propose commits" in content
+    assert 'want me to also' in content
+
+
+# --- End Story M.g tests ---------------------------------------------------
+
+
 @pytest.mark.parametrize("mode_name", _get_all_mode_names())
 def test_every_mode_renders_successfully(mode_name):
     """Every mode in the bundled metadata must render without errors.
