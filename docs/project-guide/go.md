@@ -22,7 +22,7 @@ For efficiency, when you change modes, start a new LLM conversation.
 ### For LLMs
 
 **Modes**
-This Project-Guide offers a human-in-the-loop workflow for you to follow that can be dynamically reconfigured based on the project `mode`. Each `mode` defines a focused sequence of steps to guide you (the LLM) to help generate artifacts for some facet in the project lifecycle. This document is customized for plan_phase.
+This Project-Guide offers a human-in-the-loop workflow for you to follow that can be dynamically reconfigured based on the project `mode`. Each `mode` defines a focused cycle of steps to guide you (the LLM) to help generate artifacts for some facet in the project lifecycle. This document is customized for code_velocity.
 
 **Approval Gate**
 When you have completed the steps, pause for the developer to review, correct, redirect, or ask questions about your work.  
@@ -36,57 +36,64 @@ When you have completed the steps, pause for the developer to review, correct, r
 
 ---
 
-# plan_phase mode (sequence)
+# code_velocity mode (cycle)
 
-> Generate a feature phase prompt, which includes a mini-concept, features, and technical details
+> Generate code with velocity
 
 
-Generate a combined concept/features/tech-spec document for a new phase in an existing project, then add the phase and stories to `docs/specs/stories.md`.
-
-Use this mode when the developer wants to add a significant new capability to a project that already has an established codebase and spec documents.
+Implement stories rapidly with direct commits to main. Focus on feature completion and iteration speed over process overhead.
 
 **Next Action**
-Prompt the user to change modes. 
-
-```bash
-project-guide mode code_velocity
-```
+Restart the cycle of steps. 
 
 ---
 
 
-## Prerequisites
+## Cycle Steps
 
-Before planning a new phase, the following should exist:
-- `docs/specs/concept.md`
-- `docs/specs/features.md`
-- `docs/specs/tech-spec.md`
-- `docs/specs/stories.md`
+For each story:
 
-## Steps
+1. **Read** the story's checklist from `docs/specs/stories.md`
+2. **Implement** all tasks in the checklist
+3. **Add copyright/license headers** to every new source file
+4. **Run tests** -- `pyve run pytest` (fix failures before continuing)
+5. **Run linting** -- fix any issues immediately
+6. **Mark tasks** as `[x]` in `stories.md` and change story suffix to `[Done]`
+7. **Bump version** in package manifest and source (if the story has a version)
+8. **Update CHANGELOG.md** with the version entry
+9. **Present** the completed story to the developer for approval
+10. **Wait** for the developer to say "go" before starting the next story
 
-1. Read the existing spec documents to understand the current project state.
+## Velocity Practices
 
-2. Gather information from the developer about the new phase:
-   - phase_name: A short name for the phase (e.g., "Mode System", "API Integration")
-   - problem_gap: What capability is missing or what problem this phase solves
-   - new_features: What the phase will add (functional requirements)
-   - technical_approach: How it will be built (architecture changes, new modules, new dependencies)
-   - constraints: Any limitations or compatibility requirements with existing code
-   - scope: What this phase will and won't do
+- **Direct commits to main** -- no branches, no PRs, no code review
+- **Version bump per story** -- v0.1.0, v0.2.0, v0.3.0, etc.
+- **Minimal process overhead** -- focus on making it work, not making it perfect
+- **Commit messages** reference story IDs: `"Story A.a: v0.1.0 Hello World"`
+- **Tests run after every story** -- not after every file, but before presenting to developer
+- **Fix linting immediately** -- small incremental fixes, not batch cleanup
 
-3. Generate a phase plan document at `docs/specs/phase-<name>-plan.md` that combines:
-   - **Gap analysis**: What exists vs. what's needed
-   - **Feature requirements**: What the phase adds (mini features.md)
-   - **Technical changes**: New/modified modules, dependencies, config changes (mini tech-spec.md)
-   - **Out of scope**: What's deferred to future phases
+## Story Ordering
 
-4. Present the phase plan to the developer for approval.
+- Start with Story A.a (Hello World) if not yet implemented
+- If unclear which story is next, ask: "Which story should I work on next?"
+- Never skip ahead -- complete stories in order within each phase
 
-5. After approval, add a new phase section and stories to `docs/specs/stories.md`:
-   - Determine the next phase letter
-   - Break the phase into stories following the standard story format
-   - Include a spike story if the phase introduces a new integration boundary
+## File Header Reminder
 
-6. Present the updated stories to the developer for approval.
+Every new source file must include the copyright and license header as the very first content (before code, docstrings, or imports).
+
+## When to Switch Modes
+
+Switch to **code_test_first** when:
+- Working on a story with complex logic that benefits from TDD
+- The developer requests test-first approach
+
+Switch to **debug** when:
+- A bug is discovered during implementation
+- Tests are failing unexpectedly
+
+Switch to **production mode** when:
+- CI/CD phase is complete and branch protection is enabled
+- The project is ready for public users
 

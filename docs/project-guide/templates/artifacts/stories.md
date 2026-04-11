@@ -9,3 +9,13 @@ For a high-level concept (why), see `concept.md`. For requirements and behavior 
 ---
 
 {{phases_and_stories}}
+
+## Future
+
+<!--
+This section captures items intentionally deferred from the active phases above:
+- Stories not yet planned in detail
+- Phases beyond the current scope
+- Project-level out-of-scope items
+The `archive_stories` mode preserves this section verbatim when archiving stories.md.
+-->

@@ -25,9 +25,11 @@ If yes, include a CI/CD phase in the stories. If no, skip it.
 
 3. Present the complete document to the developer for approval. Iterate as needed.
 
+{% include "modes/_phase-letters.md" %}
+
 ## Story Writing Rules
 
-- **Story ID**: `<Phase letter>.<lowercase letter>` -- e.g. `A.a`, `A.b`, `B.a`
+- **Story ID**: see the Phase and Story ID Scheme above.
 - **Version**: semver, bumped per story. Stories with no code changes omit the version.
 - **Status suffix**: `[Planned]` initially, changed to `[Done]` when completed.
 - **Checklist**: use `- [ ]` for planned tasks, `- [x]` for completed tasks. Subtasks indented with two spaces.

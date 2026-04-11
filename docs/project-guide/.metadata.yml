@@ -72,6 +72,18 @@ modes:
       - "{{spec_artifacts_path}}/tech-spec.md"
 
   # Post-Release
+  - name: archive_stories
+    info: Archive docs/specs/stories.md and re-render a fresh one for the next phase
+    description: Move the current stories.md to .archive/ under a version-stamped name derived from the latest story, and re-render an empty stories.md from the artifact template preserving the `## Future` section.
+    sequence_or_cycle: sequence
+    generation_type: document
+    mode_template: "{{mode_templates_path}}/archive-stories-mode.md"
+    next_mode: plan_phase
+    artifacts:
+      - file: "{{spec_artifacts_path}}/stories.md"
+        action: archive
+    files_exist:
+      - "{{spec_artifacts_path}}/stories.md"
   - name: plan_phase
     info: Generate a feature phase prompt, which includes a mini-concept, features, and technical details
     description: Based on a specific request from the developer, develop a combined concept, features, and technical specification document that describes the gap to fill, then create a new phase in the stories document, and breakdown all that into stories.
