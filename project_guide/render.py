@@ -12,12 +12,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import re
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, TemplateNotFound, Undefined
 
 from project_guide.exceptions import RenderError
 from project_guide.metadata import Metadata, ModeDefinition
+
+# Matches a bare Jinja-style placeholder: `{{var}}`, `{{ var }}`, `{{  var  }}`.
+# This is exactly the shape that `_LenientUndefined.__str__` emits when an
+# undefined variable is rendered, so the post-render validator below can
+# detect any placeholder that slipped through — a missed context variable,
+# a typo (`{{ project_essentialss }}`), or a removed `{% if %}` guard.
+#
+# Deliberately does NOT match attribute access (`{{ obj.attr }}`), filters
+# (`{{ name|upper }}`), expressions (`{{ a + 1 }}`), or statement blocks
+# (`{% ... %}`). Those shapes cause Jinja to raise at render time under the
+# lenient-undefined contract, so they never reach the validator.
+#
+# Known limitation: templates that legitimately want to emit a literal
+# `{{ var }}` string (e.g., documentation of Jinja syntax inside a code
+# fence) will trigger false positives. Not currently a problem in any
+# bundled template; bridge if/when needed.
+_UNRENDERED_PLACEHOLDER_RE = re.compile(r"\{\{\s*([a-zA-Z_]\w*)\s*\}\}")
 
 
 def render_go_project_guide(
@@ -85,6 +103,10 @@ def render_go_project_guide(
     except Exception as e:
         raise RenderError(f"Failed to render go.md: {e}")
 
+    # Fail the render if any bare `{{ var }}` placeholder survived Jinja
+    # (see `_UNRENDERED_PLACEHOLDER_RE` above for the full contract).
+    _validate_no_unrendered_placeholders(rendered)
+
     # Write output
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(rendered, encoding="utf-8")
@@ -107,6 +129,41 @@ class _LenientUndefined(Undefined):
 
     def __bool__(self):
         return False
+
+
+def _validate_no_unrendered_placeholders(rendered: str) -> None:
+    """Raise ``RenderError`` if the rendered output contains bare placeholders.
+
+    Scans ``rendered`` for any ``{{ name }}`` shape that survived Jinja's
+    render pass. Because this project uses :class:`_LenientUndefined`,
+    undefined variables do not raise at render time — instead they emit
+    their own name wrapped in ``{{ ... }}`` so a later validator (this
+    function) can flag them. Without this check, a typo or removed
+    ``{% if %}`` guard would ship a broken ``go.md`` to the developer.
+
+    The error message names every offending placeholder (deduplicated,
+    preserving first-occurrence order) and points at the two most common
+    fixes: a missing context variable in ``render.py`` or a template-side
+    typo. Nothing is written to disk if this function raises.
+    """
+    matches = _UNRENDERED_PLACEHOLDER_RE.findall(rendered)
+    if not matches:
+        return
+    # Deduplicate while preserving first-occurrence order so the error
+    # message is stable regardless of how many times each placeholder
+    # appears in the rendered output.
+    seen: set[str] = set()
+    unique: list[str] = []
+    for name in matches:
+        if name not in seen:
+            seen.add(name)
+            unique.append(name)
+    placeholder_list = ", ".join(unique)
+    raise RenderError(
+        f"Unrendered placeholder(s) in rendered output: {placeholder_list}. "
+        f"Hint: check (1) render.py context variables and "
+        f"(2) template variable spellings."
+    )
 
 
 def _read_project_essentials(spec_artifacts_path: str | None) -> str:

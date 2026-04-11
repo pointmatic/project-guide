@@ -104,16 +104,24 @@ def test_render_missing_entry_point(tmp_path, sample_mode, sample_metadata):
         render_go_project_guide(tmp_path, sample_mode, sample_metadata, tmp_path / "out.md")
 
 
-def test_render_undefined_vars_are_preserved(template_dir, sample_mode, sample_metadata):
-    """Test that undefined variables render as placeholders, not errors."""
+def test_render_undefined_vars_raise_render_error(template_dir, sample_mode, sample_metadata):
+    """Undefined variables surface as RenderError via the post-render validator.
+
+    Contract change in v2.3.1 (Story M.b): previously, ``_LenientUndefined``
+    caused undefined variables to pass through as literal ``{{ name }}``
+    strings in the rendered output. That was the *mechanism* the validator
+    now detects — lenient-undefined still produces the placeholder shape,
+    but the post-render validator catches it and raises ``RenderError``
+    before anything is written to disk.
+    """
     (template_dir / "templates" / "modes" / "plan-concept-mode.md").write_text(
         "## Concept\n\n{{ unknown_variable }}\n"
     )
     output = template_dir / "output.md"
-    render_go_project_guide(template_dir, sample_mode, sample_metadata, output)
-
-    content = output.read_text(encoding="utf-8")
-    assert "{{ unknown_variable }}" in content
+    with pytest.raises(RenderError, match="unknown_variable"):
+        render_go_project_guide(template_dir, sample_mode, sample_metadata, output)
+    # Nothing should be written when the validator raises.
+    assert not output.exists()
 
 
 def test_render_end_to_end_with_package_templates():
@@ -335,53 +343,146 @@ def test_project_essentials_omitted_when_spec_artifacts_path_not_in_metadata(
     assert "## Project Essentials" not in content
 
 
-def test_project_essentials_never_renders_literal_placeholder(
-    essentials_template_dir, sample_mode, essentials_metadata, monkeypatch
-):
-    """Regression guard (temporary — removed by M.b's general validator).
-
-    Catches a future template edit that removes the ``{% if %}`` guard on
-    ``_header-common.md``. Because ``_LenientUndefined.__str__`` renders as
-    ``{{ name }}``, a missing guard would emit ``{{ project_essentials }}``
-    verbatim. This test fails loudly in that case. See ``render.py:83-99``.
-    """
-    monkeypatch.chdir(essentials_template_dir)
-    # Run all four shapes and verify none leak the literal placeholder
-    output = essentials_template_dir / "output.md"
-
-    # Case 1: file missing
-    render_go_project_guide(
-        essentials_template_dir, sample_mode, essentials_metadata, output
-    )
-    assert "{{ project_essentials }}" not in output.read_text(encoding="utf-8")
-
-    # Case 2: file empty
-    specs_dir = Path("docs/specs")
-    specs_dir.mkdir(parents=True)
-    (specs_dir / "project-essentials.md").write_text("", encoding="utf-8")
-    render_go_project_guide(
-        essentials_template_dir, sample_mode, essentials_metadata, output
-    )
-    assert "{{ project_essentials }}" not in output.read_text(encoding="utf-8")
-
-    # Case 3: file whitespace-only
-    (specs_dir / "project-essentials.md").write_text("\n\n", encoding="utf-8")
-    render_go_project_guide(
-        essentials_template_dir, sample_mode, essentials_metadata, output
-    )
-    assert "{{ project_essentials }}" not in output.read_text(encoding="utf-8")
-
-    # Case 4: file populated
-    (specs_dir / "project-essentials.md").write_text("real content\n", encoding="utf-8")
-    render_go_project_guide(
-        essentials_template_dir, sample_mode, essentials_metadata, output
-    )
-    content = output.read_text(encoding="utf-8")
-    assert "{{ project_essentials }}" not in content
-    assert "real content" in content
+# (The temporary `test_project_essentials_never_renders_literal_placeholder`
+# regression guard from Story M.a was removed in M.b — the general
+# post-render placeholder validator in `_validate_no_unrendered_placeholders`
+# subsumes it. If the `{% if %}` guard on `_header-common.md` is ever
+# removed, the M.b validator raises `RenderError` on every mode render
+# that has no populated `project-essentials.md`, which is far louder than
+# a single dedicated test.)
 
 
 # --- End Story M.a tests ---------------------------------------------------
+
+
+# --- Story M.b: post-render placeholder validator --------------------------
+
+
+def test_validator_raises_on_single_undefined_variable(
+    template_dir, sample_mode, sample_metadata
+):
+    """Rendering a template with one undefined variable raises RenderError."""
+    (template_dir / "templates" / "modes" / "plan-concept-mode.md").write_text(
+        "## Concept\n\n{{ typoed_variable }}\n"
+    )
+    output = template_dir / "output.md"
+    with pytest.raises(RenderError) as excinfo:
+        render_go_project_guide(template_dir, sample_mode, sample_metadata, output)
+    assert "typoed_variable" in str(excinfo.value)
+    assert "Unrendered placeholder" in str(excinfo.value)
+
+
+def test_validator_error_message_lists_all_offenders(
+    template_dir, sample_mode, sample_metadata
+):
+    """The error message names every distinct offending placeholder."""
+    (template_dir / "templates" / "modes" / "plan-concept-mode.md").write_text(
+        "## Concept\n\n{{ alpha }}\n{{ beta }}\n{{ gamma }}\n"
+    )
+    output = template_dir / "output.md"
+    with pytest.raises(RenderError) as excinfo:
+        render_go_project_guide(template_dir, sample_mode, sample_metadata, output)
+    message = str(excinfo.value)
+    assert "alpha" in message
+    assert "beta" in message
+    assert "gamma" in message
+
+
+def test_validator_deduplicates_repeated_offenders(
+    template_dir, sample_mode, sample_metadata
+):
+    """Repeated offenders appear once in the error message, in first-occurrence order."""
+    (template_dir / "templates" / "modes" / "plan-concept-mode.md").write_text(
+        "## Concept\n\n"
+        "{{ first }}\n{{ second }}\n{{ first }}\n{{ second }}\n{{ first }}\n"
+    )
+    output = template_dir / "output.md"
+    with pytest.raises(RenderError) as excinfo:
+        render_go_project_guide(template_dir, sample_mode, sample_metadata, output)
+    message = str(excinfo.value)
+    # Dedup: each name appears exactly once in the message
+    assert message.count("first") == 1
+    assert message.count("second") == 1
+    # First-occurrence order preserved
+    assert message.index("first") < message.index("second")
+
+
+def test_validator_error_message_includes_fix_hint(
+    template_dir, sample_mode, sample_metadata
+):
+    """The error message points at the two most common causes."""
+    (template_dir / "templates" / "modes" / "plan-concept-mode.md").write_text(
+        "{{ some_missing_var }}\n"
+    )
+    output = template_dir / "output.md"
+    with pytest.raises(RenderError) as excinfo:
+        render_go_project_guide(template_dir, sample_mode, sample_metadata, output)
+    message = str(excinfo.value)
+    assert "render.py context variables" in message
+    assert "template variable spellings" in message
+
+
+def test_validator_does_not_write_output_on_failure(
+    template_dir, sample_mode, sample_metadata
+):
+    """When the validator raises, the output file must not be created."""
+    (template_dir / "templates" / "modes" / "plan-concept-mode.md").write_text(
+        "{{ will_not_render }}\n"
+    )
+    output = template_dir / "output.md"
+    # Pre-condition: the output file does not exist yet
+    assert not output.exists()
+    with pytest.raises(RenderError):
+        render_go_project_guide(template_dir, sample_mode, sample_metadata, output)
+    # Post-condition: still does not exist — the raise happened before write
+    assert not output.exists()
+
+
+def test_validator_passes_when_all_vars_defined(
+    template_dir, sample_mode, sample_metadata
+):
+    """A template with every variable defined renders without error.
+
+    Baseline check: the existing `template_dir` fixture + `sample_mode`
+    produce a fully-resolved render, so the validator must be a silent
+    no-op on the happy path.
+    """
+    output = template_dir / "output.md"
+    render_go_project_guide(template_dir, sample_mode, sample_metadata, output)
+    assert output.exists()
+    content = output.read_text(encoding="utf-8")
+    # Sanity: no unrendered placeholders leaked through
+    import re as _re
+    assert _re.search(r"\{\{\s*[a-zA-Z_]\w*\s*\}\}", content) is None
+
+
+def test_validator_passes_on_template_with_no_jinja_variables(
+    tmp_path, sample_mode, sample_metadata
+):
+    """A template with no Jinja variables at all renders cleanly.
+
+    Covers the regex's edge case: zero matches must not raise. This is
+    separate from the happy-path test above — it builds a minimal
+    no-variable template from scratch to isolate the empty-match behavior.
+    """
+    templates_dir = tmp_path / "templates"
+    templates_dir.mkdir(parents=True)
+    modes_dir = templates_dir / "modes"
+    modes_dir.mkdir()
+    (templates_dir / "llm_entry_point.md").write_text(
+        "static header\n\n{% include 'modes/_header-common.md' %}\n"
+        "\n{% include mode_template %}\n"
+    )
+    (modes_dir / "_header-common.md").write_text("no variables here\n")
+    (modes_dir / "plan-concept-mode.md").write_text("plain text only\n")
+
+    output = tmp_path / "output.md"
+    render_go_project_guide(tmp_path, sample_mode, sample_metadata, output)
+    assert output.exists()
+    assert "no variables here" in output.read_text(encoding="utf-8")
+
+
+# --- End Story M.b tests ---------------------------------------------------
 
 
 @pytest.mark.parametrize("mode_name", _get_all_mode_names())

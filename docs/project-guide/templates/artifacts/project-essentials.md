@@ -1,9 +1,12 @@
-# project-essentials.md -- {{project_name}}
-
 <!--
 This file captures must-know facts future LLMs need to avoid blunders when
 working on this project. Anything a smart newcomer could miss on day one and
 waste time on goes here.
+
+This content gets injected verbatim under a `## Project Essentials` section
+in every rendered `go.md`, so entries below should use `###` for subsections
+(not `##`, which would collide with the wrapper heading). Do NOT include a
+top-level `#` title — the wrapper provides it.
 
 What belongs here:
 

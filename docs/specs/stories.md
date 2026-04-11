@@ -230,24 +230,28 @@ Establish a per-project `project-essentials.md` artifact that gets injected into
 - [x] Verify by running `project-guide mode default` (and `project-guide mode code_velocity`) and inspecting `docs/project-guide/go.md` for the rendered Project Essentials section — section appears between the `**Rules**` block and the mode heading in both modes; `###` subsection nesting renders correctly
 - [x] Note: do **not** add `project-essentials.md` as a tracked artifact in any mode's `.metadata.yml` entry yet — that wiring is M.c–M.e's responsibility
 
-### Story M.b: v2.3.1 Render Output Validation — Fail on Unrendered Placeholders [Planned]
+### Story M.b: v2.3.1 Render Output Validation — Fail on Unrendered Placeholders [Done]
 
 Generalize the M.a `{{ project_essentials }}` regression guard into a project-wide safeguard. After every render, scan the output for any remaining `{{ identifier }}` Jinja-style placeholders. If any are found, raise `RenderError` with the placeholder names. This catches missed intents (a context variable that should have been set), typos (`{{ project_essentialss }}`), and removed `{% if %}` guards across **all** templates, not just `_header-common.md`. The current `_LenientUndefined` class (`render.py:83-99`) outputs `{{ var_name }}` for undefined variables — this story turns that observation into a hard error gate. Lenient mode itself stays unchanged because its placeholder output is what makes the validator's job possible. *(Originally planned as Phase K story K.i.)*
 
-- [ ] Add a post-render validation function in `project_guide/render.py`
-  - [ ] Regex: `\{\{\s*[a-zA-Z_]\w*\s*\}\}` (matches `{{var}}`, `{{ var }}`, `{{  var  }}`)
-  - [ ] Scan the rendered string after Jinja produces output, before writing the file
-  - [ ] If matches found, raise `RenderError` with the list of placeholder names and a hint message: "Check (1) render.py context variables and (2) template variable spellings"
-- [ ] Call the validator inside `render_go_project_guide` after `template.render(...)` but before `output_path.write_text(...)`
-- [ ] Tests in `tests/test_render.py`:
-  - [ ] Rendering a template that references an undefined variable raises `RenderError`
-  - [ ] Error message includes the offending placeholder name
-  - [ ] Rendering with all variables defined succeeds (existing parametrized mode test should still pass)
-  - [ ] Validator does not raise on templates with no Jinja variables at all
-- [ ] Remove the now-redundant `{{ project_essentials }}` regression-guard assertion added in M.a (the generalized validator subsumes it). Leave a brief comment in the test file noting the validator covers this case.
-- [ ] Audit existing mode templates and `_header-common.md` to confirm none rely on undefined variables silently passing through. Fix any that do.
-- [ ] Verify: running `project-guide mode default` and `project-guide mode plan_concept` still produces valid `go.md` output with no errors
-- [ ] Document the limitation in a code comment: templates that legitimately want to emit literal `{{ var }}` strings (e.g., documentation of Jinja syntax) will trigger false positives. Not currently a problem; bridge if/when needed.
+- [x] Add a post-render validation function in `project_guide/render.py` (new `_validate_no_unrendered_placeholders` helper)
+  - [x] Regex: `\{\{\s*([a-zA-Z_]\w*)\s*\}\}` (matches `{{var}}`, `{{ var }}`, `{{  var  }}`) — module-level `_UNRENDERED_PLACEHOLDER_RE` with an extensive docstring explaining what it deliberately does NOT match (attribute access, filters, expressions, statement blocks)
+  - [x] Scan the rendered string after Jinja produces output, before writing the file
+  - [x] If matches found, raise `RenderError` with the deduplicated list of placeholder names (first-occurrence order preserved) and a hint message: "Hint: check (1) render.py context variables and (2) template variable spellings."
+- [x] Call the validator inside `render_go_project_guide` after `template.render(...)` but before `output_path.write_text(...)` — a failing validation leaves the filesystem untouched
+- [x] Tests in `tests/test_render.py` (7 new tests under a "Story M.b" heading):
+  - [x] Rendering a template with a single undefined variable raises `RenderError` citing the name
+  - [x] Error message lists all distinct offenders (3 vars → 3 names in the message)
+  - [x] Error message deduplicates repeated offenders (a name repeated 3× appears exactly once) and preserves first-occurrence order
+  - [x] Error message contains both "render.py context variables" and "template variable spellings" fix hints
+  - [x] Output file is NOT written when the validator raises (pre/post `exists()` assertions)
+  - [x] Rendering with all variables defined succeeds (happy path using the standard `template_dir` fixture)
+  - [x] Validator does not raise on templates with no Jinja variables at all (empty-match edge case)
+  - [x] **Also updated**: the existing `test_render_undefined_vars_are_preserved` test was renamed to `test_render_undefined_vars_raise_render_error` and its assertions inverted — the v2.3.1 contract is that undefined variables RAISE (the validator catches them) rather than PASS THROUGH (the old M.a lenient-undefined contract)
+- [x] Remove the now-redundant `{{ project_essentials }}` regression-guard assertion added in M.a (the generalized validator subsumes it). Left a brief comment in the test file at the former location explaining that the M.b validator covers this case and would raise far more loudly than a single dedicated test.
+- [x] Audit existing mode templates and `_header-common.md` to confirm none rely on undefined variables silently passing through. **No fixes needed** — manual grep enumerated 10 mode templates using bare `{{ var }}` placeholders, and every one is backed by either a `render.py` context variable (`mode_name`, `mode_info`, `mode_description`, `sequence_or_cycle`, `next_mode`, `target_dir`, `project_essentials`) or a `metadata.common` entry (`test_invocation`, `spec_artifacts_path`, `web_root`). No mode template `{% include %}`s an artifact template, so artifact placeholders never enter the mode render path. The empirical proof is the `test_every_mode_renders_successfully` parametrized test — all 14 modes continue to pass unchanged after the validator ships.
+- [x] Verify: running `project-guide mode default` and `project-guide mode plan_concept` still produces valid `go.md` output with no errors (both ran successfully; `go.md` was grepped for unrendered placeholders → zero matches)
+- [x] Document the limitation in a code comment: templates that legitimately want to emit literal `{{ var }}` strings (e.g., documentation of Jinja syntax) will trigger false positives. Not currently a problem; bridge if/when needed (likely via `{% raw %}`). Documented inline in the `_UNRENDERED_PLACEHOLDER_RE` docstring.
 
 ### Story M.c: v2.3.2 plan_tech_spec Populates project-essentials.md [Planned]
 

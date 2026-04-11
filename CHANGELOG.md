@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.1] - 2026-04-11
+
+### Added
+- **Post-render placeholder validator** (Story M.b) — generalizes the M.a `{{ project_essentials }}` regression guard into a project-wide safeguard. After every `render_go_project_guide` call, the rendered output is scanned for any bare `{{ identifier }}` Jinja-style placeholder; if any are found, `RenderError` is raised with the offending names and a fix hint, and the output file is **not** written. This catches three distinct failure modes at the same place:
+  1. **Missed intents** — a context variable that should have been set in `render.py` but wasn't.
+  2. **Typos** — a template referencing `{{ project_essentialss }}` or any other misspelled variable name.
+  3. **Removed guards** — a future edit that drops a `{% if %}` wrapper and lets an unset variable leak through.
+- **`_UNRENDERED_PLACEHOLDER_RE` module-level regex** (`render.py`): `\{\{\s*([a-zA-Z_]\w*)\s*\}\}`. Matches exactly the shape that `_LenientUndefined.__str__` emits — `{{var}}`, `{{ var }}`, `{{  var  }}`. Deliberately does **not** match attribute access (`{{ obj.attr }}`), filters (`{{ name|upper }}`), expressions (`{{ a + 1 }}`), or statement blocks (`{% ... %}`). Those shapes raise at Jinja render time and never reach the validator.
+- **`_validate_no_unrendered_placeholders(rendered)` helper** (`render.py`): scans the rendered output, deduplicates offenders while preserving first-occurrence order, and raises `RenderError` with a message of the form `Unrendered placeholder(s) in rendered output: <names>. Hint: check (1) render.py context variables and (2) template variable spellings.`. The validator is called inside `render_go_project_guide` **after** `template.render()` and **before** `output_path.write_text()`, so a failing render leaves the filesystem untouched.
+
+### Changed
+- **`_LenientUndefined` contract documented inversion**: the class itself is unchanged (still emits `{{ name }}` for undefined variables), but its *purpose* has inverted. Before M.b, the placeholder shape was the final output — a permissive pass-through so unset variables wouldn't crash renders. After M.b, the placeholder shape is the *detection signal* — lenient undefined produces the shape that the post-render validator catches and promotes to an error. The class stays lenient so the validator can see and report every offender in one pass, rather than Jinja crashing on the first undefined variable it encounters.
+- **`test_render_undefined_vars_are_preserved` renamed to `test_render_undefined_vars_raise_render_error`** and inverted to assert the new behavior: undefined variables now raise `RenderError` with the offending name, and no output file is written.
+
+### Removed
+- **Temporary M.a regression guard `test_project_essentials_never_renders_literal_placeholder`** — the general validator subsumes it. If the `{% if %}` guard on `_header-common.md` is ever removed, the M.b validator raises `RenderError` on every mode render that has no populated `project-essentials.md`, which is far louder than a single dedicated test. A comment in the test file marks the removal for future readers.
+
+### Tests
+- **7 new tests in `tests/test_render.py`** under the "Story M.b" heading:
+  - `test_validator_raises_on_single_undefined_variable` — baseline: one typo'd variable → `RenderError` citing the name.
+  - `test_validator_error_message_lists_all_offenders` — three distinct offenders → error message names all three (no first-match short-circuit).
+  - `test_validator_deduplicates_repeated_offenders` — a name repeated 3× → appears exactly once in the message, in first-occurrence order.
+  - `test_validator_error_message_includes_fix_hint` — message contains both "render.py context variables" and "template variable spellings".
+  - `test_validator_does_not_write_output_on_failure` — the output file must not exist after a raise (pre/post `exists()` assertions).
+  - `test_validator_passes_when_all_vars_defined` — happy path: the standard `template_dir` fixture renders cleanly and the rendered file contains zero matching placeholders.
+  - `test_validator_passes_on_template_with_no_jinja_variables` — empty-match edge case: a minimal plain-text template renders without raising.
+- **Existing `test_every_mode_renders_successfully` parametrized test continues to pass unchanged.** This is the critical cross-template audit: every bundled mode is rendered through a fresh `CliRunner.isolated_filesystem()` install and must now pass the validator. All 14 modes pass, confirming that no bundled template references an undefined variable. This replaces the manual "audit existing templates" step in the M.b story checklist with an empirical proof.
+
+### Notes
+- **Audit result**: every bundled mode template's bare `{{ var }}` is backed by either a `render.py` context variable (`mode_name`, `mode_info`, `mode_description`, `sequence_or_cycle`, `next_mode`, `target_dir`, `project_essentials`) or a `metadata.common` entry (`test_invocation`, `spec_artifacts_path`, `web_root`). No mode template `{% include %}`s an artifact template, so artifact-template placeholders like `{{problem_statement}}` never enter the mode render path — they go through a separate `perform_archive` path in `actions.py` with its own `_LenientUndefined`, which is unchanged by this story.
+- **Known limitation** (documented inline in `_UNRENDERED_PLACEHOLDER_RE`'s docstring): templates that legitimately want to emit a literal `{{ var }}` string (e.g., documentation of Jinja syntax inside a code fence) will trigger false positives. Not currently a problem in any bundled template; bridge if/when needed, likely via a `{% raw %}` escape.
+- Full test suite: **242 passed** (+7 new M.b tests, −1 removed M.a guard, 1 renamed). Ruff clean across `project_guide/` and `tests/`. mypy clean on `project_guide/render.py`.
+- Verified end-to-end by re-rendering `docs/project-guide/go.md` under `default` and `plan_concept` modes per the story checklist. Both produce zero unrendered placeholders (confirmed via grep of the output).
+
 ## [2.3.0] - 2026-04-11
 
 ### Added
