@@ -273,23 +273,25 @@ After the tech-spec is approved, prompt the developer to capture any project-spe
   - [x] `test_plan_tech_spec_metadata_declares_project_essentials_artifact` — loads bundled metadata, gets the `plan_tech_spec` mode, asserts both artifacts are declared and the `project-essentials.md` artifact uses `ActionType.CREATE`. This is the wiring checkpoint that M.d/M.e will deliberately diverge from (they use `modify`).
 - [x] Verify: running `project-guide mode plan_tech_spec` end-to-end on a fixture project includes the essentials prompt — confirmed via the end-to-end test above and by running `pyve run project-guide update && pyve run project-guide mode plan_tech_spec` in this repo. The rendered `go.md` contains the capture step at its expected position (step 5) AND the M.a-injected `## Project Essentials` section at the top, proving the two layers compose correctly.
 
-### Story M.d: v2.3.3 refactor_plan Refreshes project-essentials.md [Planned]
+### Story M.d: v2.3.3 refactor_plan Refreshes project-essentials.md [Done]
 
 When `refactor_plan` updates the concept/features/tech-spec, give the developer a chance to refresh `project-essentials.md` for any architecture or workflow changes that affect must-know facts.
 
-- [ ] Update `project_guide/templates/project-guide/templates/modes/refactor-plan-mode.md` to add a cycle step (or extend Step 1) for revisiting project-essentials
-- [ ] Prompt should ask whether the refactor changed any facts the LLM must know, with **concrete worked examples** (not just "tool wrapper, renamed module, changed conventions"):
-  - *Switched or added an environment manager* (e.g., adopted `pyve`, `uv`, `poetry`, `hatch` — capture the canonical Python invocation and dev-tool install commands)
-  - *Split runtime from dev environment* (e.g., dev tools moved out of main venv into a dedicated testenv — capture which commands target which env, and explicitly note the **anti-pattern** to avoid like `pip install -e ".[dev]"` into the runtime venv)
-  - *Renamed module or moved source-of-truth* (e.g., template source moved from `docs/` to `project_guide/templates/` — capture so the LLM doesn't edit the installed copy)
-  - *Changed domain conventions* (e.g., money representation changed from float to cents)
-  - *New auto-generated or hidden-coupling files* (e.g., a new build step regenerates a file that looks hand-edited)
-  - **Principle**: if the refactor introduced a fork-in-the-road where the wrong choice still "works," that's a project-essential.
-- [ ] Mode template handles the case where `project-essentials.md` does not yet exist (legacy project): create from artifact template, then populate. Legacy projects are the most likely to need a first-time capture of these conventions, so the prompt should be especially explicit in that branch.
-- [ ] Mode template handles the case where it exists: read, modify, write
-- [ ] Add `project-essentials.md` to `refactor_plan`'s `artifacts` list in `.metadata.yml` with `action: modify`
-- [ ] Tests for the rendered mode template
-- [ ] Verify: rendered `refactor_plan` mode includes the revisit step
+- [x] Update `project_guide/templates/project-guide/templates/modes/refactor-plan-mode.md` to add a cycle step (or extend Step 1) for revisiting project-essentials — **design choice: terminal step, not cycle step**. New "Final Step: Revisit Project Essentials" section appended after Step 8, runs **once** per refactor session (not per-document). Rationale: the main cycle processes three documents one at a time, but most facts a refactor introduces are cross-document (new tool wrapper, new dev-tool isolation, etc.) — asking once at the end gives the developer the full refactor context. Documented in the CHANGELOG's "Design choice" note.
+- [x] Prompt should ask whether the refactor changed any facts the LLM must know, with **concrete worked examples** (not just "tool wrapper, renamed module, changed conventions"):
+  - [x] *Switched or added an environment manager* — present with a fully-rendered "*Example:*" sentence ("We switched from `poetry` to `pyve`...") so the LLM can put concrete language in front of the developer.
+  - [x] *Split runtime from dev environment* — present with the `pip install -e '.[dev]'` anti-pattern explicitly called out.
+  - [x] *Renamed module or moved source-of-truth* — present with the template-source-move example from this project's own history.
+  - [x] *Changed domain conventions* — present with the float → cents example.
+  - [x] *New auto-generated or hidden-coupling files* — present with the `go.md` re-render example.
+  - [x] **Principle**: "if the refactor introduced a fork-in-the-road where the wrong choice still 'works,' that's a project-essential" — rendered verbatim as the closing principle of Step F.2.
+- [x] Mode template handles the case where `project-essentials.md` does not yet exist (legacy project): Step F.1 branches to the "create path"; Step F.3 generates a new file from the artifact template. Legacy projects are explicitly flagged as the highest-value case ("they are the highest-value case for project-essentials capture, because none of their conventions have been written down").
+- [x] Mode template handles the case where it exists: Step F.1 branches to the "modify path"; Step F.3 reads → integrates → writes with explicit preserve/update/add semantics.
+- [x] Add `project-essentials.md` to `refactor_plan`'s `artifacts` list in `.metadata.yml` with `action: modify` (previously this mode had no artifacts list at all — a new list was added with just this one entry).
+- [x] Tests for the rendered mode template (2 new tests under a "Story M.d" heading in `tests/test_render.py`):
+  - [x] `test_refactor_plan_mode_prompts_for_project_essentials_revisit` — end-to-end render. Asserts: terminal section present; runs once (not per-document); create and modify branches both visible; legacy-project framing explicit; at least one concrete worked example with environment-manager naming; artifact template path referenced; heading convention reminder; "skip if none" escape hatch; fork-in-the-road principle visible.
+  - [x] `test_refactor_plan_metadata_declares_project_essentials_modify_artifact` — loads bundled metadata, asserts exactly one `project-essentials.md` artifact with `ActionType.MODIFY`. The "exactly one" check guards against copy-paste duplicates.
+- [x] Verify: rendered `refactor_plan` mode includes the revisit step — confirmed via the end-to-end test above and by running `pyve run project-guide update && pyve run project-guide mode refactor_plan` in this repo. All four sub-steps (F.1 through F.4) render at the expected terminal position; the M.a-injected `## Project Essentials` section also appears at the top, proving composition works for cycle-type modes as well.
 
 ### Story M.e: v2.3.4 plan_phase Appends to project-essentials.md [Planned]
 

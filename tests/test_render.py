@@ -576,6 +576,99 @@ def test_plan_tech_spec_metadata_declares_project_essentials_artifact():
 # --- End Story M.c tests ---------------------------------------------------
 
 
+# --- Story M.d: refactor_plan refreshes project-essentials.md --------------
+
+
+def test_refactor_plan_mode_prompts_for_project_essentials_revisit():
+    """Rendering refactor_plan emits the revisit-project-essentials step.
+
+    End-to-end render: init a fresh project, switch to refactor_plan, and
+    read the resulting go.md. The revisit step must be present as a final
+    step (not per-document), must distinguish the create-vs-modify branches,
+    must list at least one concrete worked example, and must reference
+    the artifact template path for the create branch.
+    """
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        result = runner.invoke(main, ['mode', 'refactor_plan'])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    # Terminal step present, once (not per-document)
+    assert "Final Step: Revisit Project Essentials" in content
+    # Run once, not per document — explicit instruction
+    assert "once" in content and "not per-document" in content
+
+    # Create/modify branching is explicit
+    assert "Create path" in content or "create path" in content
+    assert "Modify path" in content or "modify path" in content
+
+    # Legacy project is flagged as the highest-value case
+    assert "legacy" in content.lower()
+
+    # At least one concrete worked example from the refactor-specific list
+    # must be present — the story is specific that abstract categories are
+    # not sufficient, especially for a refactor where the developer has
+    # already internalized the new convention.
+    assert "environment manager" in content
+    assert "pyve" in content or "poetry" in content or "uv" in content or "hatch" in content
+
+    # References the artifact template (create path needs it)
+    assert "templates/artifacts/project-essentials.md" in content
+
+    # Heading convention reminder (no top-level `#`; `###` for subsections)
+    assert "do NOT include a top-level" in content
+
+    # The "skip if none" escape hatch must be present
+    assert "Skip if there are none" in content or "skip this step" in content
+
+    # Refactor-framing principle (fork-in-the-road / wrong choice still "works")
+    assert "fork-in-the-road" in content or 'still "works"' in content
+
+
+def test_refactor_plan_metadata_declares_project_essentials_modify_artifact():
+    """refactor_plan declares project-essentials.md as a modify artifact.
+
+    This is the M.d wiring checkpoint. Distinct from M.c which uses CREATE:
+    refactor_plan may run against a project that already has the file OR
+    one that doesn't (legacy project being migrated). The `modify` action
+    type is the conversational escape hatch — the mode template handles
+    the create-if-absent case in prose (Step F.1's branching).
+    """
+    import importlib.resources
+
+    from project_guide.actions import ActionType
+    from project_guide.metadata import load_metadata
+
+    with importlib.resources.as_file(
+        importlib.resources.files("project_guide.templates").joinpath(
+            "project-guide/.metadata.yml"
+        )
+    ) as path:
+        metadata = load_metadata(path)
+
+    mode = metadata.get_mode("refactor_plan")
+    essentials_artifacts = [
+        a for a in mode.artifacts if a.file and "project-essentials.md" in a.file
+    ]
+    assert len(essentials_artifacts) == 1, (
+        f"expected exactly one project-essentials.md artifact on refactor_plan, "
+        f"got {len(essentials_artifacts)}"
+    )
+    assert essentials_artifacts[0].action is ActionType.MODIFY
+
+
+# --- End Story M.d tests ---------------------------------------------------
+
+
 @pytest.mark.parametrize("mode_name", _get_all_mode_names())
 def test_every_mode_renders_successfully(mode_name):
     """Every mode in the bundled metadata must render without errors.

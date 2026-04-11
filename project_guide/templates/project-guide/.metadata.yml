@@ -182,6 +182,9 @@ modes:
     sequence_or_cycle: cycle
     generation_type: document
     mode_template: "{{mode_templates_path}}/refactor-plan-mode.md"
+    artifacts:
+      - file: "{{spec_artifacts_path}}/project-essentials.md"
+        action: modify
   - name: refactor_document
     info: Update documentation artifacts (README, brand descriptions, landing page, MkDocs)
     description: Update existing documentation files because of new features or improvements, including README, brand descriptions, landing page, and MkDocs configuration. You can also migrate legacy project-guide documentation--it will preserve information while restructuring into standardized sections.
