@@ -105,9 +105,86 @@ Teach `default` mode to detect when all stories are `[Done]` and prompt the deve
   - Command Reference: new `archive-stories` CLI section describing the 5-step pipeline, pre-check failure behavior, rollback-on-failure semantics, and the LLM-runs-after-approval usage pattern
 - [x] Verify: `project-guide --help` lists `archive-stories` as a top-level command; `project-guide mode` (when initialized) lists `archive_stories` in the mode catalogue; `project-guide archive-stories --help` works (all three verified via `click.testing.CliRunner`)
 
-### Story K.h: v2.1.7 project-essentials.md Placeholder and Render Hook [Planned]
+---
 
-Establish a per-project `project-essentials.md` artifact that gets injected into every rendered mode via `_header-common.md`. This is the minimal hookup — empty/missing renders cleanly, content (when present) appears as a `## Project Essentials` section in every mode. Phase L will wire the planning modes to populate it; this story just lays the rails and dogfoods it for this project. See `phase-l-project-essentials-plan.md` for the follow-up phase.
+## Phase L: `project-guide init --no-input` Mode (v2.2.0)
+
+Make `project-guide init` safe to run unattended — from CI, scripts, or as a post-hook from `pyve init` — without hanging on stdin or failing on re-run. Introduce a `--no-input` flag, a shared `should_skip_input()` helper that also auto-detects `CI=1` / `PROJECT_GUIDE_NO_INPUT=1` / non-TTY stdin, and (the actual blocker for pyve integration) make re-running `init` on an already-initialized project a silent exit-0 no-op instead of the current `click.Abort()`. See `phase-l-no-input-init-plan.md` and the upstream spec `project-guide-no-input-spec.md` for full details.
+
+**Implementation strategy:** No spike — the integration boundary (`sys.stdin.isatty()`, env vars, click options) is stdlib-level and the upstream spec already serves as the design validation. Stories are ordered by risk: L.a is the small behavioral fix that unblocks pyve today; L.b lands the `--no-input` surface and the future-proofing contract; L.c is the documentation pass.
+
+Out of scope (deferred): `--no-input` for `purge`/`update` (not on the pyve integration path), a `--quiet` flag for output suppression (spec explicitly says `--no-input` affects stdin only), a `create_or_modify` action type, legacy broken-state detection where `.project-guide.yml` is absent but the target directory is populated.
+
+### Story L.a: v2.2.0 Idempotent init Re-run [Planned]
+
+Change `project-guide init` to exit 0 silently when the project is already initialized, instead of the current `click.Abort()` on `.project-guide.yml` existing. This is the small, focused fix that actually unblocks the pyve post-hook integration — `--no-input` plumbing comes next in L.b.
+
+- [ ] Replace the abort-on-exists path in `project_guide/cli.py:init` (lines ~90-96)
+  - [ ] If `.project-guide.yml` exists and `--force` is not given: print `project-guide already initialized at <target_dir>/ (use --force to reinitialize).` to stdout and `return` (exit 0)
+  - [ ] If `.project-guide.yml` exists and `--force` is given: current overwrite behavior unchanged
+  - [ ] If `.project-guide.yml` does not exist: current behavior unchanged
+  - [ ] Decision rationale: idempotency check is based solely on `.project-guide.yml` presence. Partial-install state (config absent but target directory populated) falls through to the existing `_copy_template_tree` skip-with-warnings path — documented as out of scope in the phase plan
+- [ ] Update `tests/test_cli.py` init test that currently expects `click.Abort()` / exit 1 on re-init → change expectation to exit 0 with the "already initialized" message on stdout
+- [ ] Add new test: re-running `init` twice in a row produces exit 0 both times, and the second run does not modify any files (verify via `mtime` or file hash on a tracked template file)
+- [ ] Add new test: `init --force` on an initialized project still overwrites (regression guard for the `--force` branch)
+- [ ] Verify: `project-guide init && project-guide init` succeeds end-to-end in a `CliRunner.isolated_filesystem()`
+
+### Story L.b: v2.2.1 --no-input Flag, Trigger Helper, and Prompt Contract [Planned]
+
+Add the `--no-input` flag to `init`, land the shared `should_skip_input()` helper, and establish the missing-required-setting contract for any prompt that gets added to `init` in the future. Because `init` has no interactive prompts today, this story is plumbing + contract + regression-guard tests — no production prompt code exercises the contract yet, but the helper is the single idiom every future prompt must use.
+
+- [ ] Create `project_guide/runtime.py` with `should_skip_input(flag: bool = False) -> bool`
+  - [ ] Trigger priority (first match wins): explicit `flag` → `PROJECT_GUIDE_NO_INPUT` env var → `CI` env var → `sys.stdin.isatty() == False` → otherwise interactive
+  - [ ] Env-var truthiness: case-insensitive match against `{"1", "true", "yes", "on"}`
+  - [ ] Safely handle the edge case where `sys.stdin` is `None` or closed (subprocess contexts): catch `AttributeError`/`ValueError` and treat as non-TTY
+- [ ] Add `--no-input` click option to `init` in `project_guide/cli.py`
+  - [ ] Boolean flag, default `False`, no short form
+  - [ ] Help text: "Do not read from stdin; use defaults where sensible. Fail loudly if any prompt has no default. (Also auto-enabled by CI=1 or non-TTY stdin.)"
+  - [ ] Compute `skip_input = should_skip_input(no_input)` early in `init` — threads through for future prompt sites
+- [ ] Add a module-level helper (or `click.ClickException` subclass) `_require_setting(name: str, cli_flag: str, env_var: str)` that raises with the message: `<name> is required when --no-input is active. Provide via --<cli_flag> or <env_var>.` and causes exit code 1. This is the landing spot for future prompt call sites.
+- [ ] Create `tests/test_runtime.py`:
+  - [ ] `should_skip_input(True)` returns `True` regardless of env/TTY
+  - [ ] `PROJECT_GUIDE_NO_INPUT=1` (and `true`, `YES`, `on`) returns `True`; empty/unset returns fall-through behavior
+  - [ ] `CI=1` returns `True` when flag and `PROJECT_GUIDE_NO_INPUT` are not set
+  - [ ] Non-TTY stdin returns `True` when nothing else is set (monkeypatch `sys.stdin.isatty`)
+  - [ ] Priority order: flag beats env, env beats CI, CI beats TTY
+  - [ ] Safety: stdin `None` or closed returns `True` (non-TTY fallback)
+- [ ] Add to `tests/test_cli.py`:
+  - [ ] `init --no-input` on a fresh project → normal install, exit 0
+  - [ ] `init --no-input --force` on an initialized project → overwrite, exit 0
+  - [ ] `init` with `CI=1` env var (via `monkeypatch.setenv`) behaves the same as `--no-input` — specifically, it still exits 0 on re-run per L.a (idempotency + auto-detection compose cleanly)
+  - [ ] `init` with non-TTY stdin (via `CliRunner(input=...)`) behaves the same as `--no-input`
+  - [ ] Regression guard for the FR-L4 contract: a unit test that injects a dummy prompt through `_require_setting` verifies the exit-1 path and the exact error message format. This is the guard that protects the contract the day someone adds a real prompt to `init`.
+- [ ] Verify: `CI=1 project-guide init` and `project-guide init --no-input` both work end-to-end on a fresh fixture project
+
+### Story L.c: v2.2.2 Phase L Documentation and CHANGELOG [Planned]
+
+- [ ] Update `README.md` with a short "Unattended / CI use" subsection
+  - [ ] Show all four trigger mechanisms with one example each: `--no-input`, `PROJECT_GUIDE_NO_INPUT=1`, `CI=1`, non-TTY (piped stdin)
+  - [ ] Note idempotent re-run: `project-guide init` on an initialized project is a no-op
+- [ ] Update MkDocs command reference for `init` to document `--no-input` and the auto-detection behavior
+- [ ] Update `docs/specs/project-guide-no-input-spec.md` status line from `Proposed (2026-04-10)` to `Implemented in v2.2.0–v2.2.1`
+- [ ] Update `CHANGELOG.md` with two bullets (separated so pyve can cite the exact semantics it depends on):
+  - [ ] v2.2.0: `init` is now idempotent — re-running on an initialized project is a silent exit-0 no-op
+  - [ ] v2.2.1: New `--no-input` flag on `init` with env-var (`PROJECT_GUIDE_NO_INPUT`, `CI`) and non-TTY auto-detection
+- [ ] Verify: `project-guide init --help` shows the new `--no-input` flag and correct help text
+- [ ] Verify: the rendered `default` mode (and any planning mode) is unchanged by this phase — Phase L touches only `cli.py`, `runtime.py`, and docs
+
+---
+
+## Phase M: Project Essentials Integration (v2.3.0)
+
+Establish `docs/specs/project-essentials.md` as a per-project artifact that captures must-know facts future LLMs need to avoid blunders (workflow rules, architecture quirks, hidden coupling, dogfooding/meta notes), then wire the three planning modes (`plan_tech_spec`, `refactor_plan`, `plan_phase`) to populate and maintain it over the project lifecycle. M.a ships the placeholder + render hook + dogfoods the artifact for this project; M.b generalizes M.a's regression guard into a project-wide post-render placeholder validator; M.c–M.e wire the planning modes; M.f is the documentation pass. See `phase-m-project-essentials-plan.md` for full details.
+
+> **Renumbering note:** This phase was originally drafted as Phase L on 2026-04-10. It was renumbered to Phase M on 2026-04-11 when a new Phase L (`project-guide init --no-input` mode) was inserted ahead of it. At the same time, stories M.a and M.b were moved out of Phase K (where they had been planned as K.h and K.i) and absorbed into this phase, because they are thematically part of the project-essentials integration rather than the K release-lifecycle work.
+
+**Implementation strategy:** No spike — the integration boundary (the `project_essentials` render context variable) is validated by M.a's own tests. Ordering is load-bearing only within two pairs: M.a must ship before M.b (the validator generalizes M.a's regression guard), and M.a must ship before M.c/M.d/M.e (nothing to populate otherwise). M.c/M.d/M.e are mutually independent and can ship in any order; the listed order matches the project lifecycle (initial → refactor → per-phase).
+
+Out of scope (deferred or already covered): a dedicated `refactor_essentials` mode (not needed; the three planning modes cover the lifecycle), a `create_or_modify` action type (mode templates handle existence-checking conversationally), validation/linting of `project-essentials.md` content (the artifact is freeform by design), support for literal `{{ var }}` strings as rendered output (documented as a known M.b limitation).
+
+### Story M.a: v2.3.0 project-essentials.md Placeholder and Render Hook [Planned]
+
+Establish a per-project `project-essentials.md` artifact that gets injected into every rendered mode via `_header-common.md`. Empty/missing renders cleanly, content (when present) appears as a `## Project Essentials` section in every mode. This story lays the rails and dogfoods it for this project; M.c–M.e wire the planning modes to populate it. *(Originally planned as Phase K story K.h.)*
 
 - [ ] Create `project_guide/templates/project-guide/templates/artifacts/project-essentials.md`
   - [ ] Empty body with a brief comment block describing what belongs there: workflow rules, architecture quirks, domain conventions, hidden coupling, dogfooding/meta notes
@@ -121,7 +198,7 @@ Establish a per-project `project-essentials.md` artifact that gets injected into
   - [ ] Rendered output contains `## Project Essentials` when fixture file is non-empty
   - [ ] Rendered output omits the section when fixture file is empty
   - [ ] Rendered output omits the section when fixture file is missing (no error)
-  - [ ] **Regression guard**: rendered output never contains the literal string `{{ project_essentials }}` in any of the above cases. This catches a future template edit that removes the `{% if %}` guard, since `_LenientUndefined.__str__` would otherwise render the placeholder verbatim. See `render.py:83-99`.
+  - [ ] **Regression guard** (temporary — removed by M.b once the general validator is in place): rendered output never contains the literal string `{{ project_essentials }}` in any of the above cases. This catches a future template edit that removes the `{% if %}` guard, since `_LenientUndefined.__str__` would otherwise render the placeholder verbatim. See `render.py:83-99`.
 - [ ] Populate `docs/specs/project-essentials.md` for this project with current must-know facts:
   - [ ] Dogfooding rule: edit templates under `project_guide/templates/project-guide/`, never `docs/project-guide/` (the installed copy)
   - [ ] Workflow rule: pyve has **two** environments — main `.venv/` (runtime only) and `.pyve/testenv/venv/` (dev tools: pytest, ruff, mypy). Canonical commands:
@@ -132,11 +209,11 @@ Establish a per-project `project-essentials.md` artifact that gets injected into
   - [ ] `docs/project-guide/go.md` is dynamically re-rendered by the `mode` command — never hand-edit
   - [ ] (Add others if any surface during the story)
 - [ ] Verify by running `project-guide mode default` (or any mode) and inspecting `docs/project-guide/go.md` for the rendered Project Essentials section
-- [ ] Note: do **not** add `project-essentials.md` as a tracked artifact in any mode's `.metadata.yml` entry yet — that wiring is Phase L's responsibility
+- [ ] Note: do **not** add `project-essentials.md` as a tracked artifact in any mode's `.metadata.yml` entry yet — that wiring is M.c–M.e's responsibility
 
-### Story K.i: v2.1.8 Render Output Validation — Fail on Unrendered Placeholders [Planned]
+### Story M.b: v2.3.1 Render Output Validation — Fail on Unrendered Placeholders [Planned]
 
-Generalize the K.h `{{ project_essentials }}` regression guard into a project-wide safeguard. After every render, scan the output for any remaining `{{ identifier }}` Jinja-style placeholders. If any are found, raise `RenderError` with the placeholder names. This catches missed intents (a context variable that should have been set), typos (`{{ project_essentialss }}`), and removed `{% if %}` guards across **all** templates, not just `_header-common.md`. The current `_LenientUndefined` class (`render.py:83-99`) outputs `{{ var_name }}` for undefined variables — this story turns that observation into a hard error gate. Lenient mode itself stays unchanged because its placeholder output is what makes the validator's job possible.
+Generalize the M.a `{{ project_essentials }}` regression guard into a project-wide safeguard. After every render, scan the output for any remaining `{{ identifier }}` Jinja-style placeholders. If any are found, raise `RenderError` with the placeholder names. This catches missed intents (a context variable that should have been set), typos (`{{ project_essentialss }}`), and removed `{% if %}` guards across **all** templates, not just `_header-common.md`. The current `_LenientUndefined` class (`render.py:83-99`) outputs `{{ var_name }}` for undefined variables — this story turns that observation into a hard error gate. Lenient mode itself stays unchanged because its placeholder output is what makes the validator's job possible. *(Originally planned as Phase K story K.i.)*
 
 - [ ] Add a post-render validation function in `project_guide/render.py`
   - [ ] Regex: `\{\{\s*[a-zA-Z_]\w*\s*\}\}` (matches `{{var}}`, `{{ var }}`, `{{  var  }}`)
@@ -148,22 +225,12 @@ Generalize the K.h `{{ project_essentials }}` regression guard into a project-wi
   - [ ] Error message includes the offending placeholder name
   - [ ] Rendering with all variables defined succeeds (existing parametrized mode test should still pass)
   - [ ] Validator does not raise on templates with no Jinja variables at all
-- [ ] Remove the now-redundant `{{ project_essentials }}` regression-guard assertion added in K.h (the generalized validator subsumes it). Leave a brief comment in the test file noting the validator covers this case.
+- [ ] Remove the now-redundant `{{ project_essentials }}` regression-guard assertion added in M.a (the generalized validator subsumes it). Leave a brief comment in the test file noting the validator covers this case.
 - [ ] Audit existing mode templates and `_header-common.md` to confirm none rely on undefined variables silently passing through. Fix any that do.
 - [ ] Verify: running `project-guide mode default` and `project-guide mode plan_concept` still produces valid `go.md` output with no errors
 - [ ] Document the limitation in a code comment: templates that legitimately want to emit literal `{{ var }}` strings (e.g., documentation of Jinja syntax) will trigger false positives. Not currently a problem; bridge if/when needed.
 
----
-
-## Phase L: Project Essentials Integration (v2.2.0)
-
-Wire the three planning modes (`plan_tech_spec`, `refactor_plan`, `plan_phase`) to populate and maintain `docs/specs/project-essentials.md` so that new and existing projects automatically capture must-know facts that future LLMs need to avoid blunders. Phase K (story K.h) established the placeholder, render hook, and dogfooded the artifact for this project. Phase L makes it self-maintaining across the planning lifecycle. See `phase-l-project-essentials-plan.md` for full details.
-
-**Implementation strategy:** No spike — the integration boundary (LLM context variable) was already validated in K.h. Each mode update is independent and small; they could ship in any order, but the listed order matches the project lifecycle (initial → refactor → per-phase).
-
-Out of scope (deferred or already covered): a dedicated `refactor_essentials` mode (not needed; the three planning modes cover the lifecycle), a new `create_or_modify` action type (the mode templates handle existence-checking conversationally instead).
-
-### Story L.a: v2.2.0 plan_tech_spec Populates project-essentials.md [Planned]
+### Story M.c: v2.3.2 plan_tech_spec Populates project-essentials.md [Planned]
 
 After the tech-spec is approved, prompt the developer to capture any project-specific must-know facts and write them to `docs/specs/project-essentials.md`.
 
@@ -183,7 +250,7 @@ After the tech-spec is approved, prompt the developer to capture any project-spe
 - [ ] Tests for the rendered mode template containing the new prompt
 - [ ] Verify: running `project-guide mode plan_tech_spec` end-to-end on a fixture project includes the essentials prompt
 
-### Story L.b: v2.2.1 refactor_plan Refreshes project-essentials.md [Planned]
+### Story M.d: v2.3.3 refactor_plan Refreshes project-essentials.md [Planned]
 
 When `refactor_plan` updates the concept/features/tech-spec, give the developer a chance to refresh `project-essentials.md` for any architecture or workflow changes that affect must-know facts.
 
@@ -201,7 +268,7 @@ When `refactor_plan` updates the concept/features/tech-spec, give the developer 
 - [ ] Tests for the rendered mode template
 - [ ] Verify: rendered `refactor_plan` mode includes the revisit step
 
-### Story L.c: v2.2.2 plan_phase Appends to project-essentials.md [Planned]
+### Story M.e: v2.3.4 plan_phase Appends to project-essentials.md [Planned]
 
 When `plan_phase` plans a new phase, prompt the developer to append any new must-know facts the phase introduces.
 
@@ -213,11 +280,11 @@ When `plan_phase` plans a new phase, prompt the developer to append any new must
 - [ ] Tests for the rendered mode template
 - [ ] Verify: rendered `plan_phase` mode includes the append prompt
 
-### Story L.d: v2.2.3 Phase L Documentation and CHANGELOG [Planned]
+### Story M.f: v2.3.5 Phase M Documentation and CHANGELOG [Planned]
 
 - [ ] Add `project-essentials.md` to the artifacts catalogue (wherever artifacts are listed in `project_guide/templates/project-guide/`)
 - [ ] Cross-reference `project-essentials.md` from `concept.md`, `features.md`, and/or `tech-spec.md` artifact templates if appropriate (a one-line "see also")
-- [ ] Update `CHANGELOG.md` with v2.2.0–v2.2.2 entries
+- [ ] Update `CHANGELOG.md` with v2.3.0–v2.3.4 entries
 - [ ] Update README if any user-facing wording references the new artifact
 - [ ] Verify by running each of the three updated planning modes against a fresh fixture project
 
