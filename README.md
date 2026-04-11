@@ -165,7 +165,7 @@ project-guide override templates/modes/debug-mode.md "Custom debugging for this 
 
 ### `init`
 
-Initialize project-guide in the current directory.
+Initialize project-guide in the current directory. Safe to run unattended — re-running on an already-initialized project is a silent exit-0 no-op, and the `--no-input` flag (plus auto-detection) ensures CI runners and post-hooks never hang on stdin.
 
 ```bash
 project-guide init [OPTIONS]
@@ -174,6 +174,7 @@ project-guide init [OPTIONS]
 **Options:**
 - `--target-dir PATH` - Directory for templates (default: `docs/project-guide`)
 - `--force` - Overwrite existing configuration
+- `--no-input` - Do not read from stdin; use defaults where sensible. Fail loudly if any prompt has no default. (Also auto-enabled by `CI=1` or non-TTY stdin.)
 
 **Examples:**
 ```bash
@@ -186,6 +187,26 @@ project-guide init --target-dir documentation/workflows
 # Force reinitialize
 project-guide init --force
 ```
+
+#### Unattended / CI use
+
+`project-guide init` is safe to invoke from any unattended context (CI runners, `pyve` post-hooks, subprocess pipelines, shell scripts). Four independent triggers all enable skip-input mode, in priority order — the first match wins:
+
+```bash
+# 1. Explicit flag
+project-guide init --no-input
+
+# 2. PROJECT_GUIDE_NO_INPUT env var (truthy: 1, true, yes, on — case-insensitive)
+PROJECT_GUIDE_NO_INPUT=1 project-guide init
+
+# 3. CI env var (auto-detected on most CI runners)
+CI=1 project-guide init
+
+# 4. Non-TTY stdin (piped input, subprocess, closed stdin)
+echo "" | project-guide init
+```
+
+**Idempotent re-run:** Running `project-guide init` a second time on a project that is already initialized is a silent exit-0 no-op (with an informational message). Use `--force` to re-run the full install and overwrite existing files. This makes the command safe to call unconditionally from automated flows.
 
 ### `mode`
 

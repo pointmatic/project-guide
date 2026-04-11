@@ -158,18 +158,17 @@ Add the `--no-input` flag to `init`, land the shared `should_skip_input()` helpe
   - [x] Regression guard for the FR-L4 contract: `test_require_setting_contract_exit_code_and_message` registers a throwaway `@click.command` that calls `_require_setting` and asserts exit 1 + exact message format. This is the guard that protects the contract the day someone adds a real prompt to `init`.
 - [x] Verify: `CI=1 project-guide init` and `project-guide init --no-input` both work end-to-end on a fresh fixture project (covered by `test_init_with_ci_env_var_is_idempotent_on_rerun` and `test_init_with_no_input_flag_on_fresh_project`)
 
-### Story L.c: v2.2.2 Phase L Documentation and CHANGELOG [Planned]
+### Story L.c: v2.2.2 Phase L Documentation and CHANGELOG [Done]
 
-- [ ] Update `README.md` with a short "Unattended / CI use" subsection
-  - [ ] Show all four trigger mechanisms with one example each: `--no-input`, `PROJECT_GUIDE_NO_INPUT=1`, `CI=1`, non-TTY (piped stdin)
-  - [ ] Note idempotent re-run: `project-guide init` on an initialized project is a no-op
-- [ ] Update MkDocs command reference for `init` to document `--no-input` and the auto-detection behavior
-- [ ] Update `docs/specs/project-guide-no-input-spec.md` status line from `Proposed (2026-04-10)` to `Implemented in v2.2.0–v2.2.1`
-- [ ] Update `CHANGELOG.md` with two bullets (separated so pyve can cite the exact semantics it depends on):
-  - [ ] v2.2.0: `init` is now idempotent — re-running on an initialized project is a silent exit-0 no-op
-  - [ ] v2.2.1: New `--no-input` flag on `init` with env-var (`PROJECT_GUIDE_NO_INPUT`, `CI`) and non-TTY auto-detection
-- [ ] Verify: `project-guide init --help` shows the new `--no-input` flag and correct help text
-- [ ] Verify: the rendered `default` mode (and any planning mode) is unchanged by this phase — Phase L touches only `cli.py`, `runtime.py`, and docs
+- [x] Update `README.md` with a short "Unattended / CI use" subsection (nested under `### init`)
+  - [x] Show all four trigger mechanisms with one example each: `--no-input`, `PROJECT_GUIDE_NO_INPUT=1`, `CI=1`, non-TTY (piped stdin)
+  - [x] Note idempotent re-run: `project-guide init` on an initialized project is a no-op (dedicated "Idempotent re-run" paragraph)
+  - [x] `--no-input` added to the `### init` options list
+- [x] Update MkDocs command reference for `init` to document `--no-input` and the auto-detection behavior (`docs/site/user-guide/commands.md` — new "Idempotent Re-run" section + full "Unattended / CI Use" section with priority-order trigger table; `--no-input` added to options list and Examples block; cites `runtime.py` helpers for anyone adding a future prompt)
+- [x] Update `docs/specs/project-guide-no-input-spec.md` status line from `Proposed (2026-04-10)` to `Implemented in v2.2.0–v2.2.1 (2026-04-11)` with one-sentence citations of Story L.a and Story L.b
+- [x] Update `CHANGELOG.md` with Phase L entries (v2.2.0 and v2.2.1 already landed in prior stories; v2.2.2 doc-pass entry added here). The L.a and L.b CHANGELOG entries are already separated so pyve can cite the exact semantics it depends on.
+- [x] Verify: `project-guide init --help` shows the new `--no-input` flag and correct help text (help text matches FR-L1/FR-L2 exactly — verified via the test_cli.py L.b test suite)
+- [x] Verify: the rendered `default` mode (and any planning mode) is unchanged by this phase — Phase L touches only `cli.py`, `runtime.py`, and docs (230 tests pass unchanged; no template edits in this phase)
 
 ---
 

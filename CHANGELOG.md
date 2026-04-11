@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.2] - 2026-04-11
+
+### Added
+- **Phase L documentation pass** (Story L.c) — the unattended-use surface shipped in v2.2.0 (idempotent re-run) and v2.2.1 (`--no-input` flag + auto-detection) is now reflected across all user-facing documentation:
+  - `README.md` — `### init` gets an "Unattended / CI use" subsection listing all four trigger mechanisms (`--no-input`, `PROJECT_GUIDE_NO_INPUT`, `CI`, non-TTY stdin) with one example each, plus an "Idempotent re-run" paragraph calling out the exit-0 no-op behavior. The `--no-input` flag is documented in the `init` options list.
+  - `docs/site/user-guide/commands.md` — `## init` gets a new "Idempotent Re-run" section and a full "Unattended / CI Use" section with a priority-order trigger table. The `--no-input` flag is documented in the options list and Examples block. The new sections also cite the `should_skip_input()` helper and `_require_setting()` contract in `project_guide/runtime.py` so anyone adding a future prompt knows where the plumbing lives.
+  - `docs/specs/project-guide-no-input-spec.md` — status line updated from `Proposed (2026-04-10)` to `Implemented in v2.2.0–v2.2.1 (2026-04-11)` with one sentence each citing Story L.a (idempotent re-run) and Story L.b (`--no-input` + auto-detection + `_require_setting`).
+
+### Notes
+- This is a documentation-only release: no code or test changes. All 230 tests continue to pass unchanged. Phase L (`v2.2.0`–`v2.2.2`) is now complete; the pyve post-hook integration path is fully unblocked and documented.
+- Known gap (out of scope for this release, not introduced by this phase): `docs/site/user-guide/commands.md` still says "eight commands" in its overview and does not document the `archive-stories` command added in v2.1.3. This is a K.g carryover — the K.g docs pass updated the README but not the MkDocs commands reference. Tracked for a follow-up pass.
+
 ## [2.2.1] - 2026-04-11
 
 ### Added

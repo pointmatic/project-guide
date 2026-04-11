@@ -17,7 +17,7 @@ project-guide provides eight commands for managing LLM workflow files across you
 
 ## init
 
-Install workflow files into your project and render the initial `go.md` entry point.
+Install workflow files into your project and render the initial `go.md` entry point. Safe to run unattended — re-running on an already-initialized project is a silent exit-0 no-op, and the `--no-input` flag (plus auto-detection) ensures CI runners and post-hooks never hang on stdin.
 
 ```bash
 project-guide init [OPTIONS]
@@ -27,6 +27,7 @@ project-guide init [OPTIONS]
 
 - `--target-dir PATH` - Custom directory for files (default: `docs/project-guide`)
 - `--force` - Overwrite existing files and configuration
+- `--no-input` - Do not read from stdin; use defaults where sensible. Fail loudly if any prompt has no default. (Also auto-enabled by `CI=1` or non-TTY stdin.)
 
 ### Examples
 
@@ -39,6 +40,12 @@ project-guide init --target-dir documentation/workflows
 
 # Force reinstall (overwrites existing files)
 project-guide init --force
+
+# Unattended / CI
+project-guide init --no-input
+PROJECT_GUIDE_NO_INPUT=1 project-guide init
+CI=1 project-guide init
+echo "" | project-guide init   # non-TTY stdin
 ```
 
 ### What It Does
@@ -48,6 +55,27 @@ project-guide init --force
 3. Creates `.project-guide.yml` configuration file
 4. Renders `go.md` from templates based on the active mode
 5. Records the content hash for each file
+
+### Idempotent Re-run
+
+Running `project-guide init` a second time on a project that is already initialized is a silent exit-0 no-op — the command prints `project-guide already initialized at <target_dir>/ (use --force to reinitialize).` and returns. This makes the command safe to call unconditionally from automated flows (CI, `pyve` post-hooks, shell scripts).
+
+Use `--force` to re-run the full install and overwrite existing files.
+
+### Unattended / CI Use
+
+`project-guide init` reads no stdin when any of the following are true — the first match wins:
+
+| Priority | Trigger                            | Notes                                                                                        |
+|---------:|------------------------------------|----------------------------------------------------------------------------------------------|
+|        1 | `--no-input` flag                  | Explicit opt-in.                                                                             |
+|        2 | `PROJECT_GUIDE_NO_INPUT` env var   | Truthy values (case-insensitive): `1`, `true`, `yes`, `on`.                                  |
+|        3 | `CI` env var                       | Same truthy-value rules. Auto-detected on most CI runners (GitHub Actions, GitLab CI, etc.). |
+|        4 | Non-TTY stdin                      | Piped input, subprocess, closed stdin, or `sys.stdin is None`.                               |
+
+When any trigger fires, `init` uses defaults for every setting that has one. If a future prompt has no default under `--no-input`, the command fails loudly with an exit code of 1 rather than hanging on stdin.
+
+This plumbing (the `should_skip_input()` helper and the `_require_setting()` contract in `project_guide/runtime.py`) was added in v2.2.1 so that any future interactive prompt added to `init` automatically inherits the unattended-mode contract.
 
 ## mode
 

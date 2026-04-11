@@ -1,6 +1,6 @@
 # Spec: `project-guide init --no-input` mode
 
-> **Status:** Proposed (2026-04-10). Drafted for the [`project-guide`](https://pointmatic.github.io/project-guide/) project, not pyve. Lives here as the upstream dependency spec for Phase G Story G.c (`pyve init` integration with `project-guide`).
+> **Status:** Implemented in v2.2.0–v2.2.1 (2026-04-11). Drafted for the [`project-guide`](https://pointmatic.github.io/project-guide/) project, not pyve. Lives here as the upstream dependency spec for Phase G Story G.c (`pyve init` integration with `project-guide`). Idempotent re-run shipped in v2.2.0 (Story L.a); `--no-input` flag, env-var and non-TTY auto-detection, and the `_require_setting()` contract shipped in v2.2.1 (Story L.b).
 >
 > **Why this matters to pyve:** Pyve's G.c story wires `project-guide` installation into `pyve init` as a post-environment hook. Pyve cannot ship that integration until `project-guide init` has a `--no-input` mode — otherwise the post-hook hangs waiting for stdin in CI and in the no-TTY paths inside `pyve init`'s subprocess execution.
 
