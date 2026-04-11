@@ -83,15 +83,15 @@ Update `plan_phase` to handle an empty `stories.md` and continue phase letters f
 - [x] **Additional scope**: new `increment_phase_letter(letter)` helper in `actions.py` implements the base-26-no-zero successor algorithm (`A→B`, `Z→AA`, `ZZ→AAA`); tested with 7 cases including invalid inputs.
 - [x] **Additional scope**: new `_find_latest_archived_stories(archive_dir)` helper filters `.archive/` to `stories-vX.Y.Z.md` files only, ignoring unrelated artifacts (`phase-j-modes-plan.md`, `ux-problems-v2.0.10.md`); tested with mixed-content archive directories.
 
-### Story K.f: v2.1.5 Default Mode All-Stories-Done Suggestion [Planned]
+### Story K.f: v2.1.5 Default Mode All-Stories-Done Suggestion [Done]
 
 Teach `default` mode to detect when all stories are `[Done]` and prompt the developer to choose between `archive_stories` and `plan_phase`.
 
-- [ ] Update `project_guide/templates/project-guide/templates/modes/default-mode.md` with an "If all stories are [Done]" section
-- [ ] Detection performed by the LLM at read time (consistent with v2 architecture — no Python-side check)
-- [ ] Prompt suggests both `archive_stories` (clean slate first) and `plan_phase` (plan against history first), explaining the trade-off
-- [ ] If at least one story is non-`[Done]`, the existing default lifecycle suggestions apply unchanged
-- [ ] Verify by manually rendering `default` mode against (a) a fresh project, (b) an in-progress project, (c) a fully-`[Done]` project
+- [x] Update `project_guide/templates/project-guide/templates/modes/default-mode.md` with an "If all stories are [Done]" section (new top-level "Suggesting the Next Step" section with three branches: all-Done, at-least-one-non-Done, no-stories.md)
+- [x] Detection performed by the LLM at read time (consistent with v2 architecture — no Python-side check)
+- [x] Prompt suggests both `archive_stories` (clean slate first) and `plan_phase` (plan against history first), explaining the trade-off (Option A vs Option B with "Use this when:" guidance for each)
+- [x] If at least one story is non-`[Done]`, the existing default lifecycle suggestions apply unchanged (the at-least-one-non-Done branch defers to the existing project lifecycle table at the top of the mode)
+- [x] Verify by manually rendering `default` mode against (a) a fresh project (verified via `runner.isolated_filesystem` — rendered guide contains "fresh project" hint and the all-Done section), (b) an in-progress project (LLM-runtime branch — verified by reading the rendered template language), (c) a fully-`[Done]` project (LLM-runtime branch — verified by reading the rendered template language). All three scenarios are LLM-driven at read time per the v2 architecture; the rendered template contains the prompt language for all three branches simultaneously.
 
 ### Story K.g: v2.1.6 Phase K Documentation and CHANGELOG [Planned]
 

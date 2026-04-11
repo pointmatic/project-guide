@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.5] - 2026-04-10
+
+### Added
+- **Default mode "Suggesting the Next Step" section** (Story K.f) — `default-mode.md` now teaches the LLM to read `docs/specs/stories.md` (when present), check the status of every `### Story X.y: ... [<status>]` heading, and branch on three cases:
+  - **All stories `[Done]`**: prompt the developer with both `archive_stories` (clean slate, archive then plan) and `plan_phase` (plan against history) as Option A and Option B, explaining the trade-off and including "Use this when:" guidance for each. Wait for the developer to choose before changing modes.
+  - **At least one non-`[Done]`**: defer to the existing project lifecycle suggestions at the top of the mode (no behavior change).
+  - **No `stories.md`**: direct the developer to `project-guide mode plan_concept` to begin the lifecycle.
+- Detection happens at LLM read time (consistent with the v2 architecture — no Python-side check is added). The bundled mode template carries the prompt language for all three branches simultaneously.
+
+### Tests
+- No new tests; the existing parametrized `test_every_mode_renders_successfully` covers `default` and confirms the template still renders without errors. Manual verification via `runner.isolated_filesystem` confirms the rendered guide contains the all-Done section, both option labels, and the fresh-project hint.
+- **193 tests pass** (unchanged from K.e).
+
 ## [2.1.4] - 2026-04-10
 
 ### Added
