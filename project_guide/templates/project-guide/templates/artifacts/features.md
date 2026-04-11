@@ -2,7 +2,7 @@
 
 This document defines **what** the `{{project_name}}` project does -- requirements, inputs, outputs, behavior -- without specifying **how** it is implemented. This is the source of truth for scope.
 
-For a high-level concept (why), see `concept.md`. For implementation details (how), see `tech-spec.md`. For a breakdown of the implementation plan (step-by-step tasks), see `stories.md`.
+For a high-level concept (why), see `concept.md`. For implementation details (how), see `tech-spec.md`. For a breakdown of the implementation plan (step-by-step tasks), see `stories.md`. For project-specific must-know facts that future LLMs need to avoid blunders, see `project-essentials.md`.
 
 ---
 

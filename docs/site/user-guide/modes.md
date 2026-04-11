@@ -70,10 +70,12 @@ project-guide mode plan_features
 |-|-|
 | **Type** | Sequence |
 | **Next** | `plan_stories` |
-| **Artifact** | `docs/specs/tech-spec.md` |
+| **Artifacts** | `docs/specs/tech-spec.md`, `docs/specs/project-essentials.md` (initial) |
 | **Prerequisites** | `concept.md`, `features.md` |
 
 Generate a technical specification — how the project is built. Details architecture, modules, dependencies, and data models, but not actual code.
+
+After the tech-spec is approved, the mode prompts for **project-essentials** content — must-know facts future LLMs need to avoid blunders (workflow rules, tool-wrapper conventions, architecture quirks, hidden coupling, dogfooding notes). If the developer provides facts, `docs/specs/project-essentials.md` is generated from the artifact template. If there are none, the file is deliberately not created (the "skip if none" escape hatch — see the mode template for details).
 
 ```bash
 project-guide mode plan_tech_spec
@@ -100,12 +102,14 @@ project-guide mode plan_stories
 |-|-|
 | **Type** | Sequence |
 | **Next** | `code_velocity` |
-| **Artifacts** | `docs/specs/new-phase-<name>.md`, `docs/specs/stories.md` (modify) |
+| **Artifacts** | `docs/specs/new-phase-<name>.md`, `docs/specs/stories.md` (modify), `docs/specs/project-essentials.md` (modify, append-only) |
 | **Prerequisites** | `concept.md`, `features.md`, `tech-spec.md`, `stories.md` |
 
 Generate a feature phase prompt for an existing project. Combines mini-concept, features, and technical details to describe a gap to fill, then adds a new phase to the existing stories document.
 
 `plan_phase` handles two `stories.md` shapes: **populated** (existing phases — append after the highest) and **empty post-archive** (header + `## Future` only — read `docs/specs/.archive/stories-vX.Y.Z.md` to find the highest archived phase letter and continue from there). Phase letters continue across the archive boundary.
+
+After the new stories are approved, `plan_phase` runs a terminal step (once per phase, not per-story) that asks whether the phase introduced any new must-know facts — new architecture boundaries, new workflow rules, new hidden coupling — and **appends** them to `docs/specs/project-essentials.md` (or creates it from the artifact template if the project is a legacy migration that hasn't captured essentials yet). The append-only semantics are deliberate: `plan_phase` is not the place to refactor existing project-essentials content — that is `refactor_plan`'s Final Step job.
 
 ```bash
 project-guide mode plan_phase
@@ -241,9 +245,12 @@ Refactoring modes are cycles for updating existing documents — either because 
 | Field | Value |
 |-|-|
 | **Type** | Cycle |
+| **Artifact** | `docs/specs/project-essentials.md` (modify, terminal step) |
 | **Prerequisites** | None |
 
 Rewrite or update existing planning documents (concept, features, tech-spec) because of new features or improvements. Can also migrate legacy project-guide planning documents — preserves information while restructuring into standardized sections.
+
+After all document cycles are complete, `refactor_plan` runs a terminal **"Revisit Project Essentials"** step (once per refactor session, not per-document) that asks whether the refactor introduced any new must-know facts with refactor-specific framing: switched or added an environment manager, split runtime from dev environment, renamed module or moved source-of-truth, changed domain conventions, new auto-generated or hidden-coupling files. For legacy projects that have never had a `project-essentials.md`, this is the create path (and is flagged as the highest-value capture moment because none of the conventions have been written down). For existing projects, it's a read-modify-write refresh.
 
 ```bash
 project-guide mode refactor_plan

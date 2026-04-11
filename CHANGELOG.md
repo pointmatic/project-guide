@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.5] - 2026-04-11
+
+### Added
+- **Phase M documentation pass** (Story M.f) — the `project-essentials.md` artifact that landed in v2.3.0 and the three planning-mode wirings that landed in v2.3.2 / v2.3.3 / v2.3.4 are now reflected across all user-facing documentation and cross-referenced from the other artifact templates:
+  - **`project_guide/templates/project-guide/templates/artifacts/concept.md`** — the existing "see also" sentence in the header gains a fourth cross-reference to `project-essentials.md` with a one-line description of what belongs there ("workflow rules, hidden coupling, tool-wrapper conventions that the LLM would otherwise random-walk on").
+  - **`project_guide/templates/project-guide/templates/artifacts/features.md`** — same cross-reference added to the "see also" sentence.
+  - **`project_guide/templates/project-guide/templates/artifacts/tech-spec.md`** — same cross-reference, with an additional one-line note that `plan_tech_spec` populates it after the tech-spec is approved (so the developer knows the capture flow is automatic, not manual).
+  - **`project_guide/templates/project-guide/templates/artifacts/stories.md`** — same cross-reference, with a one-line note that `plan_phase` appends to it per phase.
+  - **`project_guide/templates/project-guide/templates/modes/default-mode.md`** — the "Planning (sequence)" table's `plan_tech_spec` and `plan_phase` rows now mention the `project-essentials.md` side-effect. A new **"Refactoring (cycle)"** section was added to the "All Available Modes" table (previously missing entirely — Refactoring modes were listed in the README but not in the bundled default-mode template). The new `refactor_plan` row explicitly mentions the terminal-step project-essentials refresh.
+  - **`README.md` — `### Planning Modes` table** — same `plan_tech_spec` and `plan_phase` updates as above.
+  - **`README.md` — `### Refactoring Modes` table** — `refactor_plan` row rewritten from the vague "Plan a refactor" to the specific "Update `concept`/`features`/`tech-spec` for new capabilities or legacy migration; terminal step refreshes `project-essentials.md` (creates it for legacy projects)".
+  - **`docs/site/user-guide/modes.md`** — full reference entries rewritten for `plan_tech_spec`, `plan_phase`, and `refactor_plan`:
+    - `plan_tech_spec` now lists two **Artifacts** (was one) and explains the post-approval capture flow with the "skip if none" escape hatch called out.
+    - `plan_phase` now lists three **Artifacts** (was two) and explains the terminal append step with the append-only-semantics rationale (`refactor_plan`'s Final Step is where you refactor essentials, not here).
+    - `refactor_plan` now lists a **Artifact** field (was none) and explains the terminal "Revisit Project Essentials" step with all five refactor-specific framing categories visible in the prose. Legacy projects are explicitly flagged as the highest-value capture moment.
+
+### Notes
+- **Phase M is now complete** (`v2.3.0`–`v2.3.5`). Six stories shipped: M.a render hook + artifact template + dogfooding, M.b post-render placeholder validator, M.c `plan_tech_spec` create-wiring, M.d `refactor_plan` modify-wiring (terminal step), M.e `plan_phase` modify-wiring (append-only), and M.f (this documentation pass). The M.a render hook reads `<spec_artifacts_path>/project-essentials.md` at render time and injects its content under a `## Project Essentials` section in every rendered `go.md` via the `{% if project_essentials %}` guard in `_header-common.md`. The three planning modes populate, refresh, and append to the file at their respective lifecycle touchpoints. The M.b validator catches any future template edit that breaks the render pipeline (including removing the guard, typo-ing a context variable, or forgetting to update `render.py` when adding a new template variable).
+- **Documentation-only release.** No code or test changes. All 248 tests continue to pass unchanged (`pyve test`). Ruff clean across `project_guide/` and `tests/`. mypy clean on all unchanged production modules.
+- **Cross-reference scope**: only the four artifact templates that form the standard planning-doc chain (`concept.md`, `features.md`, `tech-spec.md`, `stories.md`) get the new cross-reference to `project-essentials.md`. `brand-descriptions.md` is a documentation artifact, not a planning doc, and was deliberately not touched — keeping that artifact's header focused on brand-specific cross-references.
+- **Implicit verification via the M.c / M.d / M.e end-to-end tests**: the story's "verify by running each of the three updated planning modes against a fresh fixture" checklist item is covered by the existing `test_plan_tech_spec_mode_prompts_for_project_essentials`, `test_refactor_plan_mode_prompts_for_project_essentials_revisit`, and `test_plan_phase_mode_prompts_for_project_essentials_append` tests in `tests/test_render.py`. Each runs `init` + `mode <name>` against a fresh `CliRunner.isolated_filesystem()` and asserts the prompt content. Re-running these three tests as part of the full suite (248 passed) is the verification — no separate fixture test added.
+- **What this phase leaves on the table for a future phase**: none. Phases K / L / M are all complete and ready for the next `archive_stories` run. When that happens, `stories.md` will be archived to `.archive/stories-v2.3.5.md` and a fresh empty `stories.md` will be re-rendered for the next phase.
+
 ## [2.3.4] - 2026-04-11
 
 ### Added

@@ -408,9 +408,9 @@ overrides:
 |------|---------|--------|
 | **Concept** | `project-guide mode plan_concept` | `docs/specs/concept.md` |
 | **Features** | `project-guide mode plan_features` | `docs/specs/features.md` |
-| **Tech Spec** | `project-guide mode plan_tech_spec` | `docs/specs/tech-spec.md` |
+| **Tech Spec** | `project-guide mode plan_tech_spec` | `docs/specs/tech-spec.md` + `docs/specs/project-essentials.md` (initial population) |
 | **Stories** | `project-guide mode plan_stories` | `docs/specs/stories.md` |
-| **Phase** | `project-guide mode plan_phase` | New phase added to stories |
+| **Phase** | `project-guide mode plan_phase` | New phase added to `stories.md` + append to `project-essentials.md` |
 
 ### Coding Modes
 
@@ -437,8 +437,8 @@ overrides:
 
 | Mode | Command | Workflow |
 |------|---------|----------|
-| **Plan** | `project-guide mode refactor_plan` | Plan a refactor |
-| **Document** | `project-guide mode refactor_document` | Document a refactor |
+| **Plan** | `project-guide mode refactor_plan` | Update `concept`/`features`/`tech-spec` for new capabilities or legacy migration; terminal step refreshes `project-essentials.md` (creates it for legacy projects) |
+| **Document** | `project-guide mode refactor_document` | Update README, brand descriptions, landing page, and MkDocs config |
 
 ## Troubleshooting
 
