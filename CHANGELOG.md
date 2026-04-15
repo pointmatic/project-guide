@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.7] - 2026-04-14
+
+### Changed
+- **Minor tweaks to `plan-features-mode.md`** (Story M.h) — updated the planning mode template to be more aware of `concept.md` during feature planning. Updated pip-installed project-guide package to 2.3.6.
+
 ## [2.3.6] - 2026-04-11
 
 ### Changed

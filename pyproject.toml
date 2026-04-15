@@ -1,6 +1,6 @@
 [project]
 name = "project-guide"
-version = "2.3.6"
+version = "2.3.7"
 description = "Stay organized and in control with adaptive LLM workflow prompts."
 readme = "README.md"
 license = "Apache-2.0"

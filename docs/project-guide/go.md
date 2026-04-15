@@ -22,7 +22,7 @@ For efficiency, when you change modes, start a new LLM conversation.
 ### For LLMs
 
 **Modes**
-This Project-Guide offers a human-in-the-loop workflow for you to follow that can be dynamically reconfigured based on the project `mode`. Each `mode` defines a focused sequence of steps to guide you (the LLM) to help generate artifacts for some facet in the project lifecycle. This document is customized for default.
+This Project-Guide offers a human-in-the-loop workflow for you to follow that can be dynamically reconfigured based on the project `mode`. Each `mode` defines a focused cycle of steps to guide you (the LLM) to help generate artifacts for some facet in the project lifecycle. This document is customized for code_velocity.
 
 **Approval Gate**
 When you have completed the steps, pause for the developer to review, correct, redirect, or ask questions about your work.  
@@ -91,109 +91,71 @@ At approval gates, present the completed work and wait. **Do not prompt for, off
 
 ---
 
-# default mode (sequence)
+# code_velocity mode (cycle)
 
-> Getting started -- full project lifecycle overview
+> Generate code with velocity
 
 
-This is the default mode for new projects. It provides an overview of the full project lifecycle. For focused work, switch to a specific mode with `project-guide mode <name>`.
+Implement stories rapidly with direct commits to main. Focus on feature completion and iteration speed over process overhead.
+
+**Next Action**
+Restart the cycle of steps. 
 
 ---
 
-## Project Lifecycle
 
-| Step | Mode | What it does |
-|------|------|-------------|
-| 1 | `plan_concept` | Define the problem and solution space |
-| 2 | `plan_features` | Define requirements, inputs, outputs, behavior |
-| 3 | `plan_tech_spec` | Define architecture, modules, dependencies |
-| 4 | `plan_stories` | Break into phases and stories with checklists |
-| 5 | `project_scaffold` | Scaffold LICENSE, headers, manifest, README, CHANGELOG, .gitignore |
-| 6 | `code_velocity` | Implement stories with fast iteration |
+## Cycle Steps
 
-## Get Started
+For each story:
 
-To begin a new project, run:
+1. **Read** the story's checklist from `docs/specs/stories.md`
+2. **Implement** all tasks in the checklist
+3. **Add copyright/license headers** to every new source file
+4. **Run tests** -- `pyve run pytest` (fix failures before continuing)
+5. **Run linting** -- fix any issues immediately
+6. **Mark tasks** as `[x]` in `stories.md` and change story suffix to `[Done]`
+7. **Bump version** in package manifest and source (if the story has a version)
+8. **Update CHANGELOG.md** with the version entry
+9. **Present** the completed story concisely: what changed (files + line refs), verification results (test counts, lint status), and the suggested next story. Do not propose commits, pushes, or bundling options. Do not offer "want me to also…?" follow-ups.
+10. **Wait** for the developer to say "go" before starting the next story
 
-```bash
-project-guide mode plan_concept
-```
+## Velocity Practices
 
-## Suggesting the Next Step
+**LLM's role in each cycle:**
 
-When this mode is set, read `docs/specs/stories.md` (if it exists) and check the status of every `### Story X.y: ... [<status>]` heading.
+- **Version bump per story** -- v0.1.0, v0.2.0, v0.3.0, etc. — bump in package manifest and source
+- **Minimal process overhead** -- focus on making it work, not making it perfect
+- **Tests run after every story** -- not after every file, but before presenting to developer
+- **Fix linting immediately** -- small incremental fixes, not batch cleanup
+- **Update CHANGELOG.md** with the version entry before presenting
 
-### If all stories are `[Done]`
+**Developer's role (do NOT prompt for, offer, or initiate):**
 
-The current phase is complete. There is no in-progress work to resume. Suggest **both** of the following next steps to the developer and explain the trade-off:
+- **Direct commits to main** -- no branches, no PRs, no code review (velocity convention)
+- **Commit messages** reference story IDs: `"Story A.a: v0.1.0 Hello World"`
+- **Decides when to commit** -- the LLM presents, the developer commits. Multiple stories may be bundled into one commit at the developer's discretion — that is not the LLM's call to make or suggest.
 
-> All stories in `stories.md` are marked `[Done]`. The current phase is finished. Two reasonable next steps:
->
-> **Option A — `archive_stories` first, then `plan_phase`** (clean slate)
-> ```bash
-> project-guide mode archive_stories
-> ```
-> This moves the current `stories.md` to `docs/specs/.archive/stories-vX.Y.Z.md` and re-renders an empty `stories.md` (preserving the `## Future` section). Then `plan_phase` plans against an empty file. Phase letters continue across the archive boundary (`.archive/` is consulted to determine the next letter).
->
-> *Use this when:* the completed phase is large enough that scrolling past it during planning is friction, or you want each phase as a self-contained file in `.archive/` for git history clarity.
->
-> **Option B — `plan_phase` directly** (plan against history)
-> ```bash
-> project-guide mode plan_phase
-> ```
-> This appends the new phase to the existing `stories.md` alongside the completed phases.
->
-> *Use this when:* the completed phases provide useful context that should remain visible during planning, or the project is still small enough that a single `stories.md` is comfortable to scroll.
->
-> Which would you like?
+## Story Ordering
 
-Wait for the developer to choose before changing modes.
+- Start with Story A.a (Hello World) if not yet implemented
+- If unclear which story is next, ask: "Which story should I work on next?"
+- Never skip ahead -- complete stories in order within each phase
 
-### If at least one story is non-`[Done]`
+## File Header Reminder
 
-The current phase still has in-progress, planned, or otherwise incomplete work. Use the existing project lifecycle suggestions above — direct the developer to the relevant coding mode (`code_velocity`, `code_test_first`) or, if planning artifacts are missing, to the appropriate planning mode.
+Every new source file must include the copyright and license header as the very first content (before code, docstrings, or imports).
 
-### If `stories.md` does not exist
+## When to Switch Modes
 
-This is a fresh project. Direct the developer to `project-guide mode plan_concept` to begin the lifecycle.
+Switch to **code_test_first** when:
+- Working on a story with complex logic that benefits from TDD
+- The developer requests test-first approach
 
-## All Available Modes
+Switch to **debug** when:
+- A bug is discovered during implementation
+- Tests are failing unexpectedly
 
-### Planning (sequence)
-| Mode | Command | Output |
-|------|---------|--------|
-| **Concept** | `project-guide mode plan_concept` | `docs/specs/concept.md` |
-| **Features** | `project-guide mode plan_features` | `docs/specs/features.md` |
-| **Tech Spec** | `project-guide mode plan_tech_spec` | `docs/specs/tech-spec.md` + `docs/specs/project-essentials.md` (initial) |
-| **Stories** | `project-guide mode plan_stories` | `docs/specs/stories.md` |
-| **Phase** | `project-guide mode plan_phase` | Add a new phase to `stories.md` + append to `project-essentials.md` |
-
-### Scaffold (sequence)
-| Mode | Command | Purpose |
-|------|---------|---------|
-| **Project Scaffold** | `project-guide mode project_scaffold` | One-time project scaffolding |
-
-### Coding (cycle)
-| Mode | Command | Workflow |
-|------|---------|----------|
-| **Velocity** | `project-guide mode code_velocity` | Direct commits, fast iteration |
-| **Test-First** | `project-guide mode code_test_first` | TDD red-green-refactor cycle |
-| **Debug** | `project-guide mode debug` | Test-driven debugging |
-
-### Documentation (sequence)
-| Mode | Command | Output |
-|------|---------|--------|
-| **Branding** | `project-guide mode document_brand` | `docs/specs/brand-descriptions.md` |
-| **Landing Page** | `project-guide mode document_landing` | GitHub Pages + MkDocs docs |
-
-### Post-Release (sequence)
-| Mode | Command | Purpose |
-|------|---------|---------|
-| **Archive Stories** | `project-guide mode archive_stories` | Move completed `stories.md` to `.archive/` and re-render an empty one for the next phase |
-
-### Refactoring (cycle)
-| Mode | Command | Purpose |
-|------|---------|---------|
-| **Refactor Plan** | `project-guide mode refactor_plan` | Update `concept.md`/`features.md`/`tech-spec.md` for new features or legacy migration; terminal step refreshes `project-essentials.md` |
-| **Refactor Document** | `project-guide mode refactor_document` | Update README, brand descriptions, landing page, and MkDocs config |
+Switch to **production mode** when:
+- CI/CD phase is complete and branch protection is enabled
+- The project is ready for public users
 

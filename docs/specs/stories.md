@@ -363,6 +363,12 @@ Stop LLMs from tacking "commit now or continue?" footers onto approval-gate summ
 - New modes, new action types, or new metadata fields.
 - Changes to `test_every_mode_renders_successfully` — the new M.g tests are additive.
 
+### Story M.h: v2.3.7 Minor tweaks to plan-features-mode.md [Done]
+
+- [x] Update plan-features-mode.md to be more aware of concept.md. 
+- [x] Update pip-installed project-guide package to 2.3.6
+- [x] Bump version to 2.3.7
+
 ---
 
 ## Future
