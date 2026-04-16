@@ -16,3 +16,30 @@ Always use `python`, never `python3`. The `python3` command bypasses `asdf` vers
 ### `requirements-dev.txt` story-writing rule
 
 Any story that introduces dev tooling (ruff, mypy, pytest, types-* stubs) **must** include a task to create or update `requirements-dev.txt` so that `pyve testenv --install -r requirements-dev.txt` reproduces the full dev environment in one step. This keeps the dev environment reproducible and prevents "it works on my machine" drift.
+
+### Editable install and testenv dependency management
+
+LLMs often get confused about *where* to install an editable package when using pyve's two-environment model. The wrong choice "works" but creates subtle drift.
+
+**Main environment only (preferred for library projects):**
+```bash
+pyve run pip install -e .
+```
+Then configure pytest to find the source tree without a second editable install:
+```toml
+# pyproject.toml
+[tool.pytest.ini_options]
+pythonpath = ["."]   # or ["src"] for src layout
+```
+`pythonpath` handles import discovery cleanly and avoids maintaining two editable installs with potentially diverging dependency resolution.
+
+**Testenv editable install (required for CLI projects):**
+```bash
+pyve testenv run pip install -e .
+pyve testenv --install -r requirements-dev.txt
+```
+Use this when tests invoke CLI entry points (console scripts), because `pythonpath` only handles imports — it does not register entry points.
+
+**Rule of thumb:** use `pythonpath` for library/package projects; use editable install in testenv for projects whose tests exercise CLI entry points.
+
+**Important:** When `pyve` purges and reinitialises the main environment, the testenv remains intact and the testenv editable install survives. Re-running `pyve run pip install -e .` restores the main-environment editable install. See `developer/python-editable-install.md` for the full decision guide.

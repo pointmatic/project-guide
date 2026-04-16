@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.13] - 2026-04-16
+
+### Added
+- **`templates/modes/_header-common.md`** — Added universal rule to every mode's Rules block: when creating a new source file, add a copyright notice and license header using the comment syntax for that file type, referencing the project's `project-essentials.md` for specific values.
+- **`templates/artifacts/project-essentials.md`** — Added `### File header conventions` starter section with language/syntax reference table, placeholder copyright/SPDX fields, and examples for Python, TypeScript, and HTML.
+- **`templates/artifacts/project-essentials-pyve.md`** — Added `### Editable install and testenv dependency management` section covering the `pythonpath` vs testenv editable install decision, when each applies, and pyve purge survival.
+- **`developer/python-editable-install.md`** — New developer reference guide covering editable installs for both general Python projects and pyve two-environment setups: `pythonpath` vs editable install decision guide, pyve-specific installation patterns, purge survival, and a common-mistakes table.
+
 ## [2.4.12] - 2026-04-16
 
 ### Changed

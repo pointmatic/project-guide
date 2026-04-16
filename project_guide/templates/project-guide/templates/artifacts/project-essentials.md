@@ -40,4 +40,47 @@ every mode will simply omit the "Project Essentials" section.
 
 The `plan_tech_spec`, `refactor_plan`, and `plan_phase` modes prompt for new
 entries at natural points in the project lifecycle.
+
+- **File header conventions.** Every project should document the copyright
+  holder, license, and SPDX identifier so LLMs apply them consistently.
+  See the starter section below — fill in the placeholders during
+  `scaffold_project` or `plan_tech_spec` mode.
 -->
+
+### File header conventions
+
+Every new source file must begin with a copyright notice and license
+identifier. Use the comment syntax for the file type:
+
+| File type | Comment syntax |
+|-----------|---------------|
+| Python, YAML, shell, Makefile | `#` |
+| JavaScript, TypeScript, Go, Java, C/C++ | `//` or `/* */` |
+| HTML, Svelte, XML | `<!-- -->` |
+| CSS, SCSS | `/* */` |
+
+**This project's header:**
+
+- **Copyright**: `Copyright (c) <YEAR> <OWNER>` — replace `<YEAR>` and `<OWNER>`
+- **SPDX identifier**: `SPDX-License-Identifier: <LICENSE>` — e.g. `Apache-2.0`, `MIT`, `GPL-3.0-only`
+
+Python example:
+```python
+# Copyright (c) <YEAR> <OWNER>
+# SPDX-License-Identifier: <LICENSE>
+```
+
+TypeScript example:
+```typescript
+// Copyright (c) <YEAR> <OWNER>
+// SPDX-License-Identifier: <LICENSE>
+```
+
+HTML example:
+```html
+<!-- Copyright (c) <YEAR> <OWNER> -->
+<!-- SPDX-License-Identifier: <LICENSE> -->
+```
+
+> **TODO:** Replace `<YEAR>`, `<OWNER>`, and `<LICENSE>` above with this
+> project's actual values, then delete this note.

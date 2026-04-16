@@ -251,6 +251,48 @@ Teach every mode to pause before recording a new memory and ask: does this belon
 - [x] Verify: all tests pass, ruff clean, `pyve run project-guide update` re-renders `go.md` cleanly
 - [x] Bump version to v2.4.12
 
+### Story N.n: v2.4.13 Copyright and SPDX License Header, improve editable install documentation [Done]
+
+#### File Headers
+- [x] Using the project-essentials.md feature, instruct the LLM to use consistent headers for generated files
+  - [x] Copyright notice format
+  - [x] SPDX license headers
+  - [x] Descriptive comment header file (such as PEP 257 docstrings for Python files)
+  - [x] Provide a header example for reference 
+
+#### Editable Python Module and Test Environment Dependency Installation
+LLMs can easily get confused about how to install editable Python modules in different environments. There only needs to be one editable install in the main environment. Pyve makes it easy to separate the test environment tools installation from the main environment. When the Pyve environment is purged and reinitialized, the test environment remains intact. 
+
+It is possible to install an editable module in both the main and test environments in Pyve. 
+
+Project venv (ad hoc use, REPL, scripts):
+```bash
+pyve run pip install -e .
+```
+
+Testenv (so pytest can import the module):
+```bash
+pyve testenv run pip install -e .
+pyve testenv --install -r requirements-dev.txt
+```
+
+A cleaner approach is to install it in the main environment, not in the test environment, then ensure that the test environment can import it by using pytest's `pythonpath` configuration in `pyproject.toml`.
+
+Place in pytest.ini or pyproject.toml `[tool.pytest.ini_options]`:
+```
+pythonpath = ["."]   # or ["src"] for src layout
+```
+
+This avoids maintaining two editable installs with potentially diverging dependency resolution. The tradeoff: pythonpath works for import discovery but not for console scripts or entry points — if your tests invoke CLI entry points, you still need the editable install in the testenv.
+
+Rule of thumb: use pythonpath for library projects, editable install in testenv for projects with CLI entry points that tests exercise.
+
+- [x] Given this information above, improve the LLM instructions. 
+- [x] Draft a developer guide for using Pyve with editable installs `/project_guide/templates/project-guide/developer/python-editable-install.md`. 
+- [x] Update `CHANGELOG.md` with v2.4.13 entry for this documentation pass
+- [x] Verify: all tests pass, ruff clean, `pyve run project-guide update` re-renders `go.md` cleanly
+- [x] Bump version to v2.4.13
+
 ---
 
 ## Future
