@@ -1152,3 +1152,61 @@ def test_update_project_guide_no_input_env(runner, tmp_path, monkeypatch):
 
 
 # --- End Story N.e -----------------------------------------------------------
+
+
+# --- Story N.f ---------------------------------------------------------------
+
+
+def test_init_quiet_suppresses_per_file_lines(runner, tmp_path):
+    """init --quiet produces no per-file ✓ lines; summary count still present."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(main, ['init', '--quiet'])
+
+        assert result.exit_code == 0
+        # No per-file "✓ Installed" lines
+        assert "✓ Installed" not in result.output
+        assert "⚠ Skipped" not in result.output
+        # Summary count line is still present
+        assert "Successfully initialized" in result.output
+
+
+def test_update_quiet_suppresses_per_file_lines(runner, tmp_path):
+    """update --quiet suppresses per-file sync output; summary still present."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        runner.invoke(main, ['init'])
+
+        result = runner.invoke(main, ['update', '--quiet'])
+
+        assert result.exit_code == 0
+        # No per-file lines
+        assert "  ✓ " not in result.output
+        assert "  + " not in result.output
+        assert "  • " not in result.output
+        # Summary is still present
+        assert "up to date" in result.output or "updated" in result.output
+
+
+def test_purge_quiet_force_produces_no_progress_lines(runner, tmp_path):
+    """purge --quiet --force produces no prompts or per-file progress lines."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        runner.invoke(main, ['init'])
+
+        result = runner.invoke(main, ['purge', '--quiet', '--force'])
+
+        assert result.exit_code == 0
+        assert "The following will be removed" not in result.output
+        assert "✓ Removed" not in result.output
+        # Summary is still shown
+        assert "purged" in result.output.lower()
+
+
+def test_quiet_does_not_suppress_errors(runner, tmp_path):
+    """Error output is always emitted regardless of --quiet (regression guard)."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        # No project-guide initialized — update should error
+        result = runner.invoke(main, ['update', '--quiet'])
+
+        assert result.exit_code != 0
+
+
+# --- End Story N.f -----------------------------------------------------------

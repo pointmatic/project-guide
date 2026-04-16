@@ -57,7 +57,9 @@ def _get_package_template_dir() -> Path:
         return Path(path)
 
 
-def _copy_template_tree(src_dir: Path, dest_dir: Path, force: bool = False) -> int:
+def _copy_template_tree(
+    src_dir: Path, dest_dir: Path, force: bool = False, quiet: bool = False
+) -> int:
     """
     Copy a template directory tree to the target, preserving structure.
     Returns the number of files copied.
@@ -70,12 +72,14 @@ def _copy_template_tree(src_dir: Path, dest_dir: Path, force: bool = False) -> i
         dest_file = dest_dir / rel_path
 
         if dest_file.exists() and not force:
-            click.secho(f"⚠ Skipped {rel_path} (already exists)", fg='yellow')
+            if not quiet:
+                click.secho(f"⚠ Skipped {rel_path} (already exists)", fg='yellow')
             continue
 
         dest_file.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src_file, dest_file)
-        click.secho(f"✓ Installed {rel_path}", fg='green')
+        if not quiet:
+            click.secho(f"✓ Installed {rel_path}", fg='green')
         count += 1
     return count
 
@@ -101,7 +105,13 @@ def _copy_template_tree(src_dir: Path, dest_dir: Path, force: bool = False) -> i
     default=False,
     help='Prefer test-driven development; planning modes will suggest code_test_first.',
 )
-def init(target_dir: str, force: bool, no_input: bool, test_first: bool):
+@click.option(
+    '--quiet', '-q',
+    is_flag=True,
+    default=False,
+    help='Suppress per-file progress output; errors and summary are always shown.',
+)
+def init(target_dir: str, force: bool, no_input: bool, test_first: bool, quiet: bool):
     """Initialize project-guide in a new project."""
     config_path = Path(".project-guide.yml")
 
@@ -140,7 +150,7 @@ def init(target_dir: str, force: bool, no_input: bool, test_first: bool):
     target_path = Path(target_dir)
 
     try:
-        count = _copy_template_tree(pkg_template_dir, target_path, force=force)
+        count = _copy_template_tree(pkg_template_dir, target_path, force=force, quiet=quiet)
     except (OSError, SyncError) as e:
         click.secho(f"Error: {e}", fg='red', err=True)
         sys.exit(2)
@@ -536,7 +546,13 @@ def status(verbose):
         '(Also auto-enabled by CI=1 or non-TTY stdin.)'
     ),
 )
-def update(files: tuple, dry_run: bool, force: bool, no_input: bool):
+@click.option(
+    '--quiet', '-q',
+    is_flag=True,
+    default=False,
+    help='Suppress per-file progress output; errors and summary are always shown.',
+)
+def update(files: tuple, dry_run: bool, force: bool, no_input: bool, quiet: bool):
     """Update files to latest version."""
     skip_input = should_skip_input(no_input)  # noqa: F841  (reserved for future prompts)
 
@@ -585,29 +601,31 @@ def update(files: tuple, dry_run: bool, force: bool, no_input: bool):
         click.secho(f"Error: {e}", fg='red', err=True)
         sys.exit(2)  # File I/O error exit code
 
-    # Print results
-    if updated:
-        action = "Would update (backed up)" if dry_run else "Updated (backed up)"
-        click.secho(f"{action}:", fg='green')
-        for f in updated:
-            click.secho(f"  ✓ {f}", fg='green')
+    # Print results (per-file lines suppressed when --quiet)
+    if not quiet:
+        if updated:
+            action = "Would update (backed up)" if dry_run else "Updated (backed up)"
+            click.secho(f"{action}:", fg='green')
+            for f in updated:
+                click.secho(f"  ✓ {f}", fg='green')
 
-    if missing:
-        action = "Would create" if dry_run else "Created"
-        click.secho(f"{action} (missing files):", fg='cyan')
-        for f in missing:
-            click.secho(f"  + {f}", fg='cyan')
+        if missing:
+            action = "Would create" if dry_run else "Created"
+            click.secho(f"{action} (missing files):", fg='cyan')
+            for f in missing:
+                click.secho(f"  + {f}", fg='cyan')
 
+        if current:
+            click.echo("Already current:")
+            for f in current:
+                click.echo(f"  • {f}")
+
+    # Overridden-file warnings are always shown (explicit warnings, never suppressed)
     if skipped:
         click.secho("Skipped (overridden):", fg='yellow')
         for f in skipped:
             override = config.overrides[f]
             click.secho(f"  ⊘ {f} - {override.reason}", fg='yellow')
-
-    if current:
-        click.echo("Already current:")
-        for f in current:
-            click.echo(f"  • {f}")
 
     # Update config if not dry-run and any updates were made
     all_updated = updated + missing
@@ -777,7 +795,13 @@ def overrides():
         '(Also auto-enabled by CI=1 or non-TTY stdin.)'
     ),
 )
-def purge(force, no_input):
+@click.option(
+    '--quiet', '-q',
+    is_flag=True,
+    default=False,
+    help='Suppress per-file progress output; errors and summary are always shown.',
+)
+def purge(force, no_input, quiet):
     """Remove all project-guide files from the current project."""
     skip_input = should_skip_input(no_input)
 
@@ -790,11 +814,12 @@ def purge(force, no_input):
     config_path = Path(".project-guide.yml")
     target_dir = Path(config.target_dir)
 
-    # Show what will be removed
-    click.secho("The following will be removed:", fg="yellow", bold=True)
-    click.echo(f"  • {config_path}")
-    click.echo(f"  • {target_dir}/ (and all contents)")
-    click.echo()
+    # Show what will be removed (suppressed when --quiet)
+    if not quiet:
+        click.secho("The following will be removed:", fg="yellow", bold=True)
+        click.echo(f"  • {config_path}")
+        click.echo(f"  • {target_dir}/ (and all contents)")
+        click.echo()
 
     # Confirm unless --force or non-interactive mode
     if not force and not skip_input:
@@ -808,7 +833,8 @@ def purge(force, no_input):
         if target_dir.exists():
             import shutil
             shutil.rmtree(target_dir)
-            click.secho(f"✓ Removed {target_dir}/", fg="green")
+            if not quiet:
+                click.secho(f"✓ Removed {target_dir}/", fg="green")
         else:
             click.secho(f"  {target_dir}/ not found (skipped)", fg="yellow")
     except OSError as e:
@@ -819,7 +845,8 @@ def purge(force, no_input):
     try:
         if config_path.exists():
             config_path.unlink()
-            click.secho(f"✓ Removed {config_path}", fg="green")
+            if not quiet:
+                click.secho(f"✓ Removed {config_path}", fg="green")
         else:
             click.secho(f"  {config_path} not found (skipped)", fg="yellow")
     except OSError as e:

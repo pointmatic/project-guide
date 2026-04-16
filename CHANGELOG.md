@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.5] - 2026-04-15
+
+### Added
+- **`--quiet` / `-q` flag on `init`, `update`, and `purge`** — suppresses per-file progress lines. Errors, summaries (final counts), and explicit warnings (overridden-file notices) are always shown regardless of `--quiet`. Composes cleanly with `--no-input` for fully silent unattended runs.
+
 ## [2.4.4] - 2026-04-15
 
 ### Added

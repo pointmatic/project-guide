@@ -98,22 +98,22 @@ Extend the Phase L `--no-input` contract to `purge` and `update`, completing the
 - [x] Bump version to v2.4.4
 - [x] Update CHANGELOG.md
 
-### Story N.f: v2.4.5 --quiet / Output Suppression [Planned]
+### Story N.f: v2.4.5 --quiet / Output Suppression [Done]
 
 Add a `--quiet` / `-q` flag to suppress per-file progress chatter from `init`, `update`, and `purge`. Composes with `--no-input` for fully silent unattended runs.
 
-- [ ] Add `--quiet` / `-q` boolean flag to `init`, `update`, and `purge` commands in `cli.py`
-- [ ] Update `_copy_template_tree` to accept a `quiet: bool` parameter; suppress per-file progress lines when `True`
-- [ ] Update `sync_files` callers in `cli.py` to pass `quiet` through to file-by-file output
-- [ ] Errors, summaries (final counts), and explicit warnings are never suppressed regardless of `--quiet`
-- [ ] `--quiet` and `--no-input` compose cleanly: `init --no-input --quiet` produces no stdout on success
-- [ ] Tests in `tests/test_cli.py`:
-  - [ ] `init --quiet` produces no per-file lines; summary count line still present
-  - [ ] `update --quiet` suppresses per-file sync output
-  - [ ] `purge --quiet --force` produces no prompts or progress lines
-  - [ ] Error output is still emitted when `--quiet` is set (regression guard)
-- [ ] Bump version to v2.4.5
-- [ ] Update CHANGELOG.md
+- [x] Add `--quiet` / `-q` boolean flag to `init`, `update`, and `purge` commands in `cli.py`
+- [x] Update `_copy_template_tree` to accept a `quiet: bool` parameter; suppress per-file progress lines when `True`
+- [x] Update `sync_files` callers in `cli.py` to pass `quiet` through to file-by-file output
+- [x] Errors, summaries (final counts), and explicit warnings are never suppressed regardless of `--quiet`
+- [x] `--quiet` and `--no-input` compose cleanly: `init --no-input --quiet` produces no stdout on success
+- [x] Tests in `tests/test_cli.py`:
+  - [x] `init --quiet` produces no per-file lines; summary count line still present
+  - [x] `update --quiet` suppresses per-file sync output
+  - [x] `purge --quiet --force` produces no prompts or progress lines
+  - [x] Error output is still emitted when `--quiet` is set (regression guard)
+- [x] Bump version to v2.4.5
+- [x] Update CHANGELOG.md
 
 ### Story N.g: v2.4.6 Story Detection in status [Planned]
 
@@ -191,6 +191,7 @@ Auto-detect Pyve at `init` time and ship a bundled Pyve-focused project-essentia
 - [ ] Update `render.py` to pass `pyve_installed: bool` and `pyve_version: str | None` as Jinja2 context variables
 - [ ] Create `project_guide/templates/project-guide/templates/artifacts/project-essentials-pyve.md`:
   - [ ] Section: two-environment pattern (runtime `.venv/` vs dev testenv `.pyve/testenv/venv/`; canonical invocation forms `pyve run python`, `pyve test`, `pyve testenv run ruff/mypy`; "pytest not found → use `pyve test`" signal; "do not `pip install -e '.[dev]'` into the main venv" anti-pattern)
+  - [ ] Section: Python invocation rule — always use `python`, never `python3`; `python3` bypasses `asdf` version shims and may resolve to the wrong interpreter
   - [ ] Section: `requirements-dev.txt` story-writing rule — any story introducing dev tooling (ruff, mypy, pytest, types-* stubs) must include a task to create/update `requirements-dev.txt` so `pyve testenv --install -r requirements-dev.txt` reproduces the dev env in one step
   - [ ] No top-level `#` heading; `###` subsections (consistent with project-essentials convention)
 - [ ] Update `scaffold-project-mode.md` and `plan-tech-spec-mode.md` with a `{% if pyve_installed %}` branch: instruct LLM to read `project-essentials-pyve.md` and copy/merge its content into `docs/specs/project-essentials.md`
