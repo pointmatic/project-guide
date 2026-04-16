@@ -32,6 +32,7 @@ When you have completed the steps, pause for the developer to review, correct, r
 - Never auto-advance past an approval gate—always wait for explicit confirmation. 
 - At approval gates, present the completed work and wait. Do **not** propose follow-up actions outside the current mode step — in particular, do not prompt for git operations (commits, pushes, PRs, branch creation), CI runs, or deploys unless the current step explicitly calls for them. The developer initiates these on their own schedule.
 - After compacting memory, re-read this guide to refresh your context.
+- Before recording a new memory, reflect: is this fact project-specific (belongs in `docs/specs/project-essentials.md`) or cross-project (belongs in LLM memory)? Could it belong in both? If project-specific, add it to `project-essentials.md` instead of or in addition to memory.
 
 ---
 {% if project_essentials %}

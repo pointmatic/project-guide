@@ -1071,6 +1071,34 @@ def test_scaffold_project_memory_review_escape_hatch():
 # --- End Story N.k -----------------------------------------------------------
 
 
+# --- Story N.l ---------------------------------------------------------------
+
+
+@pytest.mark.parametrize("mode_name", _get_all_mode_names())
+def test_header_common_memory_reflection_rule_renders_in_every_mode(mode_name):
+    """Rule #7 (memory reflection) appears in the Rules block of every rendered mode."""
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        runner.invoke(main, ['init'])
+        runner.invoke(main, ['mode', mode_name])
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    rules_pos = content.index("**Rules**")
+    # Find the end of the Rules block (next --- separator or heading)
+    rules_end = content.find("\n---", rules_pos)
+    rules_block = content[rules_pos:rules_end] if rules_end != -1 else content[rules_pos:]
+    assert "Before recording a new memory, reflect" in rules_block, (
+        f"Memory reflection rule missing from Rules block in mode '{mode_name}'"
+    )
+
+
+# --- End Story N.l -----------------------------------------------------------
+
+
 @pytest.mark.parametrize("mode_name", _get_all_mode_names())
 def test_every_mode_renders_successfully(mode_name):
     """Every mode in the bundled metadata must render without errors.

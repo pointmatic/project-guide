@@ -222,17 +222,17 @@ Auto-detect Pyve at `init` time and ship a bundled Pyve-focused project-essentia
 - [x] Bump version to v2.4.10
 - [x] Update CHANGELOG.md
 
-### Story N.l: v2.4.11 Memory Reflection Instruction in _header-common.md [Planned]
+### Story N.l: v2.4.11 Memory Reflection Instruction in _header-common.md [Done]
 
 Teach every mode to pause before recording a new memory and ask: does this belong in `project-essentials.md` instead?
 
-- [ ] Add rule #7 to the **Rules** block in `project_guide/templates/project-guide/templates/modes/_header-common.md`:
-  - [ ] Text (exact): "Before recording a new memory, reflect: is this fact project-specific (belongs in `docs/specs/project-essentials.md`) or cross-project (belongs in LLM memory)? Could it belong in both? If project-specific, add it to `project-essentials.md` instead of or in addition to memory."
-- [ ] Tests in `tests/test_render.py` (new "Story N.l" section):
-  - [ ] `test_header_common_memory_reflection_rule_renders_in_every_mode` — parametrized over all mode names via `_get_all_mode_names()`; asserts the pinned substring `"Before recording a new memory, reflect"` appears inside the **Rules** block (positional assertion, consistent with the M.g approval-gate test pattern)
-- [ ] Verify: `test_every_mode_renders_successfully` still passes (no template regressions)
-- [ ] Bump version to v2.4.11
-- [ ] Update CHANGELOG.md
+- [x] Add rule #7 to the **Rules** block in `project_guide/templates/project-guide/templates/modes/_header-common.md`:
+  - [x] Text (exact): "Before recording a new memory, reflect: is this fact project-specific (belongs in `docs/specs/project-essentials.md`) or cross-project (belongs in LLM memory)? Could it belong in both? If project-specific, add it to `project-essentials.md` instead of or in addition to memory."
+- [x] Tests in `tests/test_render.py` (new "Story N.l" section):
+  - [x] `test_header_common_memory_reflection_rule_renders_in_every_mode` — parametrized over all mode names via `_get_all_mode_names()`; asserts the pinned substring `"Before recording a new memory, reflect"` appears inside the **Rules** block (positional assertion, consistent with the M.g approval-gate test pattern)
+- [x] Verify: `test_every_mode_renders_successfully` still passes (no template regressions)
+- [x] Bump version to v2.4.11
+- [x] Update CHANGELOG.md
 
 ### Story N.m: v2.4.12 Phase N Documentation and CHANGELOG [Planned]
 

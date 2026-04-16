@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.11] - 2026-04-16
+
+### Added
+- **Memory reflection rule in every mode** — rule #7 added to the `_header-common.md` Rules block: before recording a new memory, the LLM must reflect whether the fact is project-specific (belongs in `docs/specs/project-essentials.md`), cross-project (belongs in LLM memory), or both. Propagates to all 15 modes via the shared header template.
+
 ## [2.4.10] - 2026-04-16
 
 ### Added
