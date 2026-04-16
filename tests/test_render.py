@@ -806,8 +806,8 @@ def test_header_common_approval_gate_rule_renders_in_every_mode(mode_name):
     )
 
 
-def test_code_velocity_mode_separates_llm_lane_from_developer_lane():
-    """code_velocity's Velocity Practices section must label the two lanes.
+def test_code_direct_mode_separates_llm_lane_from_developer_lane():
+    """code_direct's Velocity Practices section must label the two lanes.
 
     The two-lane structure is load-bearing: it forces future template
     authors to classify every workflow item as LLM-lane or developer-lane,
@@ -822,7 +822,7 @@ def test_code_velocity_mode_separates_llm_lane_from_developer_lane():
         result = runner.invoke(main, ['init'])
         assert result.exit_code == 0
 
-        result = runner.invoke(main, ['mode', 'code_velocity'])
+        result = runner.invoke(main, ['mode', 'code_direct'])
         assert result.exit_code == 0
 
         content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
@@ -849,8 +849,8 @@ def test_code_velocity_mode_separates_llm_lane_from_developer_lane():
     assert llm_lane_idx < dev_lane_idx
 
 
-def test_code_velocity_present_step_forbids_followup_prompts():
-    """code_velocity step 9 must explicitly forbid follow-up proposals.
+def test_code_direct_present_step_forbids_followup_prompts():
+    """code_direct step 9 must explicitly forbid follow-up proposals.
 
     Belt-and-suspenders reinforcement: the universal rule in
     `_header-common.md` should be sufficient, but pinning the forbidden
@@ -866,7 +866,7 @@ def test_code_velocity_present_step_forbids_followup_prompts():
         result = runner.invoke(main, ['init'])
         assert result.exit_code == 0
 
-        result = runner.invoke(main, ['mode', 'code_velocity'])
+        result = runner.invoke(main, ['mode', 'code_direct'])
         assert result.exit_code == 0
 
         content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
@@ -881,7 +881,7 @@ def test_code_test_first_present_step_forbids_followup_prompts():
 
     code_test_first does not get the Velocity Practices lane restructure
     (it has no analogous section), but its Present step gets the same
-    tightening as code_velocity step 9.
+    tightening as code_direct step 9.
     """
     from click.testing import CliRunner  # noqa: I001
 

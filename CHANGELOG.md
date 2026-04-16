@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-04-15
+
+### Changed
+- **`code-velocity-mode.md` → `code-direct-mode.md`** — Renamed mode template file; mode key updated from `code_velocity` to `code_direct` in `.metadata.yml`. `code_direct` more clearly describes the mode (direct coding, no mandatory TDD) and pairs naturally with `code_test_first` under the `code_<style>` naming convention.
+- **Cross-references updated** — `default-mode.md`, `code-test-first-mode.md`, `plan-stories-mode.md`, `docs/specs/project-essentials.md`, `docs/specs/features.md`, `docs/site/user-guide/modes.md`, `README.md`.
+- **Tests updated** — `tests/test_render.py` and `tests/test_cli.py` renamed/updated all `code_velocity` references to `code_direct`.
+
 ## [2.3.9] - 2026-04-14
 
 ### Changed

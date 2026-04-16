@@ -107,7 +107,7 @@ project-guide mode plan_tech_spec    # Define architecture
 project-guide mode plan_stories      # Break into stories
 project-guide mode plan_phase        # Add a new phase to stories
 project-guide mode project_scaffold  # Scaffold license, manifest, README, CHANGELOG
-project-guide mode code_velocity     # Implement stories fast
+project-guide mode code_direct       # Implement stories fast
 project-guide mode code_test_first   # TDD red-green-refactor
 project-guide mode debug             # Debug with test-first approach
 project-guide mode archive_stories   # Archive completed stories.md before next phase
@@ -136,7 +136,7 @@ Available modes:
      plan_tech_spec            Generate a technical specification prompt (how it's built)
      plan_stories              Generate a user stories prompt
      plan_phase                Add a new phase to stories
-     code_velocity             Generate code with velocity
+     code_direct               Generate code with velocity
      code_test_first           Generate code with a test-first approach
      debug                     Debug code with a test-first approach
      document_brand            Generate brand descriptions
@@ -225,8 +225,8 @@ project-guide mode [MODE_NAME]
 # Show current mode and list all modes
 project-guide mode
 
-# Switch to velocity coding mode
-project-guide mode code_velocity
+# Switch to direct coding mode
+project-guide mode code_direct
 
 # Switch to debugging mode
 project-guide mode debug
@@ -384,7 +384,7 @@ version: "2.0"
 installed_version: "2.0.15"
 target_dir: "docs/project-guide"
 metadata_file: ".metadata.yml"
-current_mode: "code_velocity"
+current_mode: "code_direct"
 overrides:
   templates/modes/debug-mode.md:
     reason: "Custom debugging workflow for this project"
@@ -416,7 +416,7 @@ overrides:
 
 | Mode | Command | Workflow |
 |------|---------|----------|
-| **Velocity** | `project-guide mode code_velocity` | Direct commits, fast iteration |
+| **Direct** | `project-guide mode code_direct` | Direct commits, fast iteration |
 | **Test-First** | `project-guide mode code_test_first` | TDD red-green-refactor cycle |
 | **Debug** | `project-guide mode debug` | Test-driven debugging |
 

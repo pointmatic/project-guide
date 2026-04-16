@@ -11,7 +11,7 @@ This is the default mode for new projects. It provides an overview of the full p
 | 3 | `plan_tech_spec` | Define architecture, modules, dependencies |
 | 4 | `plan_stories` | Break into phases and stories with checklists |
 | 5 | `project_scaffold` | Scaffold LICENSE, headers, manifest, README, CHANGELOG, .gitignore |
-| 6 | `code_velocity` | Implement stories with fast iteration |
+| 6 | `code_direct` | Implement stories with fast iteration |
 
 ## Get Started
 
@@ -53,7 +53,7 @@ Wait for the developer to choose before changing modes.
 
 ### If at least one story is non-`[Done]`
 
-The current phase still has in-progress, planned, or otherwise incomplete work. Use the existing project lifecycle suggestions above — direct the developer to the relevant coding mode (`code_velocity`, `code_test_first`) or, if planning artifacts are missing, to the appropriate planning mode.
+The current phase still has in-progress, planned, or otherwise incomplete work. Use the existing project lifecycle suggestions above — direct the developer to the relevant coding mode (`code_direct`, `code_test_first`) or, if planning artifacts are missing, to the appropriate planning mode.
 
 ### If `stories.md` does not exist
 
@@ -78,7 +78,7 @@ This is a fresh project. Direct the developer to `project-guide mode plan_concep
 ### Coding (cycle)
 | Mode | Command | Workflow |
 |------|---------|----------|
-| **Velocity** | `project-guide mode code_velocity` | Direct commits, fast iteration |
+| **Direct** | `project-guide mode code_direct` | Direct commits, fast iteration |
 | **Test-First** | `project-guide mode code_test_first` | TDD red-green-refactor cycle |
 | **Debug** | `project-guide mode debug` | Test-driven debugging |
 

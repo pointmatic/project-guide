@@ -174,7 +174,7 @@ Files: 33 current
 ```
 project-guide v2.0.15 (installed: v2.0.13)
 
-Mode: code_velocity — Generate code with velocity
+Mode: code_direct — Generate code with velocity
   Prerequisites: all met
   Run 'project-guide mode' to see available modes.
 
@@ -211,7 +211,7 @@ The system renders a single entry-point document (`go.md`) from Jinja2 templates
 | `plan_tech_spec` | sequence | Define technical specification |
 | `plan_stories` | sequence | Break down into implementation stories |
 | `plan_phase` | sequence | Add a new feature phase to an existing project |
-| `code_velocity` | cycle | Fast coding workflow with commit-per-story |
+| `code_direct` | cycle | Fast coding workflow with commit-per-story |
 | `code_test_first` | cycle | Test-driven development workflow |
 | `debug` | cycle | Reproduce, isolate, fix, verify workflow |
 | `document_brand` | sequence | Define brand descriptions and messaging |

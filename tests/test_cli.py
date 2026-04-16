@@ -276,13 +276,13 @@ def test_status_after_mode_change(runner, tmp_path):
     """Test status reflects the active mode after switching."""
     with runner.isolated_filesystem(temp_dir=tmp_path):
         runner.invoke(main, ['init'])
-        runner.invoke(main, ['mode', 'code_velocity'])
+        runner.invoke(main, ['mode', 'code_direct'])
 
         result = runner.invoke(main, ['status'])
 
         assert result.exit_code == 0
-        assert "Mode: code_velocity" in result.output
-        assert "Generate code with velocity" in result.output
+        assert "Mode: code_direct" in result.output
+        assert "Generate code directly, test after" in result.output
 
 
 def test_status_v1_migration_notice(runner, tmp_path):
@@ -357,7 +357,7 @@ def test_mode_list_available(runner, tmp_path):
         assert "Current mode:" in result.output
         assert "Available modes:" in result.output
         assert "plan_concept" in result.output
-        assert "code_velocity" in result.output
+        assert "code_direct" in result.output
 
 
 def test_mode_invalid_name(runner, tmp_path):
@@ -374,12 +374,12 @@ def test_mode_switch_updates_config(runner, tmp_path):
     """Test mode command updates current_mode in config."""
     with runner.isolated_filesystem(temp_dir=tmp_path):
         runner.invoke(main, ['init'])
-        result = runner.invoke(main, ['mode', 'code_velocity'])
+        result = runner.invoke(main, ['mode', 'code_direct'])
         assert result.exit_code == 0
-        assert "Mode set: code_velocity" in result.output
+        assert "Mode set: code_direct" in result.output
 
         config = Config.load(".project-guide.yml")
-        assert config.current_mode == "code_velocity"
+        assert config.current_mode == "code_direct"
 
 
 def test_mode_renders_output(runner, tmp_path):
@@ -404,7 +404,7 @@ def test_mode_shell_completion_returns_all_modes(runner, tmp_path):
 
         assert "default" in result
         assert "plan_concept" in result
-        assert "code_velocity" in result
+        assert "code_direct" in result
         assert "debug" in result
         assert "refactor_plan" in result
 

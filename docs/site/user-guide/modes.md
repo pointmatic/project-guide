@@ -101,7 +101,7 @@ project-guide mode plan_stories
 | Field | Value |
 |-|-|
 | **Type** | Sequence |
-| **Next** | `code_velocity` |
+| **Next** | `code_direct` |
 | **Artifacts** | `docs/specs/new-phase-<name>.md`, `docs/specs/stories.md` (modify), `docs/specs/project-essentials.md` (modify, append-only) |
 | **Prerequisites** | `concept.md`, `features.md`, `tech-spec.md`, `stories.md` |
 
@@ -148,7 +148,7 @@ project-guide archive-stories  # after developer approval
 | Field | Value |
 |-|-|
 | **Type** | Sequence |
-| **Next** | `code_velocity` |
+| **Next** | `code_direct` |
 | **Prerequisites** | `concept.md`, `features.md`, `tech-spec.md`, `stories.md` |
 
 One-time project scaffolding after planning is complete. Creates LICENSE, copyright headers, package manifest, README with badges, CHANGELOG, and `.gitignore` based on decisions made during planning.
@@ -163,7 +163,7 @@ project-guide mode project_scaffold
 
 Coding modes are cycles — you stay in the mode and repeat the workflow per story or task.
 
-#### code_velocity
+#### code_direct
 
 | Field | Value |
 |-|-|
@@ -173,7 +173,7 @@ Coding modes are cycles — you stay in the mode and repeat the workflow per sto
 Generate code with velocity. Fast iteration workflow with commit-per-story, version-per-story, and a HITLoop checklist approach. Best for greenfield development where you want to move fast and iterate.
 
 ```bash
-project-guide mode code_velocity
+project-guide mode code_direct
 ```
 
 #### code_test_first
@@ -284,7 +284,7 @@ default
               └─> plan_tech_spec
                     └─> plan_stories
                           └─> project_scaffold
-                                └─> code_velocity (cycle)
+                                └─> code_direct (cycle)
 ```
 
 ### Ongoing Project Flow
