@@ -55,6 +55,7 @@ class Config:
     metadata_file: str = ".metadata.yml"
     current_mode: str = "default"
     test_first: bool = False
+    metadata_overrides: dict[str, dict] = field(default_factory=dict)
     overrides: dict[str, FileOverride] = field(default_factory=dict)
 
     @classmethod
@@ -92,6 +93,11 @@ class Config:
                 except (TypeError, ValueError) as e:
                     raise ConfigError(f"Invalid override data for '{file_name}': {e}")
 
+        raw_meta_overrides = data.get('metadata_overrides', {})
+        if not isinstance(raw_meta_overrides, dict):
+            raise ConfigError("'metadata_overrides' must be a mapping")
+        metadata_overrides = {k: dict(v) for k, v in raw_meta_overrides.items()}
+
         return Config(
             version=data.get('version', '2.0'),
             installed_version=data.get('installed_version'),
@@ -99,6 +105,7 @@ class Config:
             metadata_file=data.get('metadata_file', '.metadata.yml'),
             current_mode=data.get('current_mode', 'default'),
             test_first=bool(data.get('test_first', False)),
+            metadata_overrides=metadata_overrides,
             overrides=overrides
         )
 
@@ -112,6 +119,9 @@ class Config:
             "current_mode": self.current_mode,
             "test_first": self.test_first,
         }
+
+        if self.metadata_overrides:
+            data["metadata_overrides"] = self.metadata_overrides
 
         if self.overrides:
             overrides_dict = {

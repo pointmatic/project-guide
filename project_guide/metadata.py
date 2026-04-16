@@ -96,6 +96,36 @@ def _resolve_dict(data, variables: dict[str, str]):
     return data
 
 
+_OVERRIDABLE_MODE_FIELDS: frozenset[str] = frozenset(
+    {"next_mode", "files_exist", "info", "description"}
+)
+
+
+def _apply_metadata_overrides(metadata: Metadata, overrides: dict[str, dict]) -> None:
+    """Patch mode fields in-place using the project's ``metadata_overrides`` config.
+
+    Supports partial patches: only listed fields are changed; all others are
+    left as-is.  Raises ``MetadataError`` for unknown mode names or fields.
+    """
+    for mode_name, patches in overrides.items():
+        try:
+            mode = metadata.get_mode(mode_name)
+        except MetadataError:
+            available = ", ".join(m.name for m in metadata.modes)
+            raise MetadataError(
+                f"metadata_overrides: unknown mode '{mode_name}'. "
+                f"Available modes: {available}"
+            )
+
+        for field_name, value in patches.items():
+            if field_name not in _OVERRIDABLE_MODE_FIELDS:
+                raise MetadataError(
+                    f"metadata_overrides['{mode_name}']: unknown field '{field_name}'. "
+                    f"Supported fields: {', '.join(sorted(_OVERRIDABLE_MODE_FIELDS))}"
+                )
+            setattr(mode, field_name, value)
+
+
 def load_metadata(path: str | Path) -> Metadata:
     """
     Load and validate .metadata.yml.

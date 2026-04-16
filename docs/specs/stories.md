@@ -159,26 +159,26 @@ Add a `--quiet` / `-q` flag to suppress per-file progress chatter from `init`, `
 - [x] Bump version to v2.4.7
 - [x] Update CHANGELOG.md
 
-### Story N.i: v2.4.8 Per-Project Metadata Overrides [Planned]
+### Story N.i: v2.4.8 Per-Project Metadata Overrides [Done]
 
 Allow projects to patch specific mode fields in `.project-guide.yml` — e.g. change `next_mode`, override `files_exist` prerequisites — without editing the bundled `.metadata.yml`.
 
-- [ ] Add `metadata_overrides: dict[str, dict] = field(default_factory=dict)` to `Config` dataclass
-- [ ] Update `Config.load()` / `Config.save()` for round-trip; add round-trip test to `tests/test_config.py`
-- [ ] Add `_apply_metadata_overrides(metadata: Metadata, overrides: dict) -> None` in `project_guide/metadata.py`
-  - [ ] Supported fields: `next_mode`, `files_exist`, `info`, `description`
-  - [ ] Unknown mode name in overrides → `MetadataError`
-  - [ ] Unknown field in overrides → `MetadataError`
-  - [ ] Unmentioned fields on a mode are unchanged (partial patch semantics)
-- [ ] Call `_apply_metadata_overrides` after `load_metadata()` in all paths that load metadata (render, mode-switch, status)
-- [ ] Tests in `tests/test_metadata.py`:
-  - [ ] Override `next_mode` → reflected in `ModeDefinition`
-  - [ ] Override `files_exist` → reflected in prerequisite check
-  - [ ] Unknown mode name → `MetadataError`
-  - [ ] Unknown field → `MetadataError`
-  - [ ] Empty overrides dict → no change (regression guard)
-- [ ] Bump version to v2.4.8
-- [ ] Update CHANGELOG.md
+- [x] Add `metadata_overrides: dict[str, dict] = field(default_factory=dict)` to `Config` dataclass
+- [x] Update `Config.load()` / `Config.save()` for round-trip; add round-trip test to `tests/test_config.py`
+- [x] Add `_apply_metadata_overrides(metadata: Metadata, overrides: dict) -> None` in `project_guide/metadata.py`
+  - [x] Supported fields: `next_mode`, `files_exist`, `info`, `description`
+  - [x] Unknown mode name in overrides → `MetadataError`
+  - [x] Unknown field in overrides → `MetadataError`
+  - [x] Unmentioned fields on a mode are unchanged (partial patch semantics)
+- [x] Call `_apply_metadata_overrides` after `load_metadata()` in all paths that load metadata (render, mode-switch, status)
+- [x] Tests in `tests/test_metadata.py`:
+  - [x] Override `next_mode` → reflected in `ModeDefinition`
+  - [x] Override `files_exist` → reflected in prerequisite check
+  - [x] Unknown mode name → `MetadataError`
+  - [x] Unknown field → `MetadataError`
+  - [x] Empty overrides dict → no change (regression guard)
+- [x] Bump version to v2.4.8
+- [x] Update CHANGELOG.md
 
 ### Story N.j: v2.4.9 Pyve Detection and Bundled project-essentials-pyve.md [Planned]
 

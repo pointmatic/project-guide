@@ -137,3 +137,26 @@ def test_config_test_first_default_false(tmp_path):
     Config().save(str(config_file))
     loaded = Config.load(str(config_file))
     assert loaded.test_first is False
+
+
+# --- Story N.i ---------------------------------------------------------------
+
+
+def test_config_metadata_overrides_round_trip(tmp_path):
+    """metadata_overrides saves and loads correctly."""
+    config_file = tmp_path / ".project-guide.yml"
+    overrides = {"code_direct": {"next_mode": "debug", "info": "Custom info"}}
+    Config(metadata_overrides=overrides).save(str(config_file))
+    loaded = Config.load(str(config_file))
+    assert loaded.metadata_overrides == overrides
+
+
+def test_config_metadata_overrides_default_empty(tmp_path):
+    """metadata_overrides defaults to empty dict and round-trips cleanly."""
+    config_file = tmp_path / ".project-guide.yml"
+    Config().save(str(config_file))
+    loaded = Config.load(str(config_file))
+    assert loaded.metadata_overrides == {}
+
+
+# --- End Story N.i -----------------------------------------------------------

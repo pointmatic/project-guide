@@ -22,7 +22,7 @@ import click
 from project_guide.actions import ActionType, perform_archive
 from project_guide.config import Config
 from project_guide.exceptions import ActionError, ConfigError, MetadataError, RenderError, SyncError
-from project_guide.metadata import ModeDefinition, load_metadata
+from project_guide.metadata import ModeDefinition, _apply_metadata_overrides, load_metadata
 from project_guide.render import render_go_project_guide
 from project_guide.runtime import _resolve_setting, should_skip_input
 from project_guide.stories import _read_stories_summary
@@ -380,6 +380,7 @@ def set_mode(mode_name: str | None, verbose: bool, no_input: bool):
     metadata_path = Path(config.target_dir) / config.metadata_file
     try:
         metadata = load_metadata(metadata_path)
+        _apply_metadata_overrides(metadata, config.metadata_overrides)
     except MetadataError as e:
         click.secho(f"Error: {e}", fg='red', err=True)
         sys.exit(3)
@@ -475,6 +476,7 @@ def archive_stories_cmd():
     metadata_path = target_dir / config.metadata_file
     try:
         metadata = load_metadata(metadata_path)
+        _apply_metadata_overrides(metadata, config.metadata_overrides)
         mode = metadata.get_mode("archive_stories")
     except MetadataError as e:
         click.secho(f"Error: {e}", fg='red', err=True)
@@ -585,6 +587,7 @@ def status(verbose):
     spec_artifacts_path = "docs/specs"  # default; overridden by metadata if available
     try:
         metadata = load_metadata(metadata_path)
+        _apply_metadata_overrides(metadata, config.metadata_overrides)
         spec_artifacts_path = metadata.common.get('spec_artifacts_path', spec_artifacts_path)
         mode = metadata.get_mode(config.current_mode)
         click.echo(
@@ -801,6 +804,7 @@ def update(files: tuple, dry_run: bool, force: bool, no_input: bool, quiet: bool
             metadata_path = target_dir / config.metadata_file
             try:
                 metadata = load_metadata(metadata_path)
+                _apply_metadata_overrides(metadata, config.metadata_overrides)
                 mode = metadata.get_mode(config.current_mode)
                 output_path = target_dir / "go.md"
                 render_go_project_guide(target_dir, mode, metadata, output_path, test_first=config.test_first)

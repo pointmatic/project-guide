@@ -16,7 +16,7 @@ import pytest
 
 from project_guide.actions import ActionType
 from project_guide.exceptions import MetadataError
-from project_guide.metadata import load_metadata
+from project_guide.metadata import _apply_metadata_overrides, load_metadata
 
 
 @pytest.fixture
@@ -227,3 +227,68 @@ def test_load_metadata_from_package():
 
     assert len(metadata.modes) > 0
     assert "plan_concept" in metadata.list_mode_names()
+
+
+# --- Story N.i ---------------------------------------------------------------
+
+
+def _make_metadata(tmp_path):
+    """Helper: write and load a minimal two-mode metadata YAML."""
+    content = """\
+common:
+  spec_path: docs/specs
+modes:
+  - name: code_direct
+    info: Original info
+    description: Original description
+    sequence_or_cycle: cycle
+    next_mode: debug
+    files_exist:
+      - docs/specs/stories.md
+  - name: debug
+    info: Debug mode
+    description: Debug description
+    sequence_or_cycle: cycle
+"""
+    path = tmp_path / ".metadata.yml"
+    path.write_text(content)
+    return load_metadata(path)
+
+
+def test_apply_metadata_overrides_next_mode(tmp_path):
+    """Override next_mode is reflected in ModeDefinition."""
+    metadata = _make_metadata(tmp_path)
+    _apply_metadata_overrides(metadata, {"code_direct": {"next_mode": "plan_phase"}})
+    assert metadata.get_mode("code_direct").next_mode == "plan_phase"
+
+
+def test_apply_metadata_overrides_files_exist(tmp_path):
+    """Override files_exist is reflected in prerequisite check."""
+    metadata = _make_metadata(tmp_path)
+    _apply_metadata_overrides(metadata, {"code_direct": {"files_exist": ["CHANGELOG.md"]}})
+    assert metadata.get_mode("code_direct").files_exist == ["CHANGELOG.md"]
+
+
+def test_apply_metadata_overrides_unknown_mode(tmp_path):
+    """Unknown mode name in overrides raises MetadataError."""
+    metadata = _make_metadata(tmp_path)
+    with pytest.raises(MetadataError, match="unknown mode 'nonexistent'"):
+        _apply_metadata_overrides(metadata, {"nonexistent": {"info": "x"}})
+
+
+def test_apply_metadata_overrides_unknown_field(tmp_path):
+    """Unknown field in overrides raises MetadataError."""
+    metadata = _make_metadata(tmp_path)
+    with pytest.raises(MetadataError, match="unknown field 'mode_template'"):
+        _apply_metadata_overrides(metadata, {"code_direct": {"mode_template": "bad.md"}})
+
+
+def test_apply_metadata_overrides_empty_is_noop(tmp_path):
+    """Empty overrides dict leaves metadata unchanged (regression guard)."""
+    metadata = _make_metadata(tmp_path)
+    original_next = metadata.get_mode("code_direct").next_mode
+    _apply_metadata_overrides(metadata, {})
+    assert metadata.get_mode("code_direct").next_mode == original_next
+
+
+# --- End Story N.i -----------------------------------------------------------

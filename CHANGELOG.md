@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.8] - 2026-04-16
+
+### Added
+- **`metadata_overrides` in `.project-guide.yml`** — projects can patch specific mode fields (`next_mode`, `files_exist`, `info`, `description`) without editing the bundled `.metadata.yml`. Partial patch semantics: unmentioned fields are unchanged. Unknown mode names or fields raise `MetadataError`. Overrides are applied at every `load_metadata()` call site (mode switch, status, archive-stories, update re-render).
+
 ## [2.4.7] - 2026-04-15
 
 ### Added
