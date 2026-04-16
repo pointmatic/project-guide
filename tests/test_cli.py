@@ -1081,3 +1081,74 @@ def test_purge_missing_config_after_dir_removal(runner, tmp_path):
         assert result.exit_code == 0
         assert not Path(".project-guide.yml").exists()
         assert not Path("docs/project-guide").exists()
+
+
+# --- Story N.e ---------------------------------------------------------------
+
+
+def test_purge_no_input_flag_skips_confirm(runner, tmp_path):
+    """purge --no-input skips confirmation and exits 0."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        runner.invoke(main, ['init'])
+
+        result = runner.invoke(main, ['purge', '--no-input'])
+
+        assert result.exit_code == 0
+        assert not Path(".project-guide.yml").exists()
+
+
+def test_purge_ci_env_skips_confirm(runner, tmp_path, monkeypatch):
+    """CI=1 skips confirmation prompt in purge."""
+    monkeypatch.setenv("CI", "1")
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        runner.invoke(main, ['init'])
+
+        result = runner.invoke(main, ['purge'])
+
+        assert result.exit_code == 0
+        assert not Path(".project-guide.yml").exists()
+
+
+def test_purge_tty_without_flag_prompts(runner, tmp_path, monkeypatch):
+    """purge without --force or --no-input shows confirmation prompt (regression guard).
+
+    We patch should_skip_input to False to simulate a real TTY environment,
+    since CliRunner's stdin is always non-TTY and would auto-skip otherwise.
+    """
+    import project_guide.cli as cli_module
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        runner.invoke(main, ['init'])
+
+        # Simulate a real TTY: should_skip_input returns False
+        monkeypatch.setattr(cli_module, 'should_skip_input', lambda *a, **kw: False)
+
+        # Provide empty input → click.confirm receives "" → aborts
+        result = runner.invoke(main, ['purge'], input="\n")
+
+        assert result.exit_code != 0
+        assert Path(".project-guide.yml").exists()
+
+
+def test_update_no_input_flag_exits_zero(runner, tmp_path):
+    """update --no-input exits 0."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        runner.invoke(main, ['init'])
+
+        result = runner.invoke(main, ['update', '--no-input'])
+
+        assert result.exit_code == 0
+
+
+def test_update_project_guide_no_input_env(runner, tmp_path, monkeypatch):
+    """PROJECT_GUIDE_NO_INPUT=1 → update exits 0."""
+    monkeypatch.setenv("PROJECT_GUIDE_NO_INPUT", "1")
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        runner.invoke(main, ['init'])
+
+        result = runner.invoke(main, ['update'])
+
+        assert result.exit_code == 0
+
+
+# --- End Story N.e -----------------------------------------------------------

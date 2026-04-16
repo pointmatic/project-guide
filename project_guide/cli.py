@@ -526,8 +526,20 @@ def status(verbose):
 @click.option('--files', multiple=True, help='Specific files to update')
 @click.option('--dry-run', is_flag=True, help='Show what would be updated without applying')
 @click.option('--force', is_flag=True, help='Update even overridden files (creates backups)')
-def update(files: tuple, dry_run: bool, force: bool):
+@click.option(
+    '--no-input',
+    'no_input',
+    is_flag=True,
+    default=False,
+    help=(
+        'Do not read from stdin; apply safe defaults. '
+        '(Also auto-enabled by CI=1 or non-TTY stdin.)'
+    ),
+)
+def update(files: tuple, dry_run: bool, force: bool, no_input: bool):
     """Update files to latest version."""
+    skip_input = should_skip_input(no_input)  # noqa: F841  (reserved for future prompts)
+
     config_path = Path(".project-guide.yml")
 
     # Check if config exists
@@ -755,8 +767,20 @@ def overrides():
     is_flag=True,
     help="Skip confirmation prompt",
 )
-def purge(force):
+@click.option(
+    '--no-input',
+    'no_input',
+    is_flag=True,
+    default=False,
+    help=(
+        'Do not read from stdin; proceed without confirming. '
+        '(Also auto-enabled by CI=1 or non-TTY stdin.)'
+    ),
+)
+def purge(force, no_input):
     """Remove all project-guide files from the current project."""
+    skip_input = should_skip_input(no_input)
+
     try:
         config = Config.load()
     except ConfigError as e:
@@ -772,8 +796,8 @@ def purge(force):
     click.echo(f"  • {target_dir}/ (and all contents)")
     click.echo()
 
-    # Confirm unless --force
-    if not force:
+    # Confirm unless --force or non-interactive mode
+    if not force and not skip_input:
         click.confirm(
             click.style("Are you sure you want to purge project-guide?", fg="red", bold=True),
             abort=True

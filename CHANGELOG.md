@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.4] - 2026-04-15
+
+### Added
+- **`--no-input` flag on `purge`** — skips the confirmation prompt when set, when `CI=1`, or when stdin is non-TTY. Pairs with `--force`; both suppress the prompt but via different mechanisms (`--force` is "yes, I'm sure"; `--no-input` is "non-interactive environment").
+- **`--no-input` flag on `update`** — infrastructure parity with `init`. `update` has no interactive prompts today; the plumbing is in place for future additions.
+
 ## [2.4.3] - 2026-04-15
 
 ### Added

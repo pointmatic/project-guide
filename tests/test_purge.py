@@ -49,8 +49,16 @@ def test_purge_removes_all_files(runner, tmp_path):
         assert not Path("docs/project-guide").exists()
 
 
-def test_purge_with_confirmation_prompt(runner, tmp_path):
-    """Test that purge prompts for confirmation without --force."""
+def test_purge_with_confirmation_prompt(runner, tmp_path, monkeypatch):
+    """Test that purge prompts for confirmation without --force.
+
+    We patch should_skip_input to False to simulate a real TTY environment,
+    since CliRunner's stdin is always non-TTY and would auto-skip otherwise.
+    """
+    import project_guide.cli as cli_module
+
+    monkeypatch.setattr(cli_module, 'should_skip_input', lambda *a, **kw: False)
+
     with runner.isolated_filesystem(temp_dir=tmp_path):
         # Initialize project
         runner.invoke(main, ['init'])

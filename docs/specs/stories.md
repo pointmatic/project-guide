@@ -82,21 +82,21 @@ Persist a project-level preference for test-driven coding so planning modes auto
 - [x] Bump version to v2.4.3
 - [x] Update CHANGELOG.md
 
-### Story N.e: v2.4.4 --no-input for purge and update [Planned]
+### Story N.e: v2.4.4 --no-input for purge and update [Done]
 
 Extend the Phase L `--no-input` contract to `purge` and `update`, completing the unattended-operation story across all commands that block on stdin.
 
-- [ ] Add `--no-input` flag to `purge`; wire to `should_skip_input()`; when active, skip `click.confirm()` and proceed
-- [ ] Add `--no-input` flag to `update`; wire to `should_skip_input()`; when active, skip modified-file prompts and apply safe default (skip modified files, no force-overwrite)
-- [ ] Auto-detect `CI=1`, `PROJECT_GUIDE_NO_INPUT=1`, non-TTY for both commands (consistent with Phase L contract)
-- [ ] Tests in `tests/test_cli.py`:
-  - [ ] `purge --no-input` skips confirmation, exits 0
-  - [ ] `purge` with `CI=1` also skips confirmation
-  - [ ] `update --no-input` skips modified-file prompts, applies safe defaults
-  - [ ] `update` with `PROJECT_GUIDE_NO_INPUT=1` also skips prompts
-  - [ ] Regression guard: `purge` without `--no-input` on TTY still prompts (existing behavior unchanged)
-- [ ] Bump version to v2.4.4
-- [ ] Update CHANGELOG.md
+- [x] Add `--no-input` flag to `purge`; wire to `should_skip_input()`; when active, skip `click.confirm()` and proceed
+- [x] Add `--no-input` flag to `update`; wire to `should_skip_input()`; when active, skip modified-file prompts and apply safe default (skip modified files, no force-overwrite)
+- [x] Auto-detect `CI=1`, `PROJECT_GUIDE_NO_INPUT=1`, non-TTY for both commands (consistent with Phase L contract)
+- [x] Tests in `tests/test_cli.py`:
+  - [x] `purge --no-input` skips confirmation, exits 0
+  - [x] `purge` with `CI=1` also skips confirmation
+  - [x] `update --no-input` skips modified-file prompts, applies safe defaults
+  - [x] `update` with `PROJECT_GUIDE_NO_INPUT=1` also skips prompts
+  - [x] Regression guard: `purge` without `--no-input` on TTY still prompts (existing behavior unchanged)
+- [x] Bump version to v2.4.4
+- [x] Update CHANGELOG.md
 
 ### Story N.f: v2.4.5 --quiet / Output Suppression [Planned]
 
