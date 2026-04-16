@@ -234,22 +234,22 @@ Teach every mode to pause before recording a new memory and ask: does this belon
 - [x] Bump version to v2.4.11
 - [x] Update CHANGELOG.md
 
-### Story N.m: v2.4.12 Phase N Documentation and CHANGELOG [Planned]
+### Story N.m: v2.4.12 Phase N Documentation and CHANGELOG [Done]
 
-- [ ] Update `docs/specs/features.md`:
-  - [ ] FR-1 modes table: `code_direct` (was `code_velocity`), `scaffold_project` (was `project_scaffold`); mode count
-  - [ ] New FRs for N3–N9 (or update existing FRs to reflect new flags and behaviors)
-  - [ ] `.project-guide.yml` schema block: add `test_first`, `pyve_version`, `metadata_overrides`
-- [ ] Update `docs/specs/tech-spec.md`:
-  - [ ] Filename conventions table (renamed mode templates)
-  - [ ] `Config` dataclass fields
-  - [ ] `cli.py` and `metadata.py` behavior sections
-- [ ] Update `README.md`: mode table (renames); command reference (new flags); config schema
-- [ ] Update `docs/site/user-guide/modes.md`: renamed mode entries (`code_direct`, `scaffold_project`)
-- [ ] Update `docs/site/user-guide/commands.md`: new flags for init/update/purge; status Stories section; mode menu behavior
-- [ ] Update `CHANGELOG.md` with v2.4.0–v2.4.11 entries (already landed per-story) and a v2.4.12 entry for this documentation pass
-- [ ] Verify: all tests pass, ruff clean, `pyve run project-guide update` re-renders `go.md` cleanly
-- [ ] Bump version to v2.4.12
+- [x] Update `docs/specs/features.md`:
+  - [x] FR-1 modes table: added `archive_stories`; mode count correct
+  - [x] New FRs for N behaviors (FR-8 through FR-13): `--no-input`, `--quiet`, story detection, mode listing, metadata overrides, pyve detection
+  - [x] `.project-guide.yml` schema block: add `test_first`, `pyve_version`, `metadata_overrides`
+- [x] Update `docs/specs/tech-spec.md`:
+  - [x] Filename conventions table (updated mode template examples)
+  - [x] `Config` dataclass fields
+  - [x] `metadata.py` and `render.py` behavior sections
+- [x] Update `README.md`: mode listing output; command options (new flags); config schema
+- [x] Update `docs/site/user-guide/modes.md`: marker legend and interactive menu description
+- [x] Update `docs/site/user-guide/commands.md`: new flags for update/purge; status Stories section; mode menu behavior
+- [x] Update `CHANGELOG.md` with v2.4.12 entry for this documentation pass
+- [x] Verify: all tests pass, ruff clean, `pyve run project-guide update` re-renders `go.md` cleanly
+- [x] Bump version to v2.4.12
 
 ---
 

@@ -86,24 +86,36 @@ Switch the active workflow mode or list available modes.
 project-guide mode [MODE_NAME]
 ```
 
+### Options
+
+- `--verbose`, `-v` - Show unmet prerequisite file paths beneath each `✗` entry
+- `--no-input` - Show listing only; skip interactive selection menu
+
 ### Examples
 
 ```bash
-# List all available modes
+# List all available modes (+ interactive menu on TTY)
 project-guide mode
+
+# List with prerequisite details
+project-guide mode --verbose
+
+# Listing only, no interactive menu
+project-guide mode --no-input
 
 # Switch to a specific mode
 project-guide mode plan_concept
-project-guide mode code_velocity
+project-guide mode code_direct
 project-guide mode debug
 ```
 
 ### What It Does
 
-1. When called with no argument, lists all 15 available modes
-2. When called with a mode name, switches the active mode
-3. Re-renders `go.md` to reflect the new mode's workflow
-4. Updates `.project-guide.yml` with the active mode
+1. When called with no argument, lists all 15 modes grouped by category with ✓/✗/→ markers
+2. On a real TTY (unless `--no-input`/`CI=1`/non-TTY stdin), shows an interactive numbered menu
+3. When called with a mode name, switches the active mode
+4. Re-renders `go.md` to reflect the new mode's workflow
+5. Updates `.project-guide.yml` with the active mode
 
 ## archive-stories
 
@@ -139,15 +151,16 @@ project-guide status [OPTIONS]
 
 ### Options
 
-- `--verbose`, `-v` - Show detailed output for each file
+- `--verbose`, `-v` - Show detailed output per file and per-phase story breakdown
 
 ### Output
 
-Shows files grouped into three sections:
+Shows grouped sections:
 
-- **Mode** - The active workflow mode
-- **Guide** - The rendered `go.md` entry point
-- **Files** - All managed template files with their status
+- **Mode** - Active mode name, description, and prerequisites status
+- **Guide** - The rendered `go.md` entry point path
+- **Files** - Summary counts (current / need updating / missing / overridden); per-file list in verbose mode
+- **Stories** - Total/done/in-progress/planned counts and next unstarted story (when `stories.md` exists and contains stories); per-phase breakdown in verbose mode
 
 Each file shows one of:
 
@@ -159,15 +172,19 @@ Each file shows one of:
 ### Example Output
 
 ```
-Mode: code_velocity
+project-guide v2.4.12
 
-Guide:
-  go.md                          Current
+Mode: code_direct — Generate code directly, test after
+  Prerequisites: all met
+  Run 'project-guide mode' to see available modes.
 
-Files:
-  developer/setup.md             Current
-  templates/modes/debug-mode.md  Changed
-  .metadata.yml                  Current
+Guide: docs/project-guide/go.md
+  Tell your LLM: Read docs/project-guide/go.md
+
+Files: 33 current
+
+Stories: 12 total (8 done, 1 in progress, 3 planned)
+  Next: N.m — Phase N Documentation and CHANGELOG
 ```
 
 ## update
@@ -183,6 +200,8 @@ project-guide update [OPTIONS]
 - `--files FILE [FILE ...]` - Update only specific files
 - `--dry-run` - Show what would be updated without making changes
 - `--force` - Update even overridden files (creates `.bak` backups)
+- `--no-input` - Non-interactive mode (reserved for future prompts)
+- `--quiet`, `-q` - Suppress per-file progress output
 
 ### Examples
 
@@ -289,7 +308,9 @@ project-guide purge [OPTIONS]
 
 ### Options
 
-- `--force` - Skip confirmation prompt
+- `--force` - Skip confirmation prompt (intent: "I am sure")
+- `--no-input` - Skip confirmation (also auto-enabled by `CI=1` or non-TTY stdin)
+- `--quiet`, `-q` - Suppress per-file progress output
 
 ### Examples
 
@@ -299,11 +320,14 @@ project-guide purge
 
 # Purge without confirmation
 project-guide purge --force
+
+# Unattended purge (CI / non-interactive)
+project-guide purge --no-input --force
 ```
 
 ### What It Does
 
-1. Prompts for confirmation (unless `--force` is used)
+1. Prompts for confirmation (unless `--force`, `--no-input`, `CI=1`, or non-TTY stdin)
 2. Removes the entire `docs/project-guide/` directory
 3. Deletes `.project-guide.yml` configuration file
 

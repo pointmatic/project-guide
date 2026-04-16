@@ -96,7 +96,7 @@ project-guide/
 
 | Pattern | Purpose |
 |---------|---------|
-| `<mode-name>-mode.md` | Mode template (e.g., `code-velocity-mode.md`) |
+| `<mode-name>-mode.md` | Mode template (e.g., `code-direct-mode.md`, `scaffold-project-mode.md`) |
 | `_header-*.md` | Jinja2 partials included by mode templates |
 | `.metadata.yml` | Hidden config/metadata files (dotfile prefix) |
 | `*.bak.<timestamp>` | Backup files created by forced updates |
@@ -134,14 +134,14 @@ project-guide/
 
 **Data classes:**
 - `FileOverride` — reason, locked_version, last_updated
-- `Config` — version, installed_version, target_dir, metadata_file, current_mode, overrides
+- `Config` — version, installed_version, target_dir, metadata_file, current_mode, test_first, pyve_version, metadata_overrides, overrides
 
 **Key behavior:**
 - `Config.load()` / `Config.save()` — YAML round-trip
 - Override management: `is_overridden()`, `add_override()`, `remove_override()`
-- Defaults: `target_dir="docs/project-guide"`, `metadata_file=".metadata.yml"`, `current_mode="default"`
+- Defaults: `target_dir="docs/project-guide"`, `metadata_file=".metadata.yml"`, `current_mode="default"`, `test_first=False`, `pyve_version=None`, `metadata_overrides={}`
 
-### Module: `metadata.py` (145 lines)
+### Module: `metadata.py`
 
 **Purpose**: Parse `.metadata.yml` with two-pass variable resolution.
 
@@ -153,13 +153,14 @@ project-guide/
 - `load_metadata(path)` — load YAML, resolve `{{var}}` placeholders in common block against themselves, then resolve all mode fields against common
 - `Metadata.get_mode(name)` — lookup by name, raises `MetadataError` if not found
 - `Metadata.list_mode_names()` — return all mode names
+- `_apply_metadata_overrides(metadata, overrides)` — in-place patch of mode fields from `metadata_overrides` config dict; raises `MetadataError` on unknown mode name or non-patchable field; called at every `load_metadata()` call site
 
-### Module: `render.py` (99 lines)
+### Module: `render.py`
 
 **Purpose**: Jinja2 rendering pipeline.
 
 **Key function:**
-- `render_go_project_guide(template_dir, mode, metadata, output_path)` — configures Jinja2 environment with `templates/` as the loader path, resolves mode template path (strips prefix to get relative path within `modes/`), builds context from mode fields + metadata common vars + `target_dir`, renders `go.md` template, writes output
+- `render_go_project_guide(template_dir, mode, metadata, output_path, pyve_installed, pyve_version)` — configures Jinja2 environment with `templates/` as the loader path, resolves mode template path (strips prefix to get relative path within `modes/`), builds context from mode fields + metadata common vars + `target_dir` + `pyve_installed` + `pyve_version`, renders `go.md` template, writes output
 
 **Jinja2 configuration:**
 - Loader: `FileSystemLoader` on `templates/` subdirectory only
@@ -216,6 +217,9 @@ class Config:
     target_dir: str = "docs/project-guide"
     metadata_file: str = ".metadata.yml"
     current_mode: str = "default"
+    test_first: bool = False
+    pyve_version: str | None = None
+    metadata_overrides: dict[str, dict] = field(default_factory=dict)
     overrides: dict[str, FileOverride] = field(default_factory=dict)
 ```
 

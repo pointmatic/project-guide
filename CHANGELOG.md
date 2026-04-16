@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.12] - 2026-04-16
+
+### Changed
+- **`docs/specs/features.md`** — Added `archive_stories` to FR-1 modes table; added Stories section to FR-5 status; added FR-8 through FR-13 covering `--no-input`, `--quiet`, story detection in status, mode listing with availability markers and interactive menu, per-project metadata overrides, and pyve detection; updated `.project-guide.yml` schema block with `test_first`, `pyve_version`, `metadata_overrides`; updated CLI inputs and acceptance criteria.
+- **`docs/specs/tech-spec.md`** — Updated `Config` dataclass fields (added `test_first`, `pyve_version`, `metadata_overrides`); updated `metadata.py` module description to include `_apply_metadata_overrides`; updated `render.py` signature; updated filename conventions example.
+- **`README.md`** — Updated mode listing output example; updated `mode` command options (`--verbose`, `--no-input`); updated `status` output description with Stories section; updated `update` and `purge` options (`--no-input`, `--quiet`); updated config schema with new fields.
+- **`docs/site/user-guide/modes.md`** — Updated "Listing Modes" section with marker legend and interactive menu description.
+- **`docs/site/user-guide/commands.md`** — Updated `mode`, `status`, `update`, and `purge` sections with new options and behavior.
+
 ## [2.4.11] - 2026-04-16
 
 ### Added

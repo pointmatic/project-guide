@@ -300,10 +300,22 @@ Once in a coding cycle, switch to specialized modes as needed:
 
 ## Listing Modes
 
-Run `project-guide mode` (no argument) to see all available modes with the current mode highlighted:
+Run `project-guide mode` (no argument) to see all modes grouped by category with availability markers:
+
+- `→` — current mode (cyan background highlight)
+- `✓` — all prerequisites met
+- `✗` — unmet prerequisites (dimmed)
+
+On a real terminal, a numbered selection menu lets you switch mode by entering a number. Under `--no-input`, `CI=1`, or piped input, only the listing is shown.
 
 ```bash
 project-guide mode
+
+# Show unmet prerequisite file paths
+project-guide mode --verbose
+
+# Listing only, no interactive menu
+project-guide mode --no-input
 ```
 
 ## Switching Modes

@@ -59,18 +59,24 @@ For a high-level concept (why), see `concept.md`. For implementation details (ho
 **`project-guide init`**
 - Optional: `--target-dir` (default: `docs/project-guide`)
 - Optional: `--force` (overwrite existing files)
+- Optional: `--no-input` (skip stdin; auto-enabled by `CI=1` or non-TTY)
+- Optional: `--quiet` / `-q` (suppress per-file progress output)
 
 **`project-guide mode [MODE_NAME]`**
 - Optional: mode name to switch to
-- No argument: list current mode and all available modes
+- No argument: list modes grouped by category with ✓/✗/→ markers; interactive numbered menu on TTY
+- Optional: `--verbose` / `-v` (show unmet prerequisite file paths)
+- Optional: `--no-input` (show listing only, skip interactive menu)
 
 **`project-guide status`**
-- Optional: `--verbose` / `-v` (show full per-file list)
+- Optional: `--verbose` / `-v` (show full per-file list and per-phase story breakdown)
 
 **`project-guide update`**
 - Optional: `--files` (specific files to update)
 - Optional: `--dry-run` (show what would change without applying)
 - Optional: `--force` (update even overridden/modified files, creates backups)
+- Optional: `--no-input` (non-interactive; reserved for future prompts)
+- Optional: `--quiet` / `-q` (suppress per-file progress output)
 
 **`project-guide override FILE_NAME REASON`**
 - Required: file name (template-relative path)
@@ -84,6 +90,8 @@ For a high-level concept (why), see `concept.md`. For implementation details (ho
 
 **`project-guide purge`**
 - Optional: `--force` (skip confirmation prompt)
+- Optional: `--no-input` (skip stdin; auto-enabled by `CI=1` or non-TTY)
+- Optional: `--quiet` / `-q` (suppress per-file progress output)
 
 ### Configuration File
 
@@ -211,6 +219,7 @@ The system renders a single entry-point document (`go.md`) from Jinja2 templates
 | `plan_tech_spec` | sequence | Define technical specification |
 | `plan_stories` | sequence | Break down into implementation stories |
 | `plan_phase` | sequence | Add a new feature phase to an existing project |
+| `archive_stories` | sequence | Archive completed stories.md and start fresh for next phase |
 | `code_direct` | cycle | Fast coding workflow with commit-per-story |
 | `code_test_first` | cycle | Test-driven development workflow |
 | `debug` | cycle | Reproduce, isolate, fix, verify workflow |
@@ -276,6 +285,7 @@ The system renders a single entry-point document (`go.md`) from Jinja2 templates
 2. **Mode**: current mode name and description; prerequisites when applicable; hint to list modes
 3. **Guide**: rendered entry-point path; onboarding hint
 4. **Files**: summary counts (current, need updating, missing, overridden); `--verbose` for per-file list; hint to update when needed
+5. **Stories** (when `stories.md` exists and contains stories): total/done/in-progress/planned counts; next unstarted story; `--verbose` adds per-phase breakdown
 
 **Styling:** Bold labels, cyan highlights for mode name and guide path, color-coded file counts (green/yellow/red), dim action prompts.
 
@@ -287,6 +297,46 @@ The system renders a single entry-point document (`go.md`) from Jinja2 templates
 1. Show what will be removed (config file and target directory)
 2. Confirm unless `--force`
 3. Remove target directory and config file
+
+### FR-8: Non-Interactive / CI Mode
+
+`--no-input`, `CI=1`, `PROJECT_GUIDE_NO_INPUT=1`, and non-TTY stdin all suppress interactive prompts on `init`, `update`, and `purge`. The first matching trigger wins (priority order: explicit flag → env var → CI env → non-TTY).
+
+**Behavior:**
+- `purge`: skips the "Are you sure?" confirmation prompt when any trigger fires. Combines with `--force` (the latter signals intent; the former signals environment).
+- `update`: flag is present for future-prompt parity; `update` currently has no interactive prompts.
+- `init`: flag is present; no prompts exist today but the plumbing is in place.
+
+### FR-9: Quiet Mode
+
+`--quiet` / `-q` on `init`, `update`, and `purge` suppresses per-file progress lines. Errors, final count summaries, and explicit warnings (e.g., overridden-file notices) are always shown regardless of `--quiet`. Composes cleanly with `--no-input` for fully silent unattended runs.
+
+### FR-10: Story Detection in Status
+
+`project-guide status` parses `<spec_artifacts_path>/stories.md` and adds a **Stories** section showing total/done/in-progress/planned counts and the next unstarted story. Section is omitted when the file is absent or contains no story headings (e.g., post-archive). `--verbose` adds a per-phase breakdown.
+
+### FR-11: Mode Listing with Availability Markers and Interactive Menu
+
+`project-guide mode` (no argument) displays a grouped, annotated mode listing:
+
+- Modes are grouped by category (Getting Started, Planning, Coding, Post-Release, Scaffold, Documentation, Debugging, Refactoring) with ordered category headers.
+- Each mode is annotated: `→` (current, cyan background highlight), `✓` (all prerequisites met, green), `✗` (unmet prerequisites, yellow, dimmed name).
+- `--verbose` / `-v` shows the unmet prerequisite file paths beneath each `✗` entry.
+- On a real TTY (unless `--no-input`, `CI=1`, or non-TTY stdin), a numbered selection menu is shown after the listing, allowing the developer to switch mode by entering a number. Empty input cancels. Up to 3 attempts before exit 1.
+
+### FR-12: Per-Project Metadata Overrides
+
+`metadata_overrides` in `.project-guide.yml` allows per-project patching of individual mode fields without editing the bundled `.metadata.yml`. Only these fields are patchable: `next_mode`, `files_exist`, `info`, `description`. Partial patch semantics — unmentioned fields are unchanged. Unknown mode names or fields raise `MetadataError`. Overrides are applied at every `load_metadata()` call site.
+
+### FR-13: Pyve Detection and Bundled project-essentials-pyve.md
+
+`project-guide init` detects whether `pyve` is installed by running `pyve --version`. On success, the version string is stored as `pyve_version` in `.project-guide.yml`; on failure (`FileNotFoundError`, non-zero exit, timeout), `null` is stored. Detection failure is non-fatal.
+
+The `pyve_installed` boolean (derived from `pyve_version`) is passed as a Jinja2 context variable at every render call site. When true:
+- `scaffold-project-mode.md` gains a "Merge Pyve Project Essentials" step that copies `templates/artifacts/project-essentials-pyve.md` into `docs/specs/project-essentials.md`.
+- `plan-tech-spec-mode.md` instructs the LLM to merge pyve-specific rules when creating `project-essentials.md`.
+
+The bundled `templates/artifacts/project-essentials-pyve.md` artifact covers: two-environment pattern, canonical invocation forms, `python` vs `python3` asdf-shim rule, and `requirements-dev.txt` story-writing convention.
 
 ### FR-7: Shell Completion
 
@@ -314,12 +364,21 @@ installed_version: '2.0.15'         # Package version when last synced
 target_dir: 'docs/project-guide'    # Where templates are installed
 metadata_file: '.metadata.yml'      # Metadata filename (within target_dir)
 current_mode: 'default'             # Active mode
+test_first: false                   # Default coding approach (false = code_direct, true = code_test_first)
+pyve_version: '1.2.3'               # Detected pyve version at init time; null if not installed
 
-overrides:                           # Optional
+overrides:                           # Optional — file-level update locks
   <file_name>:
     reason: <string>
     locked_version: <version>
     last_updated: <date>
+
+metadata_overrides:                  # Optional — per-project mode field patches
+  <mode_name>:
+    next_mode: <string>             # Override next mode in sequence
+    files_exist: [<path>, ...]      # Override prerequisite file list
+    info: <string>                  # Override one-line description
+    description: <string>           # Override detailed description
 ```
 
 ### `.metadata.yml` Schema
@@ -389,14 +448,17 @@ modes:
 
 ## Acceptance Criteria
 
-1. `project-guide init` creates the full template tree and renders `go.md` in `default` mode
+1. `project-guide init` creates the full template tree and renders `go.md` in `default` mode; detects pyve and stores `pyve_version`
 2. `project-guide mode <name>` switches mode and re-renders `go.md`
-3. `project-guide status` shows compact grouped output with hash-based file state
-4. `project-guide update` syncs files using content-hash comparison, not version numbers
-5. `project-guide override/unoverride` manages file locks correctly
-6. `project-guide purge` cleanly removes all project-guide files
-7. All 15 modes render without errors (parametrized test)
-8. Shell completion (Tab) works for commands, flags, and mode names in bash/zsh/fish after one-line setup
-9. Works on macOS, Linux, and Windows
-10. Test coverage is ≥85%
-11. Package is published to PyPI as `project-guide`
+3. `project-guide mode` (no argument) shows grouped listing with ✓/✗/→ markers; interactive menu on TTY
+4. `project-guide status` shows compact grouped output with hash-based file state and Stories section
+5. `project-guide update` syncs files using content-hash comparison, not version numbers
+6. `project-guide override/unoverride` manages file locks correctly
+7. `project-guide purge` cleanly removes all project-guide files; respects `--no-input` / `CI=1`
+8. `--no-input` and `--quiet` flags work on `init`, `update`, and `purge`
+9. `metadata_overrides` in `.project-guide.yml` patches mode fields without editing bundled metadata
+10. All 15 modes render without errors (parametrized test)
+11. Shell completion (Tab) works for commands, flags, and mode names in bash/zsh/fish after one-line setup
+12. Works on macOS, Linux, and Windows
+13. Test coverage is ≥85%
+14. Package is published to PyPI as `project-guide`

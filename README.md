@@ -32,7 +32,7 @@ When you customize a file for your project, mark it as overridden so future pack
 
 ## Key Features
 - **Battle-Tested Workflows** - Crafted workflow prompts from concept through production release in one place
-- **Mode-Driven Templates** - 16 modes rendered via Jinja2 so `go.md` always matches your current task
+- **Mode-Driven Templates** - 15 modes rendered via Jinja2 so `go.md` always matches your current task
 - **Content-Hash Sync** - SHA-256 hash comparison detects changes without relying on version numbers
 - **Custom File Lock** - Lock customized files to prevent update overwrites
 - **Gentle Force Updates** - Automatic `.bak` files created if you `--force` update a custom file
@@ -125,25 +125,27 @@ Each mode re-renders `docs/project-guide/go.md` with focused instructions for th
 project-guide mode
 ```
 
-Output:
-```
-Current mode: plan_concept
+Modes are displayed in category groups with availability markers:
+- `→` — current mode (cyan background highlight)
+- `✓` — all prerequisites met (green)
+- `✗` — unmet prerequisites (yellow, dimmed)
 
-Available modes:
-  -> default                   Getting started -- full project lifecycle overview
-     plan_concept              Generate a high-level concept (problem and solution space)
-     plan_features             Generate feature requirements (what the project does)
-     plan_tech_spec            Generate a technical specification prompt (how it's built)
-     plan_stories              Generate a user stories prompt
-     plan_phase                Add a new phase to stories
-     code_direct               Generate code with velocity
-     code_test_first           Generate code with a test-first approach
-     debug                     Debug code with a test-first approach
-     document_brand            Generate brand descriptions
-     document_landing          Generate landing page and docs
-     refactor_plan             Plan a refactor
-     refactor_document         Document a refactor
-     ...
+On a real terminal, a numbered selection menu is shown so you can switch by entering a number. Under `--no-input`, `CI=1`, or piped input, only the listing is shown.
+
+```
+Current mode: code_direct
+
+  Planning
+  ✓  2  plan_concept               Generate a high-level concept
+  ✓  3  plan_features              Generate feature requirements
+  ...
+
+  Coding
+  →  6  code_direct                Generate code directly, test after
+  ✓  7  code_test_first            Generate code with a test-first approach
+  ...
+
+Select mode [1-15, Enter to cancel]:
 ```
 
 ### 5. Update files
@@ -216,14 +218,21 @@ Set or show the active development mode.
 project-guide mode [MODE_NAME]
 ```
 
-**Without argument:** Lists current mode and all available modes.
+**Without argument:** Lists all modes grouped by category with ✓/✗/→ markers. Shows an interactive selection menu on TTY.
 
 **With argument:** Switches to the specified mode and re-renders `go.md`.
 
+**Options:**
+- `--verbose` / `-v` — Show unmet prerequisite file paths beneath each `✗` entry
+- `--no-input` — Show listing only; skip interactive menu
+
 **Examples:**
 ```bash
-# Show current mode and list all modes
+# Show grouped listing (+ interactive menu on TTY)
 project-guide mode
+
+# Show listing with prerequisite details
+project-guide mode --verbose
 
 # Switch to direct coding mode
 project-guide mode code_direct
@@ -265,10 +274,11 @@ project-guide status [OPTIONS]
 
 **Output includes:**
 - Current package version and installed version
-- Active mode
+- Active mode with prerequisites status
 - Status of the rendered guide
-- Status of each file (current, outdated, overridden, missing)
-- Override reasons (in verbose mode)
+- File counts (current, need updating, missing, overridden)
+- Stories section: total/done/in-progress/planned counts + next story (when `stories.md` exists)
+- Per-file detail and per-phase story breakdown (verbose mode)
 
 ### `update`
 
@@ -282,6 +292,8 @@ project-guide update [OPTIONS]
 - `--files NAME` - Update specific files only (repeatable)
 - `--force` - Update even overridden files (creates backups)
 - `--dry-run` - Show what would change without applying
+- `--no-input` - Non-interactive mode (reserved for future prompts)
+- `--quiet` / `-q` - Suppress per-file progress output
 
 **Examples:**
 ```bash
@@ -359,6 +371,8 @@ project-guide purge [OPTIONS]
 
 **Options:**
 - `--force` - Skip confirmation prompt
+- `--no-input` - Skip confirmation (also auto-enabled by `CI=1` or non-TTY stdin)
+- `--quiet` / `-q` - Suppress per-file progress output
 
 **Examples:**
 ```bash
@@ -367,6 +381,9 @@ project-guide purge
 
 # Purge without confirmation
 project-guide purge --force
+
+# Unattended purge (CI / non-interactive)
+project-guide purge --no-input --force
 ```
 
 **What gets removed:**
@@ -381,15 +398,22 @@ The `.project-guide.yml` file stores project configuration:
 
 ```yaml
 version: "2.0"
-installed_version: "2.0.15"
+installed_version: "2.4.12"
 target_dir: "docs/project-guide"
 metadata_file: ".metadata.yml"
 current_mode: "code_direct"
+test_first: false
+pyve_version: "1.2.3"          # null if pyve not installed
+
 overrides:
   templates/modes/debug-mode.md:
     reason: "Custom debugging workflow for this project"
     locked_version: "2.0.0"
     last_updated: "2026-04-07"
+
+metadata_overrides:             # optional — per-project mode field patches
+  plan_stories:
+    next_mode: scaffold_project
 ```
 
 **Fields:**
@@ -398,7 +422,10 @@ overrides:
 - `target_dir` - Where templates are stored
 - `metadata_file` - Hidden metadata file inside target dir (default: `.metadata.yml`)
 - `current_mode` - Active development mode
-- `overrides` - Map of customized files with metadata
+- `test_first` - Default coding approach (`false` = `code_direct`, `true` = `code_test_first`)
+- `pyve_version` - Detected pyve version at init time; `null` if pyve not installed
+- `overrides` - Map of file-level update locks with reason and timestamp
+- `metadata_overrides` - Per-project patches for individual mode fields (`next_mode`, `files_exist`, `info`, `description`)
 
 ## Available Modes
 
