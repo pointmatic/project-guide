@@ -44,6 +44,8 @@ def render_go_project_guide(
     metadata: Metadata,
     output_path: Path,
     test_first: bool = False,
+    pyve_installed: bool = False,
+    pyve_version: str | None = None,
 ) -> None:
     """
     Render go.md from the entry point template and mode template.
@@ -94,6 +96,8 @@ def render_go_project_guide(
         "target_dir": str(template_dir),
         "project_essentials": project_essentials,
         "test_first": test_first,
+        "pyve_installed": pyve_installed,
+        "pyve_version": pyve_version,
         **metadata.common,
     }
 

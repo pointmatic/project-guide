@@ -1,6 +1,7 @@
 version: '2.0'
-installed_version: 2.4.3
+installed_version: 2.4.9
 target_dir: docs/project-guide
 metadata_file: .metadata.yml
 current_mode: code_direct
 test_first: false
+pyve_version: null

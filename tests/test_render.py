@@ -943,6 +943,81 @@ def test_default_mode_with_test_first_false_suggests_code_direct():
 # --- End Story N.d -----------------------------------------------------------
 
 
+# --- Story N.j ---------------------------------------------------------------
+
+
+def test_scaffold_project_pyve_installed_shows_merge_instruction():
+    """Rendered scaffold_project with pyve_installed=True contains pyve merge instruction."""
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        runner.invoke(main, ['init'])
+
+        result = runner.invoke(main, ['mode', 'scaffold_project'])
+        assert result.exit_code == 0
+
+        # Patch config to simulate pyve detected, then re-render via mode switch
+        import yaml
+        config_data = yaml.safe_load(Path(".project-guide.yml").read_text())
+        config_data["pyve_version"] = "1.2.3"
+        Path(".project-guide.yml").write_text(yaml.dump(config_data))
+
+        result = runner.invoke(main, ['mode', 'scaffold_project'])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    assert "project-essentials-pyve.md" in content
+    assert "Pyve" in content or "pyve" in content
+
+
+def test_scaffold_project_pyve_not_installed_omits_pyve_section():
+    """Rendered scaffold_project with pyve_installed=False omits pyve merge instruction."""
+    import yaml
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        runner.invoke(main, ['init'])
+
+        # Force pyve_version to None regardless of what detection found
+        config_data = yaml.safe_load(Path(".project-guide.yml").read_text())
+        config_data["pyve_version"] = None
+        Path(".project-guide.yml").write_text(yaml.dump(config_data))
+
+        result = runner.invoke(main, ['mode', 'scaffold_project'])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    assert "project-essentials-pyve.md" not in content
+
+
+def test_project_essentials_pyve_artifact_has_no_unrendered_placeholders():
+    """project-essentials-pyve.md artifact contains no unrendered {{ var }} placeholders."""
+    import importlib.resources
+    import re
+
+    with importlib.resources.as_file(
+        importlib.resources.files("project_guide.templates").joinpath(
+            "project-guide/templates/artifacts/project-essentials-pyve.md"
+        )
+    ) as path:
+        content = path.read_text(encoding="utf-8")
+
+    matches = re.findall(r"\{\{\s*([a-zA-Z_]\w*)\s*\}\}", content)
+    assert not matches, f"Unrendered placeholders in artifact: {matches}"
+    assert "pyve" in content.lower()
+
+
+# --- End Story N.j -----------------------------------------------------------
+
+
 @pytest.mark.parametrize("mode_name", _get_all_mode_names())
 def test_every_mode_renders_successfully(mode_name):
     """Every mode in the bundled metadata must render without errors.

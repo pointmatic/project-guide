@@ -180,29 +180,29 @@ Allow projects to patch specific mode fields in `.project-guide.yml` — e.g. ch
 - [x] Bump version to v2.4.8
 - [x] Update CHANGELOG.md
 
-### Story N.j: v2.4.9 Pyve Detection and Bundled project-essentials-pyve.md [Planned]
+### Story N.j: v2.4.9 Pyve Detection and Bundled project-essentials-pyve.md [Done]
 
 Auto-detect Pyve at `init` time and ship a bundled Pyve-focused project-essentials template so every Pyve project gets correct dev-environment rules without writing them from scratch.
 
-- [ ] Add `pyve_version: str | None = None` to `Config` dataclass; update load/save round-trip
-- [ ] In `init`, run `subprocess.run(['pyve', '--version'], capture_output=True, text=True, timeout=5)`
-  - [ ] On success (exit 0): extract version string from stdout; store in config as `pyve_version`
-  - [ ] On failure (`FileNotFoundError`, non-zero exit, or timeout): store `None`; detection failure is non-fatal
-- [ ] Update `render.py` to pass `pyve_installed: bool` and `pyve_version: str | None` as Jinja2 context variables
-- [ ] Create `project_guide/templates/project-guide/templates/artifacts/project-essentials-pyve.md`:
-  - [ ] Section: two-environment pattern (runtime `.venv/` vs dev testenv `.pyve/testenv/venv/`; canonical invocation forms `pyve run python`, `pyve test`, `pyve testenv run ruff/mypy`; "pytest not found → use `pyve test`" signal; "do not `pip install -e '.[dev]'` into the main venv" anti-pattern)
-  - [ ] Section: Python invocation rule — always use `python`, never `python3`; `python3` bypasses `asdf` version shims and may resolve to the wrong interpreter
-  - [ ] Section: `requirements-dev.txt` story-writing rule — any story introducing dev tooling (ruff, mypy, pytest, types-* stubs) must include a task to create/update `requirements-dev.txt` so `pyve testenv --install -r requirements-dev.txt` reproduces the dev env in one step
-  - [ ] No top-level `#` heading; `###` subsections (consistent with project-essentials convention)
-- [ ] Update `scaffold-project-mode.md` and `plan-tech-spec-mode.md` with a `{% if pyve_installed %}` branch: instruct LLM to read `project-essentials-pyve.md` and copy/merge its content into `docs/specs/project-essentials.md`
-- [ ] Tests:
-  - [ ] `init` with mocked `pyve --version` success → `pyve_version` set in config
-  - [ ] `init` with mocked `FileNotFoundError` → `pyve_version: null`, init exits 0
-  - [ ] Rendered `scaffold_project` with `pyve_installed=True` contains the pyve merge instruction
-  - [ ] Rendered `scaffold_project` with `pyve_installed=False` omits it
-  - [ ] `project-essentials-pyve.md` renders without unrendered placeholders (parametrized by `test_every_mode_renders_successfully` or a dedicated artifact-render test)
-- [ ] Bump version to v2.4.9
-- [ ] Update CHANGELOG.md
+- [x] Add `pyve_version: str | None = None` to `Config` dataclass; update load/save round-trip
+- [x] In `init`, run `subprocess.run(['pyve', '--version'], capture_output=True, text=True, timeout=5)`
+  - [x] On success (exit 0): extract version string from stdout; store in config as `pyve_version`
+  - [x] On failure (`FileNotFoundError`, non-zero exit, or timeout): store `None`; detection failure is non-fatal
+- [x] Update `render.py` to pass `pyve_installed: bool` and `pyve_version: str | None` as Jinja2 context variables
+- [x] Create `project_guide/templates/project-guide/templates/artifacts/project-essentials-pyve.md`:
+  - [x] Section: two-environment pattern (runtime `.venv/` vs dev testenv `.pyve/testenv/venv/`; canonical invocation forms `pyve run python`, `pyve test`, `pyve testenv run ruff/mypy`; "pytest not found → use `pyve test`" signal; "do not `pip install -e '.[dev]'` into the main venv" anti-pattern)
+  - [x] Section: Python invocation rule — always use `python`, never `python3`; `python3` bypasses `asdf` version shims and may resolve to the wrong interpreter
+  - [x] Section: `requirements-dev.txt` story-writing rule — any story introducing dev tooling (ruff, mypy, pytest, types-* stubs) must include a task to create/update `requirements-dev.txt` so `pyve testenv --install -r requirements-dev.txt` reproduces the dev env in one step
+  - [x] No top-level `#` heading; `###` subsections (consistent with project-essentials convention)
+- [x] Update `scaffold-project-mode.md` and `plan-tech-spec-mode.md` with a `{% if pyve_installed %}` branch: instruct LLM to read `project-essentials-pyve.md` and copy/merge its content into `docs/specs/project-essentials.md`
+- [x] Tests:
+  - [x] `init` with mocked `pyve --version` success → `pyve_version` set in config
+  - [x] `init` with mocked `FileNotFoundError` → `pyve_version: null`, init exits 0
+  - [x] Rendered `scaffold_project` with `pyve_installed=True` contains the pyve merge instruction
+  - [x] Rendered `scaffold_project` with `pyve_installed=False` omits it
+  - [x] `project-essentials-pyve.md` renders without unrendered placeholders (parametrized by `test_every_mode_renders_successfully` or a dedicated artifact-render test)
+- [x] Bump version to v2.4.9
+- [x] Update CHANGELOG.md
 
 ### Story N.k: v2.4.10 Memory Review in scaffold_project Mode [Planned]
 

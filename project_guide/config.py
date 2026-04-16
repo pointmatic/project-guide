@@ -55,6 +55,7 @@ class Config:
     metadata_file: str = ".metadata.yml"
     current_mode: str = "default"
     test_first: bool = False
+    pyve_version: str | None = None
     metadata_overrides: dict[str, dict] = field(default_factory=dict)
     overrides: dict[str, FileOverride] = field(default_factory=dict)
 
@@ -98,6 +99,9 @@ class Config:
             raise ConfigError("'metadata_overrides' must be a mapping")
         metadata_overrides = {k: dict(v) for k, v in raw_meta_overrides.items()}
 
+        raw_pyve = data.get('pyve_version')
+        pyve_version = str(raw_pyve) if raw_pyve is not None else None
+
         return Config(
             version=data.get('version', '2.0'),
             installed_version=data.get('installed_version'),
@@ -105,6 +109,7 @@ class Config:
             metadata_file=data.get('metadata_file', '.metadata.yml'),
             current_mode=data.get('current_mode', 'default'),
             test_first=bool(data.get('test_first', False)),
+            pyve_version=pyve_version,
             metadata_overrides=metadata_overrides,
             overrides=overrides
         )
@@ -118,6 +123,7 @@ class Config:
             "metadata_file": self.metadata_file,
             "current_mode": self.current_mode,
             "test_first": self.test_first,
+            "pyve_version": self.pyve_version,
         }
 
         if self.metadata_overrides:

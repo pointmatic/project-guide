@@ -896,6 +896,18 @@ def test_mode_list_marks_unavailable_mode(runner, tmp_path):
         assert "✗" in result.output
 
 
+def test_mode_list_current_mode_highlighted(runner, tmp_path):
+    """Current mode name is rendered with cyan background (reversed) in the listing."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        runner.invoke(main, ['init'])
+        # Use color=True so click.style() escapes are included in output
+        result = runner.invoke(main, ['mode'], color=True)
+
+        assert result.exit_code == 0
+        # click.style(fg='black', bg='cyan') produces ANSI with bg cyan (46m) and fg black (30m)
+        assert "\x1b[30m\x1b[46m" in result.output or "\x1b[46m" in result.output
+
+
 def test_mode_list_non_tty_shows_listing_no_prompt(runner, tmp_path):
     """Non-TTY CliRunner → annotated listing, no interactive prompt, exit 0."""
     with runner.isolated_filesystem(temp_dir=tmp_path):
@@ -931,6 +943,44 @@ def test_mode_interactive_selection_switches_mode(runner, tmp_path, monkeypatch)
 
 
 # --- End Story N.h -----------------------------------------------------------
+
+
+# --- Story N.j ---------------------------------------------------------------
+
+
+def test_init_pyve_detected_stores_version(runner, tmp_path, monkeypatch):
+    """init with successful pyve --version stores pyve_version in config."""
+    import subprocess as sp
+
+    import project_guide.cli as cli_module
+
+    mock_result = sp.CompletedProcess(args=['pyve', '--version'], returncode=0, stdout="pyve 1.2.3\n", stderr="")
+    monkeypatch.setattr(cli_module.subprocess, 'run', lambda *a, **kw: mock_result)
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+        config = Config.load(".project-guide.yml")
+        assert config.pyve_version == "pyve 1.2.3"
+
+
+def test_init_pyve_not_found_stores_none(runner, tmp_path, monkeypatch):
+    """init with FileNotFoundError from pyve stores None; init exits 0."""
+    import project_guide.cli as cli_module
+
+    def raise_fnf(*a, **kw):
+        raise FileNotFoundError("pyve not found")
+
+    monkeypatch.setattr(cli_module.subprocess, 'run', raise_fnf)
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+        config = Config.load(".project-guide.yml")
+        assert config.pyve_version is None
+
+
+# --- End Story N.j -----------------------------------------------------------
 
 
 def test_update_with_missing_config(runner, tmp_path):

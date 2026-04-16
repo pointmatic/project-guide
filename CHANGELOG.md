@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.9] - 2026-04-15
+
+### Added
+- **Pyve detection in `init`** — runs `pyve --version` at init time; stores `pyve_version` (string or `null`) in `.project-guide.yml`. `pyve_installed` is derived from the stored value at every render call site (`init`, `set_mode`, `update`).
+- **Bundled `project-essentials-pyve.md` artifact** — template at `templates/artifacts/project-essentials-pyve.md` covering the two-environment pattern, canonical invocation forms (`pyve run`, `pyve test`, `pyve testenv run`), the `python` vs `python3` asdf-shim rule, and the `requirements-dev.txt` story-writing convention.
+- **`{% if pyve_installed %}` branch in `scaffold-project-mode.md`** — adds a "Merge Pyve Project Essentials" step (numbered 8) that copies pyve-specific rules into `docs/specs/project-essentials.md`; "Present for Approval" renumbers to 9 accordingly.
+- **`{% if pyve_installed %}` branch in `plan-tech-spec-mode.md`** — step 6 now tells Pyve users to also read and merge `project-essentials-pyve.md` when creating `project-essentials.md`.
+
 ## [2.4.8] - 2026-04-16
 
 ### Added

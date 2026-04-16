@@ -14,6 +14,7 @@
 
 import importlib.resources
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -158,6 +159,20 @@ def init(target_dir: str, force: bool, no_input: bool, test_first: bool, quiet: 
 
     click.secho(f"✓ Created {target_dir}/", fg='green')
 
+    # Detect pyve (non-fatal; failure stores None)
+    detected_pyve_version: str | None = None
+    try:
+        pyve_result = subprocess.run(
+            ['pyve', '--version'],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if pyve_result.returncode == 0:
+            detected_pyve_version = pyve_result.stdout.strip()
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        detected_pyve_version = None
+
     # Load metadata and render go.md
     metadata_file = ".metadata.yml"
     metadata_path = target_path / metadata_file
@@ -165,7 +180,12 @@ def init(target_dir: str, force: bool, no_input: bool, test_first: bool, quiet: 
     try:
         metadata = load_metadata(metadata_path)
         mode = metadata.get_mode("default")
-        render_go_project_guide(target_path, mode, metadata, output_path, test_first=bool(resolved_test_first))
+        render_go_project_guide(
+            target_path, mode, metadata, output_path,
+            test_first=bool(resolved_test_first),
+            pyve_installed=detected_pyve_version is not None,
+            pyve_version=detected_pyve_version,
+        )
         click.secho(f"✓ Rendered {output_path} (mode: default)", fg='green')
     except (MetadataError, RenderError) as e:
         click.secho(f"Warning: Could not render go.md: {e}", fg='yellow')
@@ -181,6 +201,7 @@ def init(target_dir: str, force: bool, no_input: bool, test_first: bool, quiet: 
         metadata_file=metadata_file,
         current_mode="default",
         test_first=bool(resolved_test_first),
+        pyve_version=detected_pyve_version,
     )
     config.save(str(config_path))
     click.secho(f"✓ Created {config_path}", fg='green')
@@ -275,13 +296,15 @@ def _print_mode_listing(
 
             if m.name == current_mode:
                 marker = click.style("→", fg='cyan', bold=True)
+                name_part = click.style(f"{m.name:25}", fg='black', bg='cyan', bold=True)
             elif available:
                 marker = click.style("✓", fg='green')
+                name_part = click.style(f"{m.name:25}")
             else:
                 marker = click.style("✗", fg='yellow')
+                name_part = click.style(f"{m.name:25}", dim=True)
 
             num_str = f"{n:2}  " if numbered else "    "
-            name_part = click.style(f"{m.name:25}", dim=(not available and m.name != current_mode))
             info_part = click.style(m.info, dim=True)
             click.echo(f"  {marker} {num_str}{name_part}  {info_part}")
 
@@ -420,7 +443,12 @@ def set_mode(mode_name: str | None, verbose: bool, no_input: bool):
     target_dir = Path(config.target_dir)
     output_path = target_dir / "go.md"
     try:
-        render_go_project_guide(target_dir, mode, metadata, output_path, test_first=config.test_first)
+        render_go_project_guide(
+            target_dir, mode, metadata, output_path,
+            test_first=config.test_first,
+            pyve_installed=config.pyve_version is not None,
+            pyve_version=config.pyve_version,
+        )
     except RenderError as e:
         click.secho(f"Error rendering: {e}", fg='red', err=True)
         click.secho("  Run 'project-guide status' to check for missing files.", fg='yellow', err=True)
@@ -807,7 +835,12 @@ def update(files: tuple, dry_run: bool, force: bool, no_input: bool, quiet: bool
                 _apply_metadata_overrides(metadata, config.metadata_overrides)
                 mode = metadata.get_mode(config.current_mode)
                 output_path = target_dir / "go.md"
-                render_go_project_guide(target_dir, mode, metadata, output_path, test_first=config.test_first)
+                render_go_project_guide(
+                    target_dir, mode, metadata, output_path,
+                    test_first=config.test_first,
+                    pyve_installed=config.pyve_version is not None,
+                    pyve_version=config.pyve_version,
+                )
                 click.secho("✓ Re-rendered go.md", fg='green')
             except (MetadataError, RenderError) as e:
                 click.secho(f"Warning: Could not re-render go.md: {e}", fg='yellow')
