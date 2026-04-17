@@ -376,40 +376,40 @@ Teach the LLM to keep `pyve run` out of user-facing command suggestions. The wra
 - [x] Bump version to v2.4.17 in `project_guide/version.py` and `pyproject.toml`
 - [x] Verify: all tests pass, ruff clean
 
-### Story N.s: v2.4.18 project_name in Config + Silent-Placeholder Guard [Planned]
+### Story N.s: v2.4.18 project_name in Config + Silent-Placeholder Guard [Done]
 
 Fix the archive_stories bug where a fresh `stories.md` is written with literal `{{ project_name }}` / `{{ programming_language }}` placeholders. Root cause: `perform_archive` relies on a strict regex parse of the old `stories.md` header to recover these values, has no fallback, and `render_fresh_stories_artifact` doesn't detect unrendered placeholders before writing. Fix: add `project_name` as a per-project Config field (populated at `init` via a resolution chain), pass it into the archive context, and add a post-render placeholder validator so silent drops become loud failures. Scope is deliberately narrow — broader integrity checks (header-vs-config drift, schema age, bundled-template drift) go to the deferred `project-guide check` command in the Future section.
 
-- [ ] Add `project_name: str = ""` field to `Config` dataclass in `project_guide/config.py`
-- [ ] Update `Config.load()` / `Config.save()` for round-trip; add `test_config_project_name_round_trip` to `tests/test_config.py`
-- [ ] Add `--project-name` option to `init` in `cli.py`; resolve via `_resolve_setting` (from N.c) with env var `PROJECT_GUIDE_PROJECT_NAME`; fallback chain: CLI flag → env → `pyproject.toml` `[project] name` → `Path.cwd().name`
-  - [ ] Extract the `pyproject.toml` lookup into a small helper in `runtime.py` (`_detect_project_name_from_pyproject()`) so the logic is unit-testable and non-Python projects can be extended later
-  - [ ] Persist the resolved value into `.project-guide.yml`
-- [ ] Update `cli.py:archive_stories_cmd` to merge `config.project_name` into the context passed to `perform_archive` (override `metadata.common`): `context = {**dict(metadata.common), "project_name": config.project_name}`
-- [ ] Add a one-line drift warning in `cli.py:archive_stories_cmd` (not a failure): if `Path.cwd().name != config.project_name`, print `⚠ cwd name '<cwd>' differs from config project_name '<name>' — archive will use the config value` to stderr. Exit 0.
-- [ ] Add post-render placeholder validator to `render_fresh_stories_artifact` in `project_guide/actions.py`:
-  - [ ] Reuse the `_UNRENDERED_PLACEHOLDER_RE` pattern from `render.py` (import it, or extract to a shared module — `runtime.py` is the natural home)
-  - [ ] After rendering, scan for unrendered `{{ name }}` placeholders; if any found, raise `ActionError` listing the undefined variable names and the file being written
-  - [ ] This is the root-cause guard: any future code path that forgets to populate a template variable fails loudly instead of silently corrupting the output
-- [ ] Tests in `tests/test_config.py` (new "Story N.s" section):
-  - [ ] `project_name` round-trips through `save`/`load`
-  - [ ] Absent field defaults to `""` (regression guard, additive-with-default policy)
-- [ ] Tests in `tests/test_cli.py` (new "Story N.s" section):
-  - [ ] `init --project-name explicit-name` → config `project_name: explicit-name`
-  - [ ] `PROJECT_GUIDE_PROJECT_NAME=env-name init` (no flag) → config `project_name: env-name`
-  - [ ] `init` in a dir containing a minimal `pyproject.toml` with `[project] name = "from-pyproject"` → config `project_name: from-pyproject`
-  - [ ] `init` with no flag, no env, no pyproject.toml → config `project_name` equals `Path.cwd().name`
-  - [ ] `archive-stories` with no header in `stories.md` and `config.project_name="demo"` → fresh `stories.md` contains `demo`, no literal `{{` placeholders
-  - [ ] `archive-stories` where `Path.cwd().name` differs from `config.project_name` → warning printed to stderr; command still exits 0
-- [ ] Tests in `tests/test_actions.py` (new "Story N.s" section):
-  - [ ] `render_fresh_stories_artifact` raises `ActionError` when context is missing `project_name` (undefined variable → lenient placeholder → validator catches it)
-  - [ ] Error message names the offending variable(s) and the template being rendered
-  - [ ] Successful render with all variables populated still passes validation (regression guard)
-- [ ] Update `docs/specs/tech-spec.md` Config section: document the new `project_name` field and the `init` resolution chain
-- [ ] Update `docs/specs/project-essentials.md` — add the resolution chain to the existing `### Config schema versioning` section or a new subsection
-- [ ] Update `CHANGELOG.md` with v2.4.18 entry
-- [ ] Bump version to v2.4.18 in `project_guide/version.py` and `pyproject.toml`
-- [ ] Verify: all tests pass, ruff clean, `pyve run project-guide update` re-renders `go.md` cleanly
+- [x] Add `project_name: str = ""` field to `Config` dataclass in `project_guide/config.py`
+- [x] Update `Config.load()` / `Config.save()` for round-trip; add `test_config_project_name_round_trip` to `tests/test_config.py`
+- [x] Add `--project-name` option to `init` in `cli.py`; resolve via `_resolve_setting` (from N.c) with env var `PROJECT_GUIDE_PROJECT_NAME`; fallback chain: CLI flag → env → `pyproject.toml` `[project] name` → `Path.cwd().name`
+  - [x] Extract the `pyproject.toml` lookup into a small helper in `runtime.py` (`_detect_project_name_from_pyproject()`) so the logic is unit-testable and non-Python projects can be extended later
+  - [x] Persist the resolved value into `.project-guide.yml`
+- [x] Update `cli.py:archive_stories_cmd` to merge `config.project_name` into the context passed to `perform_archive` (override `metadata.common`): `context = {**dict(metadata.common), "project_name": config.project_name}`
+- [x] Add a one-line drift warning in `cli.py:archive_stories_cmd` (not a failure): if `Path.cwd().name != config.project_name`, print `⚠ cwd name '<cwd>' differs from config project_name '<name>' — archive will use the config value` to stderr. Exit 0.
+- [x] Add post-render placeholder validator to `render_fresh_stories_artifact` in `project_guide/actions.py`:
+  - [x] Reuse the `_UNRENDERED_PLACEHOLDER_RE` pattern from `render.py` (import it, or extract to a shared module — `runtime.py` is the natural home)
+  - [x] After rendering, scan for unrendered `{{ name }}` placeholders; if any found, raise `ActionError` listing the undefined variable names and the file being written
+  - [x] This is the root-cause guard: any future code path that forgets to populate a template variable fails loudly instead of silently corrupting the output
+- [x] Tests in `tests/test_config.py` (new "Story N.s" section):
+  - [x] `project_name` round-trips through `save`/`load`
+  - [x] Absent field defaults to `""` (regression guard, additive-with-default policy)
+- [x] Tests in `tests/test_cli.py` (new "Story N.s" section):
+  - [x] `init --project-name explicit-name` → config `project_name: explicit-name`
+  - [x] `PROJECT_GUIDE_PROJECT_NAME=env-name init` (no flag) → config `project_name: env-name`
+  - [x] `init` in a dir containing a minimal `pyproject.toml` with `[project] name = "from-pyproject"` → config `project_name: from-pyproject`
+  - [x] `init` with no flag, no env, no pyproject.toml → config `project_name` equals `Path.cwd().name`
+  - [x] `archive-stories` with no header in `stories.md` and `config.project_name="demo"` → fresh `stories.md` contains `demo`, no literal `{{` placeholders
+  - [x] `archive-stories` where `Path.cwd().name` differs from `config.project_name` → warning printed to stderr; command still exits 0
+- [x] Tests in `tests/test_actions.py` (new "Story N.s" section):
+  - [x] `render_fresh_stories_artifact` raises `ActionError` when context is missing `project_name` (undefined variable → lenient placeholder → validator catches it)
+  - [x] Error message names the offending variable(s) and the template being rendered
+  - [x] Successful render with all variables populated still passes validation (regression guard)
+- [x] Update `docs/specs/tech-spec.md` Config section: document the new `project_name` field and the `init` resolution chain
+- [x] Update `docs/specs/project-essentials.md` — add the resolution chain to the existing `### Config schema versioning` section or a new subsection
+- [x] Update `CHANGELOG.md` with v2.4.18 entry
+- [x] Bump version to v2.4.18 in `project_guide/version.py` and `pyproject.toml`
+- [x] Verify: all tests pass, ruff clean, `pyve run project-guide update` re-renders `go.md` cleanly
 
 ---
 

@@ -217,3 +217,25 @@ def test_schema_version_error_is_config_error():
 
 
 # --- End Story N.p -----------------------------------------------------------
+
+
+# --- Story N.s ---------------------------------------------------------------
+
+
+def test_config_project_name_round_trip(tmp_path):
+    """project_name survives a save/load cycle."""
+    config_file = tmp_path / ".project-guide.yml"
+    Config(project_name="demo-project").save(str(config_file))
+    loaded = Config.load(str(config_file))
+    assert loaded.project_name == "demo-project"
+
+
+def test_config_project_name_defaults_to_empty(tmp_path):
+    """Absent project_name defaults to '' (additive-with-default policy)."""
+    config_file = tmp_path / ".project-guide.yml"
+    config_file.write_text(f"version: '{SCHEMA_VERSION}'\ncurrent_mode: default\n")
+    loaded = Config.load(str(config_file))
+    assert loaded.project_name == ""
+
+
+# --- End Story N.s -----------------------------------------------------------

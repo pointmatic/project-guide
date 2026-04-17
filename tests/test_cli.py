@@ -1601,3 +1601,105 @@ def test_update_older_schema_then_init_force_backs_up_and_recovers(runner, tmp_p
 
 
 # --- End Story N.q -----------------------------------------------------------
+
+
+# --- Story N.s ---------------------------------------------------------------
+
+
+def test_init_project_name_cli_flag_wins(runner, tmp_path, monkeypatch):
+    """--project-name explicit-name is persisted to config."""
+    monkeypatch.delenv("PROJECT_GUIDE_PROJECT_NAME", raising=False)
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(main, ['init', '--project-name', 'explicit-name'])
+        assert result.exit_code == 0, result.output
+        assert Config.load(".project-guide.yml").project_name == "explicit-name"
+
+
+def test_init_project_name_env_var_wins_over_pyproject(runner, tmp_path, monkeypatch):
+    """PROJECT_GUIDE_PROJECT_NAME env var overrides pyproject.toml."""
+    monkeypatch.setenv("PROJECT_GUIDE_PROJECT_NAME", "env-name")
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        Path("pyproject.toml").write_text(
+            '[project]\nname = "from-pyproject"\nversion = "0.0.1"\n', encoding="utf-8"
+        )
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0, result.output
+        assert Config.load(".project-guide.yml").project_name == "env-name"
+
+
+def test_init_project_name_reads_pyproject_toml(runner, tmp_path, monkeypatch):
+    """With no flag and no env, init reads [project].name from pyproject.toml."""
+    monkeypatch.delenv("PROJECT_GUIDE_PROJECT_NAME", raising=False)
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        Path("pyproject.toml").write_text(
+            '[project]\nname = "from-pyproject"\nversion = "0.0.1"\n', encoding="utf-8"
+        )
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0, result.output
+        assert Config.load(".project-guide.yml").project_name == "from-pyproject"
+
+
+def test_init_project_name_falls_back_to_cwd_name(runner, tmp_path, monkeypatch):
+    """With no flag, env, or pyproject.toml, init uses cwd().name."""
+    monkeypatch.delenv("PROJECT_GUIDE_PROJECT_NAME", raising=False)
+    project_dir = tmp_path / "my-cwd-project"
+    project_dir.mkdir()
+    with runner.isolated_filesystem(temp_dir=project_dir):
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0, result.output
+        # isolated_filesystem creates a sub-dir, so check the name is a real
+        # filesystem name (not empty); any non-empty resolution is acceptable.
+        loaded = Config.load(".project-guide.yml")
+        assert loaded.project_name != ""
+        assert loaded.project_name == Path.cwd().name
+
+
+def test_archive_stories_uses_config_project_name_when_header_absent(runner, tmp_path):
+    """archive-stories populates fresh stories.md from config.project_name when the old header is missing."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(main, ['init', '--project-name', 'demo'])
+        assert result.exit_code == 0
+
+        specs = Path("docs/specs")
+        specs.mkdir(parents=True, exist_ok=True)
+        # Source without a `# stories.md -- ...` header — forces the CLI to
+        # fall back to config.project_name.
+        (specs / "stories.md").write_text(
+            "## Phase A: Foundation\n\n"
+            "### Story A.a: v0.1.0 Hello [Done]\n\n"
+            "- [x] Print hello\n",
+            encoding="utf-8",
+        )
+
+        result = runner.invoke(main, ['archive-stories'])
+        assert result.exit_code == 0, result.output
+
+        fresh = (specs / "stories.md").read_text(encoding="utf-8")
+        assert "demo" in fresh
+        assert "{{" not in fresh
+
+
+def test_archive_stories_drift_warning_when_cwd_differs_from_config(runner, tmp_path):
+    """A mismatch between cwd().name and config.project_name prints a warning; exit 0."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(main, ['init', '--project-name', 'config-name'])
+        assert result.exit_code == 0
+        # cwd().name here is the isolated_filesystem tmp, not "config-name"
+
+        specs = Path("docs/specs")
+        specs.mkdir(parents=True, exist_ok=True)
+        (specs / "stories.md").write_text(
+            "# stories.md -- config-name (Python)\n\n"
+            "## Phase A: Foundation\n\n"
+            "### Story A.a: v0.1.0 Hello [Done]\n\n"
+            "- [x] Print hello\n",
+            encoding="utf-8",
+        )
+
+        result = runner.invoke(main, ['archive-stories'])
+        assert result.exit_code == 0, result.output
+        combined = result.output + (result.stderr or "")
+        assert "differs from config project_name 'config-name'" in combined
+
+
+# --- End Story N.s -----------------------------------------------------------

@@ -606,3 +606,49 @@ def test_next_phase_letter_populated_stories_post_z(tmp_path):
     text = "## Phase Y: One\n\n## Phase Z: Two\n"
     archive_dir = tmp_path / ".archive"
     assert next_phase_letter(text, archive_dir) == "AA"
+
+
+# --- Story N.s ---------------------------------------------------------------
+
+
+def test_render_fresh_stories_artifact_missing_project_name_raises():
+    """Missing project_name → ActionError naming the undefined variable.
+
+    The bundled stories.md template references both ``project_name`` and
+    ``programming_language`` in its header; rendering without them used to
+    leak ``{{ project_name }}`` into the fresh output silently. The new
+    post-render guard turns that into a loud failure.
+    """
+    template = _bundled_stories_template()
+    with pytest.raises(ActionError) as exc_info:
+        render_fresh_stories_artifact(
+            template,
+            {"programming_language": "Python"},
+        )
+    assert "project_name" in str(exc_info.value)
+    assert template.name in str(exc_info.value)
+
+
+def test_render_fresh_stories_artifact_missing_programming_language_raises():
+    """Missing programming_language also trips the validator."""
+    template = _bundled_stories_template()
+    with pytest.raises(ActionError) as exc_info:
+        render_fresh_stories_artifact(
+            template,
+            {"project_name": "demo"},
+        )
+    assert "programming_language" in str(exc_info.value)
+
+
+def test_render_fresh_stories_artifact_full_context_passes_validation():
+    """A context with every expected variable renders cleanly (regression guard)."""
+    template = _bundled_stories_template()
+    rendered = render_fresh_stories_artifact(
+        template,
+        {"project_name": "demo", "programming_language": "Python"},
+    )
+    assert "demo" in rendered
+    assert "{{" not in rendered
+
+
+# --- End Story N.s -----------------------------------------------------------

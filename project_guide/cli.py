@@ -33,7 +33,11 @@ from project_guide.exceptions import (
 )
 from project_guide.metadata import ModeDefinition, _apply_metadata_overrides, load_metadata
 from project_guide.render import render_go_project_guide
-from project_guide.runtime import _resolve_setting, should_skip_input
+from project_guide.runtime import (
+    _detect_project_name_from_pyproject,
+    _resolve_setting,
+    should_skip_input,
+)
 from project_guide.stories import _read_stories_summary
 from project_guide.sync import (
     file_matches_template,
@@ -121,7 +125,24 @@ def _copy_template_tree(
     default=False,
     help='Suppress per-file progress output; errors and summary are always shown.',
 )
-def init(target_dir: str, force: bool, no_input: bool, test_first: bool, quiet: bool):
+@click.option(
+    '--project-name',
+    'project_name',
+    default=None,
+    help=(
+        "Project name used in generated artifacts (e.g., stories.md header). "
+        "Resolution: CLI flag → PROJECT_GUIDE_PROJECT_NAME env var → "
+        "pyproject.toml [project].name → current directory name."
+    ),
+)
+def init(
+    target_dir: str,
+    force: bool,
+    no_input: bool,
+    test_first: bool,
+    quiet: bool,
+    project_name: str | None,
+):
     """Initialize project-guide in a new project."""
     config_path = Path(".project-guide.yml")
 
@@ -140,6 +161,20 @@ def init(target_dir: str, force: bool, no_input: bool, test_first: bool, quiet: 
         "test_first",
         None,
         False,
+    )
+
+    # Resolve project_name with a four-level fallback chain:
+    #   CLI flag → PROJECT_GUIDE_PROJECT_NAME env → pyproject.toml → cwd.name.
+    # The pyproject and cwd legs sit beyond what _resolve_setting covers (no
+    # config at init time) so they are consulted inline.
+    pyproject_name = _detect_project_name_from_pyproject()
+    resolved_project_name = _resolve_setting(
+        "project_name",
+        project_name,
+        "PROJECT_GUIDE_PROJECT_NAME",
+        "project_name",
+        None,
+        pyproject_name or Path.cwd().name,
     )
 
     # Idempotency: if the project is already initialized and --force was not
@@ -220,6 +255,7 @@ def init(target_dir: str, force: bool, no_input: bool, test_first: bool, quiet: 
         current_mode="default",
         test_first=bool(resolved_test_first),
         pyve_version=detected_pyve_version,
+        project_name=str(resolved_project_name),
     )
     config.save(str(config_path))
     click.secho(f"✓ Created {config_path}", fg='green')
@@ -566,6 +602,18 @@ def archive_stories_cmd():
 
     source = Path(artifact.file)
 
+    # Drift warning: if the developer renamed the directory without updating
+    # the config, the archive still uses the config-persisted project_name.
+    # We warn instead of failing — the archive is still correct per the config.
+    if config.project_name and Path.cwd().name != config.project_name:
+        click.secho(
+            f"⚠ cwd name '{Path.cwd().name}' differs from config "
+            f"project_name '{config.project_name}' — archive will use the "
+            f"config value",
+            fg='yellow',
+            err=True,
+        )
+
     # Resolve the bundled stories.md artifact template. We deliberately use
     # the package-bundled copy rather than the project's installed template
     # directory so that the archive re-render is not affected by any
@@ -575,8 +623,12 @@ def archive_stories_cmd():
     )
     with importlib.resources.as_file(template_ref) as template_path:
         template = Path(template_path)
+        # Merge config.project_name into the context so a fresh stories.md
+        # header renders with the project's name even when the old
+        # stories.md did not expose it via its own header.
+        context = {**dict(metadata.common), "project_name": config.project_name}
         try:
-            result = perform_archive(source, template, dict(metadata.common))
+            result = perform_archive(source, template, context)
         except ActionError as e:
             click.secho(f"Error: {e}", fg='red', err=True)
             sys.exit(2)

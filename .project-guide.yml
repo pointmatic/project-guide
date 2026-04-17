@@ -5,3 +5,4 @@ metadata_file: .metadata.yml
 current_mode: code_direct
 test_first: false
 pyve_version: pyve version 1.13.3
+project_name: ''

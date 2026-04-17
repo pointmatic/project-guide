@@ -12,30 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import re
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, TemplateNotFound, Undefined
 
 from project_guide.exceptions import RenderError
 from project_guide.metadata import Metadata, ModeDefinition
-
-# Matches a bare Jinja-style placeholder: `{{var}}`, `{{ var }}`, `{{  var  }}`.
-# This is exactly the shape that `_LenientUndefined.__str__` emits when an
-# undefined variable is rendered, so the post-render validator below can
-# detect any placeholder that slipped through — a missed context variable,
-# a typo (`{{ project_essentialss }}`), or a removed `{% if %}` guard.
-#
-# Deliberately does NOT match attribute access (`{{ obj.attr }}`), filters
-# (`{{ name|upper }}`), expressions (`{{ a + 1 }}`), or statement blocks
-# (`{% ... %}`). Those shapes cause Jinja to raise at render time under the
-# lenient-undefined contract, so they never reach the validator.
-#
-# Known limitation: templates that legitimately want to emit a literal
-# `{{ var }}` string (e.g., documentation of Jinja syntax inside a code
-# fence) will trigger false positives. Not currently a problem in any
-# bundled template; bridge if/when needed.
-_UNRENDERED_PLACEHOLDER_RE = re.compile(r"\{\{\s*([a-zA-Z_]\w*)\s*\}\}")
+from project_guide.runtime import UNRENDERED_PLACEHOLDER_RE as _UNRENDERED_PLACEHOLDER_RE
 
 
 def render_go_project_guide(

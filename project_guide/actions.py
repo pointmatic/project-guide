@@ -40,6 +40,7 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader, Undefined
 
 from project_guide.exceptions import ActionError, MetadataError
+from project_guide.runtime import UNRENDERED_PLACEHOLDER_RE
 
 
 class _LenientUndefined(Undefined):
@@ -344,6 +345,23 @@ def render_fresh_stories_artifact(
     if future_section:
         replacement = future_section.rstrip() + "\n"
         rendered = _FUTURE_RE.sub(lambda _m: replacement, rendered)
+
+    # Any placeholder that survived Jinja is the fingerprint of a missing
+    # context variable, a typo, or a removed `{% if %}` guard — previously
+    # these leaked silently into the fresh stories.md header.
+    matches = UNRENDERED_PLACEHOLDER_RE.findall(rendered)
+    if matches:
+        seen: set[str] = set()
+        unique: list[str] = []
+        for name in matches:
+            if name not in seen:
+                seen.add(name)
+                unique.append(name)
+        raise ActionError(
+            f"Unrendered placeholder(s) in {artifact_template.name}: "
+            f"{', '.join(unique)}. "
+            "Hint: check the caller's context dict for a missing variable."
+        )
 
     return rendered
 

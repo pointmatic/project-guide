@@ -24,9 +24,19 @@ across local shells, piped stdin, CI runners, and subprocess contexts.
 from __future__ import annotations
 
 import os
+import re
 import sys
+import tomllib
+from pathlib import Path
 
 import click
+
+# Matches a bare Jinja-style placeholder: `{{var}}`, `{{ var }}`, `{{  var  }}`.
+# This is exactly the shape that lenient-undefined ``__str__`` implementations
+# emit when an undefined variable is rendered. Shared by ``render.py`` (go.md
+# output) and ``actions.py`` (fresh artifact output) so every Jinja render
+# path in the package can validate through the same contract.
+UNRENDERED_PLACEHOLDER_RE = re.compile(r"\{\{\s*([a-zA-Z_]\w*)\s*\}\}")
 
 # Case-insensitive set of truthy env-var values. Everything else (including
 # empty string and unset) falls through to the next signal.
@@ -120,6 +130,28 @@ def _resolve_setting(
 
     # 4. Default
     return default
+
+
+def _detect_project_name_from_pyproject(cwd: Path | None = None) -> str | None:
+    """Return the ``[project].name`` from ``pyproject.toml`` if present.
+
+    Returns ``None`` when the file is absent, unparseable, or lacks the
+    ``project.name`` field. Non-Python projects can extend this helper later
+    by adding additional manifest lookups (e.g., ``package.json``, ``Cargo.toml``).
+    """
+    root = cwd if cwd is not None else Path.cwd()
+    pyproject = root / "pyproject.toml"
+    if not pyproject.exists():
+        return None
+    try:
+        with pyproject.open("rb") as f:
+            data = tomllib.load(f)
+    except (tomllib.TOMLDecodeError, OSError):
+        return None
+    name = data.get("project", {}).get("name")
+    if isinstance(name, str) and name:
+        return name
+    return None
 
 
 def _require_setting(name: str, cli_flag: str, env_var: str) -> None:

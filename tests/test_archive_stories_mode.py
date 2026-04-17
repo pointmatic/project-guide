@@ -74,7 +74,7 @@ def initialized_project(runner, tmp_path):
     Uses `runner.isolated_filesystem` so cwd is the temp dir for the duration.
     """
     with runner.isolated_filesystem(temp_dir=tmp_path):
-        result = runner.invoke(main, ["init"])
+        result = runner.invoke(main, ["init", "--project-name", "demo-project"])
         assert result.exit_code == 0, f"init failed: {result.output}"
 
         specs = Path("docs/specs")

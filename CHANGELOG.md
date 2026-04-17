@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.18] - 2026-04-16
+
+### Added
+- **`project_guide/config.py`** — New `project_name: str = ""` field on `Config`, round-tripped through YAML save/load.
+- **`project_guide/runtime.py`** — `_detect_project_name_from_pyproject()` helper reads `[project].name` from `pyproject.toml` when present; returns `None` otherwise. Shared `UNRENDERED_PLACEHOLDER_RE` pattern extracted here so `render.py` and `actions.py` validate through the same contract.
+- **`project_guide/cli.py:init`** — `--project-name` option with a four-level resolution chain (CLI flag → `PROJECT_GUIDE_PROJECT_NAME` env var → `pyproject.toml` → `Path.cwd().name`) persisted into `.project-guide.yml`.
+- **`project_guide/cli.py:archive_stories_cmd`** — Merges `config.project_name` into the archive context so fresh `stories.md` headers render correctly even when the old `stories.md` had no parseable header. Prints a drift warning (stderr, exit 0) when `Path.cwd().name` differs from `config.project_name`.
+- **`project_guide/actions.py:render_fresh_stories_artifact`** — Post-render placeholder validator raises `ActionError` listing the offending variable name(s) and the template when any `{{ name }}` shape survives the render pass. Fixes the silent placeholder leak that prompted Story N.s.
+
+### Changed
+- **`docs/specs/tech-spec.md`** — Documented the `project_name` field, resolution chain, and archive-stories context merge.
+- **`docs/specs/project-essentials.md`** — Added the N.s resolution chain bullet to `### Config schema versioning`.
+
 ## [2.4.17] - 2026-04-16
 
 ### Added

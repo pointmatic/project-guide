@@ -90,6 +90,7 @@ class Config:
     current_mode: str = "default"
     test_first: bool = False
     pyve_version: str | None = None
+    project_name: str = ""
     metadata_overrides: dict[str, dict] = field(default_factory=dict)
     overrides: dict[str, FileOverride] = field(default_factory=dict)
 
@@ -147,6 +148,7 @@ class Config:
             current_mode=data.get('current_mode', 'default'),
             test_first=bool(data.get('test_first', False)),
             pyve_version=pyve_version,
+            project_name=str(data.get('project_name', '') or ''),
             metadata_overrides=metadata_overrides,
             overrides=overrides
         )
@@ -161,6 +163,7 @@ class Config:
             "current_mode": self.current_mode,
             "test_first": self.test_first,
             "pyve_version": self.pyve_version,
+            "project_name": self.project_name,
         }
 
         if self.metadata_overrides:

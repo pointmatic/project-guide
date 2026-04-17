@@ -134,7 +134,9 @@ project-guide/
 
 **Data classes:**
 - `FileOverride` — reason, locked_version, last_updated
-- `Config` — version, installed_version, target_dir, metadata_file, current_mode, test_first, pyve_version, metadata_overrides, overrides
+- `Config` — version, installed_version, target_dir, metadata_file, current_mode, test_first, pyve_version, project_name, metadata_overrides, overrides
+
+`project_name` is populated at `init` via a four-level resolution chain (CLI `--project-name` flag → `PROJECT_GUIDE_PROJECT_NAME` env var → `pyproject.toml` `[project].name` via `runtime._detect_project_name_from_pyproject()` → `Path.cwd().name`) and persists thereafter. It flows into `archive-stories` as the authoritative source for the fresh `stories.md` header.
 
 **Key behavior:**
 - `Config.load()` / `Config.save()` — YAML round-trip
