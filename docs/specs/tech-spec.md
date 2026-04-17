@@ -138,6 +138,7 @@ project-guide/
 
 **Key behavior:**
 - `Config.load()` / `Config.save()` — YAML round-trip
+- Schema version guard: `Config.load()` compares `data['version']` against module-level `SCHEMA_VERSION` and raises `SchemaVersionError(direction="older"|"newer")` on mismatch. `SchemaVersionError` subclasses `ConfigError` so existing handlers still catch it. `cli.py:update` is the only command that treats it specially (auto-backup on `"older"` path).
 - Override management: `is_overridden()`, `add_override()`, `remove_override()`
 - Defaults: `target_dir="docs/project-guide"`, `metadata_file=".metadata.yml"`, `current_mode="default"`, `test_first=False`, `pyve_version=None`, `metadata_overrides={}`
 
@@ -187,6 +188,7 @@ project-guide/
 ```
 ProjectGuidesError (base)
 ├── ConfigError
+│   └── SchemaVersionError
 ├── SyncError
 ├── ProjectFileNotFoundError
 ├── MetadataError

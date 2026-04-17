@@ -39,6 +39,15 @@ Any future interactive prompt added to a CLI command **must** use the `should_sk
 - **Direct commits to main** in `code_direct` mode — no branches, no PRs.
 - **Bump version in three places** per story: `project_guide/version.py`, `pyproject.toml`, and `CHANGELOG.md` (new `## [X.Y.Z]` entry dated).
 
+### Config schema versioning
+
+`.project-guide.yml` has a `version:` field that tracks the **config schema** (currently `"2.0"`, pinned by `SCHEMA_VERSION` in `project_guide/config.py`), not the package version. Policy:
+
+- **Bump `SCHEMA_VERSION` only for breaking changes:** field rename, field removal, type change, or semantic-meaning change of an existing field.
+- **Do NOT bump for additive-with-default changes.** Adding a new optional field with a sensible default (as in every Phase N field: `test_first`, `pyve_version`, `metadata_overrides`) is already backwards-compatible via `data.get(key, default)` in `Config.load()`.
+- **On mismatch,** `Config.load()` raises `SchemaVersionError(direction="older"|"newer")`. `cli.py:update` handles this specially: on `"older"` it backs up `.project-guide.yml` to `.project-guide.yml.bak.<timestamp>` and points the user at `project-guide init --force`; on `"newer"` it tells the user to upgrade project-guide.
+- **When a real breaking change arrives,** revisit adding a migration registry (deferred by design — YAGNI until there's something to migrate).
+
 ### Approval gate discipline
 
 At approval gates, present the completed work and wait. **Do not prompt for, offer, or initiate git operations** (commits, pushes, PRs, branch creation), CI runs, or deploys unless the current step explicitly calls for them. This applies to every mode, not just `code_direct`.

@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.15] - 2026-04-16
+
+### Added
+- **`project_guide/exceptions.py`** — `SchemaVersionError(ConfigError)` exception with `direction: str` attribute (`"older"` or `"newer"`) so command handlers can distinguish config-schema mismatch from other config errors.
+- **`project_guide/config.py`** — `SCHEMA_VERSION = "2.0"` module-level constant and `_check_schema_version()` helper. `Config.load()` now validates the loaded `version` field against `SCHEMA_VERSION` using `packaging.version.Version` and raises `SchemaVersionError` on mismatch. Absent `version` field defaults to `SCHEMA_VERSION` (backwards-compatible).
+- **`project_guide/cli.py:update`** — Catches `SchemaVersionError`: on `"older"` mismatch, copies `.project-guide.yml` to `.project-guide.yml.bak.<timestamp>` and directs the user to run `init --force`; on `"newer"` mismatch, instructs the user to upgrade project-guide. Exits 1 in both cases.
+
+### Changed
+- **`project_guide/cli.py:update`** — Broadened the `go.md` re-render guard: `go.md` is now re-rendered when it is missing, even if no template files changed this run. Previously guarded only by "any template files updated", which made `update` a silent no-op when `go.md` was manually deleted.
+- **`project_guide/cli.py:status`** — Removed the now-unreachable `config.version == "1.0"` branch from the v1 migration notice (SchemaVersionError preempts it); `target_dir == "docs/guides"` path remains for layouts that never migrated.
+- **`docs/specs/project-essentials.md`** — Added `### Config schema versioning` section documenting the bump policy (rename/remove/retype/semantic only; additive-with-default does not bump) and the `SchemaVersionError` behavior.
+- **`docs/specs/tech-spec.md`** — Documented the schema-version guard in the `config.py` module description; added `SchemaVersionError` to the exception hierarchy diagram.
+
 ## [2.4.14] - 2026-04-16
 
 ### Changed

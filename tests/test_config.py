@@ -16,8 +16,8 @@ from datetime import date
 
 import pytest
 
-from project_guide.config import Config
-from project_guide.exceptions import ConfigError
+from project_guide.config import SCHEMA_VERSION, Config
+from project_guide.exceptions import ConfigError, SchemaVersionError
 
 
 def test_config_creation_with_defaults():
@@ -36,7 +36,7 @@ def test_config_save_load_round_trip(tmp_path):
     config_file = tmp_path / ".project-guide.yml"
 
     config = Config(
-        version="1.0",
+        version="2.0",
         installed_version="0.2.0",
         target_dir="docs/guides",
     )
@@ -46,7 +46,7 @@ def test_config_save_load_round_trip(tmp_path):
 
     loaded_config = Config.load(str(config_file))
 
-    assert loaded_config.version == "1.0"
+    assert loaded_config.version == "2.0"
     assert loaded_config.installed_version == "0.2.0"
     assert loaded_config.target_dir == "docs/guides"
     assert "debug-guide.md" in loaded_config.overrides
@@ -94,7 +94,7 @@ def test_config_with_no_overrides(tmp_path):
     config_file = tmp_path / ".project-guide.yml"
 
     config = Config(
-        version="1.0",
+        version="2.0",
         installed_version="0.2.0",
         target_dir="docs/guides",
     )
@@ -160,3 +160,60 @@ def test_config_metadata_overrides_default_empty(tmp_path):
 
 
 # --- End Story N.i -----------------------------------------------------------
+
+
+# --- Story N.p ---------------------------------------------------------------
+
+def test_schema_version_matching_loads_normally(tmp_path):
+    """Current SCHEMA_VERSION in config loads without error."""
+    config_file = tmp_path / ".project-guide.yml"
+    Config(version=SCHEMA_VERSION).save(str(config_file))
+    loaded = Config.load(str(config_file))
+    assert loaded.version == SCHEMA_VERSION
+
+
+def test_schema_version_older_raises_schema_version_error(tmp_path):
+    """An older schema version raises SchemaVersionError with direction='older'."""
+    config_file = tmp_path / ".project-guide.yml"
+    config_file.write_text("version: '1.0'\ncurrent_mode: default\n")
+    with pytest.raises(SchemaVersionError) as exc_info:
+        Config.load(str(config_file))
+    assert exc_info.value.direction == "older"
+    assert "older" in str(exc_info.value)
+
+
+def test_schema_version_newer_raises_schema_version_error(tmp_path):
+    """A newer schema version raises SchemaVersionError with direction='newer'."""
+    config_file = tmp_path / ".project-guide.yml"
+    config_file.write_text("version: '99.0'\ncurrent_mode: default\n")
+    with pytest.raises(SchemaVersionError) as exc_info:
+        Config.load(str(config_file))
+    assert exc_info.value.direction == "newer"
+    assert "newer" in str(exc_info.value)
+    assert "Upgrade project-guide" in str(exc_info.value)
+
+
+def test_schema_version_absent_defaults_to_current(tmp_path):
+    """An absent version field defaults to SCHEMA_VERSION and loads normally."""
+    config_file = tmp_path / ".project-guide.yml"
+    config_file.write_text("current_mode: default\ninstalled_version: '1.0.0'\n")
+    loaded = Config.load(str(config_file))
+    assert loaded.version == SCHEMA_VERSION
+
+
+def test_schema_version_unparseable_raises_schema_version_error(tmp_path):
+    """A non-PEP440 version string is treated as an older-style mismatch."""
+    config_file = tmp_path / ".project-guide.yml"
+    config_file.write_text("version: 'not-a-version'\ncurrent_mode: default\n")
+    with pytest.raises(SchemaVersionError) as exc_info:
+        Config.load(str(config_file))
+    assert exc_info.value.direction == "older"
+
+
+def test_schema_version_error_is_config_error():
+    """SchemaVersionError is a subclass of ConfigError for existing handlers."""
+    err = SchemaVersionError("test", direction="older")
+    assert isinstance(err, ConfigError)
+
+
+# --- End Story N.p -----------------------------------------------------------

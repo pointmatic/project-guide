@@ -300,6 +300,38 @@ Rule of thumb: use pythonpath for library projects, editable install in testenv 
 - [x] Verify: workflow runs correctly, packages are published to PyPI
 - [x] Bump version to v2.4.14
 
+### Story N.p: v2.4.15 Schema Version Mismatch Protection [Done]
+
+Add a schema-version guard to `.project-guide.yml` so breaking config changes fail loudly with a recoverable exit path. Defers a migration framework until a concrete breaking change forces the issue; `update` auto-backs up the stale config and points the developer at `init --force` for a clean refresh, with manual merge from the backup.
+
+- [x] Add `SCHEMA_VERSION = "2.0"` module-level constant in `project_guide/config.py`
+- [x] In `Config.load()`, compare `data.get('version', "2.0")` to `SCHEMA_VERSION`:
+  - [x] Match → proceed as today
+  - [x] Older known → raise `SchemaVersionError` with "older schema" message
+  - [x] Newer unknown → raise `SchemaVersionError` with "newer schema; upgrade project-guide" message
+- [x] Add `SchemaVersionError(ConfigError)` subclass in `project_guide/exceptions.py` so command handlers can distinguish schema mismatch from other config errors
+- [x] In `cli.py:update`, catch `SchemaVersionError`:
+  - [x] On the "older" path: copy `.project-guide.yml` → `.project-guide.yml.bak.<timestamp>` (reuse `sync.backup_file` or equivalent)
+  - [x] Print: `Schema mismatch. Config backed up to <path>. Run 'project-guide init --force' to refresh, then manually merge customizations from the backup.`
+  - [x] On the "newer" path: do NOT back up; print upgrade-the-package message
+  - [x] Exit 1 in both cases
+- [x] Other commands that call `Config.load()` (`mode`, `status`, `override`, `unoverride`, `overrides`, `purge`) let `SchemaVersionError` propagate with a short message pointing user to run `project-guide update` for auto-backup
+- [x] In `cli.py:update`, broaden the re-render guard so `go.md` is re-rendered if it is missing, even when no template files changed this run (currently guarded only by `if template_files:`). Rationale: `go.md` is rendered output, not a tracked file, so deleting it leaves `update` as a silent no-op. Add regression test in `tests/test_cli.py` (new "Story N.p" section): delete `go.md`, run `update` with no template changes, assert `go.md` exists afterward
+- [x] Tests in `tests/test_config.py` (new "Story N.p" section):
+  - [x] Matching version loads normally
+  - [x] Older schema → `SchemaVersionError` with "older" wording
+  - [x] Newer schema → `SchemaVersionError` with "newer" wording
+  - [x] Absent `version` field defaults to `"2.0"` and loads normally (regression guard)
+- [x] Tests in `tests/test_cli.py` (new "Story N.p" section):
+  - [x] `update` with older schema creates timestamped backup, exits 1, message references `init --force`
+  - [x] `update` with newer schema does NOT create a backup; exits 1 with upgrade-package message
+  - [x] `status` / `mode` with older schema → clean error message pointing at `update`, exits 1
+- [x] Document the policy in `docs/specs/project-essentials.md` under a new `### Config schema versioning` subsection: bump `SCHEMA_VERSION` only for rename / remove / retype / semantic changes; additive-with-default does not bump. Note: "When a real breaking change arrives, revisit adding a migration registry."
+- [x] Update `docs/specs/tech-spec.md` Config section: note the schema-version check and the `SchemaVersionError` class
+- [x] Update `CHANGELOG.md` with v2.4.15 entry
+- [x] Bump version to v2.4.15
+- [x] Verify: all tests pass, ruff clean, `pyve run project-guide update` re-renders `go.md` cleanly
+
 ---
 
 ## Future

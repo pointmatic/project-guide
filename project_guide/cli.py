@@ -22,7 +22,14 @@ import click
 
 from project_guide.actions import ActionType, perform_archive
 from project_guide.config import Config
-from project_guide.exceptions import ActionError, ConfigError, MetadataError, RenderError, SyncError
+from project_guide.exceptions import (
+    ActionError,
+    ConfigError,
+    MetadataError,
+    RenderError,
+    SchemaVersionError,
+    SyncError,
+)
 from project_guide.metadata import ModeDefinition, _apply_metadata_overrides, load_metadata
 from project_guide.render import render_go_project_guide
 from project_guide.runtime import _resolve_setting, should_skip_input
@@ -594,8 +601,10 @@ def status(verbose):
         click.secho(f"Error: {e}", fg='red', err=True)
         sys.exit(3)  # Configuration error exit code
 
-    # Show v1.x migration notice if applicable
-    if config.version == "1.0" or config.target_dir == "docs/guides":
+    # Show v1.x migration notice if applicable. The version-based detection
+    # is handled upstream by SchemaVersionError in Config.load; the target_dir
+    # legacy path remains reachable for configs that never changed their layout.
+    if config.target_dir == "docs/guides":
         click.secho("Migration notice (v1.x → v2.x):", fg='yellow', bold=True)
         click.secho("  docs/guides/ is deprecated; new features target docs/project-guide/ only.", fg='yellow')
         click.secho("  Run 'project-guide init' to install the v2.x template system.", fg='yellow')
@@ -759,9 +768,28 @@ def update(files: tuple, dry_run: bool, force: bool, no_input: bool, quiet: bool
         )
         raise click.Abort()
 
-    # Load config
+    # Load config. SchemaVersionError is handled specially: on an "older"
+    # mismatch we back up the stale config and point the user at init --force;
+    # on a "newer" mismatch we tell the user to upgrade the package.
     try:
         config = Config.load(str(config_path))
+    except SchemaVersionError as e:
+        if e.direction == "older":
+            from datetime import datetime
+            timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+            backup_path = Path(f"{config_path}.bak.{timestamp}")
+            shutil.copy2(config_path, backup_path)
+            click.secho(f"Schema mismatch: {e}", fg='red', err=True)
+            click.secho(f"Config backed up to {backup_path}.", fg='yellow', err=True)
+            click.secho(
+                f"Run 'project-guide init --force' to refresh, then manually merge "
+                f"customizations from {backup_path}.",
+                fg='yellow',
+                err=True,
+            )
+        else:
+            click.secho(f"Error: {e}", fg='red', err=True)
+        sys.exit(1)
     except ConfigError as e:
         click.secho(f"Error: {e}", fg='red', err=True)
         sys.exit(3)  # Configuration error exit code
@@ -825,25 +853,27 @@ def update(files: tuple, dry_run: bool, force: bool, no_input: bool, quiet: bool
         config.installed_version = __version__
         config.save(str(config_path))
 
-        # Re-render go.md if any templates were updated
-        template_files = [f for f in all_updated if f.startswith("templates/")]
-        if template_files:
-            target_dir = Path(config.target_dir)
-            metadata_path = target_dir / config.metadata_file
-            try:
-                metadata = load_metadata(metadata_path)
-                _apply_metadata_overrides(metadata, config.metadata_overrides)
-                mode = metadata.get_mode(config.current_mode)
-                output_path = target_dir / "go.md"
-                render_go_project_guide(
-                    target_dir, mode, metadata, output_path,
-                    test_first=config.test_first,
-                    pyve_installed=config.pyve_version is not None,
-                    pyve_version=config.pyve_version,
-                )
-                click.secho("✓ Re-rendered go.md", fg='green')
-            except (MetadataError, RenderError) as e:
-                click.secho(f"Warning: Could not re-render go.md: {e}", fg='yellow')
+    # Re-render go.md if any templates were updated OR if go.md is missing.
+    # go.md is rendered output, not a tracked file, so deleting it must still
+    # cause update to restore it even when no templates changed this run.
+    target_dir_path = Path(config.target_dir)
+    output_path = target_dir_path / "go.md"
+    template_files = [f for f in all_updated if f.startswith("templates/")]
+    if not dry_run and (template_files or not output_path.exists()):
+        metadata_path = target_dir_path / config.metadata_file
+        try:
+            metadata = load_metadata(metadata_path)
+            _apply_metadata_overrides(metadata, config.metadata_overrides)
+            mode = metadata.get_mode(config.current_mode)
+            render_go_project_guide(
+                target_dir_path, mode, metadata, output_path,
+                test_first=config.test_first,
+                pyve_installed=config.pyve_version is not None,
+                pyve_version=config.pyve_version,
+            )
+            click.secho("✓ Re-rendered go.md", fg='green')
+        except (MetadataError, RenderError) as e:
+            click.secho(f"Warning: Could not re-render go.md: {e}", fg='yellow')
 
     # Print summary
     click.echo()

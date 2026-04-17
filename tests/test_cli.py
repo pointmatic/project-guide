@@ -320,13 +320,17 @@ def test_status_after_mode_change(runner, tmp_path):
 
 
 def test_status_v1_migration_notice(runner, tmp_path):
-    """Test status shows migration notice for v1.x configs."""
+    """Test status shows migration notice for legacy docs/guides target_dir.
+
+    Note: the version-based leg of this notice is now preempted by
+    SchemaVersionError at Config.load (Story N.p). The target_dir leg
+    remains for configs whose layout was never migrated.
+    """
     with runner.isolated_filesystem(temp_dir=tmp_path):
         runner.invoke(main, ['init'])
 
-        # Simulate v1.x config
+        # Simulate a legacy layout still pointing at docs/guides.
         config = Config.load(".project-guide.yml")
-        config.version = "1.0"
         config.target_dir = "docs/guides"
         config.save(".project-guide.yml")
 
@@ -1416,3 +1420,90 @@ def test_quiet_does_not_suppress_errors(runner, tmp_path):
 
 
 # --- End Story N.f -----------------------------------------------------------
+
+
+# --- Story N.p ---------------------------------------------------------------
+
+def _init_project(runner):
+    """Initialize project-guide in the current isolated filesystem."""
+    result = runner.invoke(main, ['init'])
+    assert result.exit_code == 0, result.output
+
+
+def _rewrite_config_version(version: str) -> None:
+    """Rewrite the `version:` line in `.project-guide.yml` to the given value."""
+    config_path = Path(".project-guide.yml")
+    content = config_path.read_text()
+    lines = content.splitlines()
+    for i, line in enumerate(lines):
+        if line.startswith("version:"):
+            lines[i] = f"version: '{version}'"
+            break
+    config_path.write_text("\n".join(lines) + "\n")
+
+
+def test_update_older_schema_backs_up_and_aborts(runner, tmp_path):
+    """update with an older schema version backs up the config and exits 1."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_project(runner)
+        _rewrite_config_version("1.0")
+
+        result = runner.invoke(main, ['update'])
+
+        assert result.exit_code == 1
+        assert "Schema mismatch" in result.output
+        assert "init --force" in result.output
+
+        backups = list(Path(".").glob(".project-guide.yml.bak.*"))
+        assert len(backups) == 1, f"Expected one backup, got: {backups}"
+
+
+def test_update_newer_schema_does_not_backup(runner, tmp_path):
+    """update with a newer schema version does NOT back up; instructs upgrade."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_project(runner)
+        _rewrite_config_version("99.0")
+
+        result = runner.invoke(main, ['update'])
+
+        assert result.exit_code == 1
+        assert "Upgrade project-guide" in result.output
+
+        backups = list(Path(".").glob(".project-guide.yml.bak.*"))
+        assert backups == [], f"Expected no backup on newer-schema path, got: {backups}"
+
+
+def test_status_older_schema_propagates_error(runner, tmp_path):
+    """status with an older schema version surfaces the schema error."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_project(runner)
+        _rewrite_config_version("1.0")
+
+        result = runner.invoke(main, ['status'])
+
+        assert result.exit_code != 0
+        assert "older" in result.output or "schema" in result.output.lower()
+
+
+def test_update_rerenders_go_md_when_missing(runner, tmp_path):
+    """update re-renders go.md when it is missing, even with no template changes.
+
+    Regression guard: go.md is rendered output (not a tracked file), so deleting
+    it must cause update to recreate it on the next run even if no templates
+    changed. Previously guarded only by `if template_files:` which silently
+    skipped the re-render in this case.
+    """
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_project(runner)
+        go_md = Path("docs/project-guide/go.md")
+        assert go_md.exists(), "init should have rendered go.md"
+        go_md.unlink()
+        assert not go_md.exists()
+
+        result = runner.invoke(main, ['update'])
+
+        assert result.exit_code == 0, result.output
+        assert go_md.exists(), "update should have re-rendered go.md"
+
+
+# --- End Story N.p -----------------------------------------------------------

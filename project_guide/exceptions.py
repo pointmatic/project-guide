@@ -23,6 +23,14 @@ class ConfigError(ProjectGuidesError):
     pass
 
 
+class SchemaVersionError(ConfigError):
+    """Raised when .project-guide.yml schema version does not match the package."""
+
+    def __init__(self, message: str, direction: str) -> None:
+        super().__init__(message)
+        self.direction = direction
+
+
 class SyncError(ProjectGuidesError):
     """Exception raised for sync operation failures."""
     pass

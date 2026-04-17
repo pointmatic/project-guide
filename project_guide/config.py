@@ -17,8 +17,42 @@ from datetime import date
 from pathlib import Path
 
 import yaml
+from packaging.version import InvalidVersion, Version
 
-from project_guide.exceptions import ConfigError
+from project_guide.exceptions import ConfigError, SchemaVersionError
+
+SCHEMA_VERSION = "2.0"
+
+
+def _check_schema_version(version_str: str) -> None:
+    """Validate the config file's schema version against SCHEMA_VERSION.
+
+    Raises SchemaVersionError when the loaded schema is older or newer than
+    this package supports. Additive field changes do not bump SCHEMA_VERSION;
+    only rename/remove/retype/semantic changes do.
+    """
+    try:
+        found = Version(version_str)
+        current = Version(SCHEMA_VERSION)
+    except InvalidVersion:
+        raise SchemaVersionError(
+            f"Unrecognized config schema version {version_str!r}. "
+            f"Expected {SCHEMA_VERSION!r}. "
+            "Run 'project-guide update' to back up the stale config and refresh via 'init --force'.",
+            direction="older",
+        )
+    if found < current:
+        raise SchemaVersionError(
+            f"Config schema {version_str!r} is older than this package's schema {SCHEMA_VERSION!r}. "
+            "Run 'project-guide update' to back up the stale config and refresh via 'init --force'.",
+            direction="older",
+        )
+    if found > current:
+        raise SchemaVersionError(
+            f"Config schema {version_str!r} is newer than this package's schema {SCHEMA_VERSION!r}. "
+            "Upgrade project-guide to a version that supports this config.",
+            direction="newer",
+        )
 
 
 @dataclass
@@ -80,6 +114,9 @@ class Config:
 
         if not data:
             raise ConfigError(f"Empty configuration file: {config_path}")
+
+        # Validate schema version before touching any fields.
+        _check_schema_version(str(data.get('version', SCHEMA_VERSION)))
 
         # Parse overrides
         overrides = {}
