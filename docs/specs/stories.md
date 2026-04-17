@@ -358,23 +358,23 @@ Relocate the `.project-guide.yml` backup from `update`'s `SchemaVersionError("ol
 - [x] Bump version to v2.4.16 in `project_guide/version.py` and `pyproject.toml`
 - [x] Verify: all tests pass, ruff clean
 
-### Story N.r: v2.4.17 LLM vs Developer Invocation Rule in Pyve Essentials [Planned]
+### Story N.r: v2.4.17 LLM vs Developer Invocation Rule in Pyve Essentials [Done]
 
 Teach the LLM to keep `pyve run` out of user-facing command suggestions. The wrapper is only needed because the LLM's Bash-tool shell does not auto-activate `.venv/`; the developer's shell typically does. Without this rule, the LLM generalizes from a successful `pyve run <cmd>` execution and echoes the wrapped form back to the developer in "next, run:" prompts — overriding the bare form that mode templates already use. Observed in the wild in `archive_stories` (LLM suggested `pyve run project-guide mode plan_phase` instead of `project-guide mode plan_phase`).
 
-- [ ] Add a new `### LLM-internal vs. developer-facing invocation` subsection to `project_guide/templates/project-guide/templates/artifacts/project-essentials-pyve.md`, placed immediately after the existing "Runtime code / Tests / Dev tools / Install dev tools" bullet list (before the `### Python invocation rule` subsection)
-  - [ ] State the rule: `pyve run` is for the LLM's own Bash-tool invocations; developer-facing suggestions use the bare form verbatim from the mode template
-  - [ ] Include ✅/❌ examples using `project-guide mode plan_phase`
-  - [ ] Include a **Why:** line referencing the Bash-tool shell vs. the developer's (typically pyve/direnv-activated) shell
-  - [ ] Include a **How to apply:** line: "Never prepend environment wrappers (`pyve run`, `poetry run`, `uv run`, etc.) to commands you quote from a mode template."
-- [ ] Run `pyve run project-guide update` to propagate the edited template into `docs/project-guide/` for this project (dogfooding)
-- [ ] Verify: rendered `docs/project-guide/go.md` contains the new subsection under `## Project Essentials`
-- [ ] Tests in `tests/test_render.py` (new "Story N.r" section):
-  - [ ] When pyve is detected, rendered `go.md` for any mode contains the new subsection heading (e.g., substring `"LLM-internal vs. developer-facing invocation"`)
-  - [ ] The subsection is absent when pyve is not detected (regression guard for the existing `project-essentials-pyve.md` inclusion gate)
-- [ ] Update `CHANGELOG.md` with v2.4.17 entry
-- [ ] Bump version to v2.4.17 in `project_guide/version.py` and `pyproject.toml`
-- [ ] Verify: all tests pass, ruff clean
+- [x] Add a new `### LLM-internal vs. developer-facing invocation` subsection to `project_guide/templates/project-guide/templates/artifacts/project-essentials-pyve.md`, placed immediately after the existing "Runtime code / Tests / Dev tools / Install dev tools" bullet list (before the `### Python invocation rule` subsection)
+  - [x] State the rule: `pyve run` is for the LLM's own Bash-tool invocations; developer-facing suggestions use the bare form verbatim from the mode template
+  - [x] Include ✅/❌ examples using `project-guide mode plan_phase`
+  - [x] Include a **Why:** line referencing the Bash-tool shell vs. the developer's (typically pyve/direnv-activated) shell
+  - [x] Include a **How to apply:** line: "Never prepend environment wrappers (`pyve run`, `poetry run`, `uv run`, etc.) to commands you quote from a mode template."
+- [x] Run `pyve run project-guide update` to propagate the edited template into `docs/project-guide/` for this project (dogfooding)
+- [x] Verify: rendered `docs/project-guide/go.md` contains the new subsection under `## Project Essentials`
+- [x] Tests in `tests/test_render.py` (new "Story N.r" section):
+  - [x] When pyve is detected, rendered `go.md` for any mode contains the new subsection heading (e.g., substring `"LLM-internal vs. developer-facing invocation"`)
+  - [x] The subsection is absent when pyve is not detected (regression guard for the existing `project-essentials-pyve.md` inclusion gate)
+- [x] Update `CHANGELOG.md` with v2.4.17 entry
+- [x] Bump version to v2.4.17 in `project_guide/version.py` and `pyproject.toml`
+- [x] Verify: all tests pass, ruff clean
 
 ### Story N.s: v2.4.18 project_name in Config + Silent-Placeholder Guard [Planned]
 

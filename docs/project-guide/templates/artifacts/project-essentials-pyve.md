@@ -9,6 +9,18 @@ This project uses `pyve` with **two separate environments**. Picking the wrong i
 
 If `pytest` fails with "not found" that is the signal to use `pyve test`, not to `pip install pytest` into the wrong venv.
 
+### LLM-internal vs. developer-facing invocation
+
+`pyve run` is for the LLM's own Bash-tool invocations; developer-facing command suggestions use the bare form verbatim from the mode template.
+
+- ✅ Developer-facing: `project-guide mode plan_phase`
+- ❌ Developer-facing: `pyve run project-guide mode plan_phase`
+- ✅ LLM Bash-tool: `pyve run project-guide mode plan_phase`
+
+**Why:** the LLM's Bash-tool shell does not auto-activate `.venv/`, so the LLM must wrap its own commands with `pyve run`. The developer's shell is typically already pyve/direnv-activated, so the bare form resolves correctly and matches the commands quoted throughout mode templates and documentation.
+
+**How to apply:** never prepend environment wrappers (`pyve run`, `poetry run`, `uv run`, etc.) to commands you quote back to the developer from a mode template. Use the wrapper only when you execute the command yourself through the Bash tool.
+
 ### Python invocation rule
 
 Always use `python`, never `python3`. The `python3` command bypasses `asdf` version shims and may resolve to the system interpreter rather than the project-pinned version, leading to subtle version mismatches.

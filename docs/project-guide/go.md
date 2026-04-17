@@ -54,6 +54,18 @@ This project uses `pyve` with **two separate environments**. Picking the wrong i
 
 If `pytest` fails with "not found" that is the signal to use `pyve test`, not to `pip install pytest` into the wrong venv.
 
+### LLM-internal vs. developer-facing invocation
+
+`pyve run` is for the LLM's own Bash-tool invocations; developer-facing command suggestions use the bare form verbatim from the mode template.
+
+- ✅ Developer-facing: `project-guide mode plan_phase`
+- ❌ Developer-facing: `pyve run project-guide mode plan_phase`
+- ✅ LLM Bash-tool: `pyve run project-guide mode plan_phase`
+
+**Why:** the LLM's Bash-tool shell does not auto-activate `.venv/`, so the LLM must wrap its own commands with `pyve run`. The developer's shell is typically already pyve/direnv-activated, so the bare form resolves correctly and matches the commands quoted throughout mode templates and documentation.
+
+**How to apply:** never prepend environment wrappers (`pyve run`, `poetry run`, `uv run`, etc.) to commands you quote back to the developer from a mode template. Use the wrapper only when you execute the command yourself through the Bash tool.
+
 ### Dogfooding rule — template source of truth
 
 This project uses itself (dogfooding). Template files live in **two places** that must not be confused:
@@ -88,7 +100,7 @@ Any future interactive prompt added to a CLI command **must** use the `should_sk
 
 - **Bump `SCHEMA_VERSION` only for breaking changes:** field rename, field removal, type change, or semantic-meaning change of an existing field.
 - **Do NOT bump for additive-with-default changes.** Adding a new optional field with a sensible default (as in every Phase N field: `test_first`, `pyve_version`, `metadata_overrides`) is already backwards-compatible via `data.get(key, default)` in `Config.load()`.
-- **On mismatch,** `Config.load()` raises `SchemaVersionError(direction="older"|"newer")`. `cli.py:update` handles this specially: on `"older"` it backs up `.project-guide.yml` to `.project-guide.yml.bak.<timestamp>` and points the user at `project-guide init --force`; on `"newer"` it tells the user to upgrade project-guide.
+- **On mismatch,** `Config.load()` raises `SchemaVersionError(direction="older"|"newer")`. `cli.py:update` handles this specially: on `"older"` it points the user at `project-guide init --force` (which performs the backup at the destructive-overwrite site); on `"newer"` it tells the user to upgrade project-guide. `cli.py:init` is the sole writer of `.project-guide.yml.bak.<timestamp>`: with `--force` on an existing config it copies the current file aside before overwriting it, so the backup is idempotent (one per refresh) regardless of the entry point.
 - **When a real breaking change arrives,** revisit adding a migration registry (deferred by design — YAGNI until there's something to migrate).
 
 ### Approval gate discipline

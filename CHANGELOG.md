@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.17] - 2026-04-16
+
+### Added
+- **`templates/artifacts/project-essentials-pyve.md`** — New `### LLM-internal vs. developer-facing invocation` subsection teaching the LLM to keep `pyve run` (and similar environment wrappers) out of developer-facing command suggestions. The wrapper is only needed because the LLM's Bash-tool shell does not auto-activate `.venv/`; the developer's shell typically does. Placed immediately after the environment-conventions bullet list and before the Python invocation rule.
+- **`docs/specs/project-essentials.md`** — Dogfooded: same subsection merged into this project's project-essentials so every rendered `go.md` surfaces the rule under `## Project Essentials`.
+
 ## [2.4.16] - 2026-04-16
 
 ### Changed

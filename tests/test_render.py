@@ -1099,6 +1099,105 @@ def test_header_common_memory_reflection_rule_renders_in_every_mode(mode_name):
 # --- End Story N.l -----------------------------------------------------------
 
 
+# --- Story N.r ---------------------------------------------------------------
+
+
+_PYVE_SUBSECTION_HEADING = "LLM-internal vs. developer-facing invocation"
+
+
+def test_pyve_artifact_contains_llm_vs_developer_subsection():
+    """Bundled project-essentials-pyve.md contains the new invocation subsection.
+
+    The LLM reads this artifact during `scaffold_project` when pyve is
+    detected; the subsection teaches it to keep `pyve run` out of
+    developer-facing command suggestions.
+    """
+    import importlib.resources
+
+    with importlib.resources.as_file(
+        importlib.resources.files("project_guide.templates").joinpath(
+            "project-guide/templates/artifacts/project-essentials-pyve.md"
+        )
+    ) as path:
+        content = path.read_text(encoding="utf-8")
+
+    assert f"### {_PYVE_SUBSECTION_HEADING}" in content
+    assert "project-guide mode plan_phase" in content
+    assert "**Why:**" in content
+    assert "**How to apply:**" in content
+
+    # Placement: immediately after the initial bullet list, before the
+    # Python invocation rule subsection (story ordering constraint).
+    heading_pos = content.index(f"### {_PYVE_SUBSECTION_HEADING}")
+    python_rule_pos = content.index("### Python invocation rule")
+    assert heading_pos < python_rule_pos
+
+
+def test_rendered_go_md_includes_subsection_when_project_essentials_merged(tmp_path):
+    """When project-essentials.md has been merged with the pyve content, every
+    rendered go.md surfaces the subsection via the ``## Project Essentials`` block.
+
+    Simulates the post-scaffold state (the LLM has copied the pyve sections
+    into ``docs/specs/project-essentials.md``) without actually running the
+    scaffold flow.
+    """
+    import importlib.resources
+
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    with importlib.resources.as_file(
+        importlib.resources.files("project_guide.templates").joinpath(
+            "project-guide/templates/artifacts/project-essentials-pyve.md"
+        )
+    ) as path:
+        pyve_essentials = path.read_text(encoding="utf-8")
+
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        specs_dir = Path("docs/specs")
+        specs_dir.mkdir(parents=True, exist_ok=True)
+        (specs_dir / "project-essentials.md").write_text(pyve_essentials, encoding="utf-8")
+
+        # Re-render the current mode so project_essentials is picked up.
+        result = runner.invoke(main, ['mode', 'default'])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    assert "## Project Essentials" in content
+    assert f"### {_PYVE_SUBSECTION_HEADING}" in content
+
+
+def test_rendered_go_md_omits_subsection_when_no_project_essentials(tmp_path):
+    """Fresh init → no project-essentials.md → subsection is absent from go.md.
+
+    Regression guard for the existing inclusion gate: the subsection only
+    reaches the developer when pyve detection has driven its content into
+    ``docs/specs/project-essentials.md``. Without that merge step, go.md
+    must not reference the subsection heading.
+    """
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    assert f"### {_PYVE_SUBSECTION_HEADING}" not in content
+
+
+# --- End Story N.r -----------------------------------------------------------
+
+
 @pytest.mark.parametrize("mode_name", _get_all_mode_names())
 def test_every_mode_renders_successfully(mode_name):
     """Every mode in the bundled metadata must render without errors.
