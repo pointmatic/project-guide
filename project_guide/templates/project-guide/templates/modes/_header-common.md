@@ -36,11 +36,16 @@ When you have completed the steps, pause for the developer to review, correct, r
 - When creating any new source file, add a copyright notice and license header using the comment syntax for that file type (`#` for Python/YAML/shell, `//` for JS/TS, `<!-- -->` for HTML/Svelte). Check this project's `project-essentials.md` for the specific copyright holder, license, and SPDX identifier to use.
 
 ---
-{% if project_essentials %}
+{% if project_essentials or pyve_essentials %}
 ## Project Essentials
-
+{% if project_essentials %}
 {{ project_essentials }}
+{% endif %}
+{% if pyve_essentials %}
+### Pyve Essentials
 
+{{ pyve_essentials }}
+{% endif %}
 ---
 {% endif %}
 # {{ mode_name }} mode ({{ sequence_or_cycle }})

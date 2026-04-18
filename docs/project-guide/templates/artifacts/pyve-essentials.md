@@ -1,4 +1,4 @@
-### Workflow rules — pyve environment conventions
+#### Workflow rules — pyve environment conventions
 
 This project uses `pyve` with **two separate environments**. Picking the wrong invocation form often "works" but leads to subtle drift. Use the canonical forms below:
 
@@ -9,7 +9,7 @@ This project uses `pyve` with **two separate environments**. Picking the wrong i
 
 If `pytest` fails with "not found" that is the signal to use `pyve test`, not to `pip install pytest` into the wrong venv.
 
-### LLM-internal vs. developer-facing invocation
+#### LLM-internal vs. developer-facing invocation
 
 `pyve run` is for the LLM's own Bash-tool invocations; developer-facing command suggestions use the bare form verbatim from the mode template.
 
@@ -21,15 +21,15 @@ If `pytest` fails with "not found" that is the signal to use `pyve test`, not to
 
 **How to apply:** never prepend environment wrappers (`pyve run`, `poetry run`, `uv run`, etc.) to commands you quote back to the developer from a mode template. Use the wrapper only when you execute the command yourself through the Bash tool.
 
-### Python invocation rule
+#### Python invocation rule
 
 Always use `python`, never `python3`. The `python3` command bypasses `asdf` version shims and may resolve to the system interpreter rather than the project-pinned version, leading to subtle version mismatches.
 
-### `requirements-dev.txt` story-writing rule
+#### `requirements-dev.txt` story-writing rule
 
 Any story that introduces dev tooling (ruff, mypy, pytest, types-* stubs) **must** include a task to create or update `requirements-dev.txt` so that `pyve testenv --install -r requirements-dev.txt` reproduces the full dev environment in one step. This keeps the dev environment reproducible and prevents "it works on my machine" drift.
 
-### Editable install and testenv dependency management
+#### Editable install and testenv dependency management
 
 LLMs often get confused about *where* to install an editable package when using pyve's two-environment model. The wrong choice "works" but creates subtle drift.
 

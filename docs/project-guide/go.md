@@ -22,7 +22,7 @@ For efficiency, when you change modes, start a new LLM conversation.
 ### For LLMs
 
 **Modes**
-This Project-Guide offers a human-in-the-loop workflow for you to follow that can be dynamically reconfigured based on the project `mode`. Each `mode` defines a focused sequence of steps to guide you (the LLM) to help generate artifacts for some facet in the project lifecycle. This document is customized for archive_stories.
+This Project-Guide offers a human-in-the-loop workflow for you to follow that can be dynamically reconfigured based on the project `mode`. Each `mode` defines a focused cycle of steps to guide you (the LLM) to help generate artifacts for some facet in the project lifecycle. This document is customized for code_direct.
 
 **Approval Gate**
 When you have completed the steps, pause for the developer to review, correct, redirect, or ask questions about your work.  
@@ -43,28 +43,7 @@ When you have completed the steps, pause for the developer to review, correct, r
 
 Must-know facts for future LLMs working on the project-guide project. These are things a smart newcomer could easily miss and waste time on. This content gets injected verbatim under a `## Project Essentials` section in every rendered mode, so entries below use `###` for subsections.
 
-### Workflow rules — pyve environment conventions
-
-This project uses `pyve` with **two separate environments**. Picking the wrong invocation form often "works" but leads to subtle drift. Use the canonical forms below:
-
-- **Runtime code (the `project_guide` package itself):** `pyve run python ...` or `pyve run project-guide ...`.
-- **Tests:** `pyve test [pytest args]` — **not** `pyve run pytest`. Pytest is not installed in the main `.venv/`; it lives in the dev testenv.
-- **Dev tools (ruff, mypy, pytest):** `pyve testenv run ruff check ...`, `pyve testenv run mypy ...`. These use `.pyve/testenv/venv/`.
-- **Install dev tools:** `pyve testenv --install -r requirements-dev.txt`. **Do not** run `pip install -e ".[dev]"` into the main venv — that pollutes the runtime environment with test-only dependencies and breaks the two-env isolation.
-
-If `pytest` fails with "not found" that is the signal to use `pyve test`, not to `pip install pytest` into the wrong venv.
-
-### LLM-internal vs. developer-facing invocation
-
-`pyve run` is for the LLM's own Bash-tool invocations; developer-facing command suggestions use the bare form verbatim from the mode template.
-
-- ✅ Developer-facing: `project-guide mode plan_phase`
-- ❌ Developer-facing: `pyve run project-guide mode plan_phase`
-- ✅ LLM Bash-tool: `pyve run project-guide mode plan_phase`
-
-**Why:** the LLM's Bash-tool shell does not auto-activate `.venv/`, so the LLM must wrap its own commands with `pyve run`. The developer's shell is typically already pyve/direnv-activated, so the bare form resolves correctly and matches the commands quoted throughout mode templates and documentation.
-
-**How to apply:** never prepend environment wrappers (`pyve run`, `poetry run`, `uv run`, etc.) to commands you quote back to the developer from a mode template. Use the wrapper only when you execute the command yourself through the Bash tool.
+**Note:** Pyve workflow rules (two-environment pattern, canonical invocation forms, `python` vs `python3`, `requirements-dev.txt` convention, editable-install/testenv guidance, LLM-internal vs. developer-facing invocation) are auto-rendered from the bundled `pyve-essentials.md` artifact under `## Project Essentials > ### Pyve Essentials` and are intentionally NOT duplicated here.
 
 ### Dogfooding rule — template source of truth
 
@@ -113,125 +92,135 @@ At approval gates, present the completed work and wait. **Do not prompt for, off
 **How to apply:** when presenting a completed story, end with a concise status + suggested next story. Do not offer "commit first or continue?" options. Do not mention bundling commits. The developer decides; the LLM presents and waits.
 
 
----
 
-# archive_stories mode (sequence)
+### Pyve Essentials
 
-> Archive docs/specs/stories.md and re-render a fresh one for the next phase
+#### Workflow rules — pyve environment conventions
 
+This project uses `pyve` with **two separate environments**. Picking the wrong invocation form often "works" but leads to subtle drift. Use the canonical forms below:
 
-Archive the completed `docs/specs/stories.md` so the next phase can start with a clean slate. The current file is moved to `docs/specs/.archive/stories-vX.Y.Z.md` (version derived from the latest story in the file), and a fresh empty `stories.md` is re-rendered from the artifact template with the `## Future` section preserved verbatim.
+- **Runtime code (the package itself):** `pyve run python ...` or `pyve run <entry-point> ...`.
+- **Tests:** `pyve test [pytest args]` — **not** `pyve run pytest`. Pytest is not installed in the main `.venv/`; it lives in the dev testenv at `.pyve/testenv/venv/`.
+- **Dev tools (ruff, mypy, pytest):** `pyve testenv run ruff check ...`, `pyve testenv run mypy ...`.
+- **Install dev tools:** `pyve testenv --install -r requirements-dev.txt`. **Do not** run `pip install -e ".[dev]"` into the main venv — that pollutes the runtime environment with test-only dependencies and breaks the two-env isolation.
 
-This mode is intended to run after all active stories are `[Done]` and before the developer plans the next phase. Phase letters continue across the archive boundary (see below).
+If `pytest` fails with "not found" that is the signal to use `pyve test`, not to `pip install pytest` into the wrong venv.
 
-## Prerequisites
+#### LLM-internal vs. developer-facing invocation
 
-- `docs/specs/stories.md` exists.
-- Ideally, all stories in `stories.md` are `[Done]`. The mode will **warn** but not block if any are not — the developer may choose to proceed anyway (e.g. to drop deferred work).
+`pyve run` is for the LLM's own Bash-tool invocations; developer-facing command suggestions use the bare form verbatim from the mode template.
 
-## Steps
+- ✅ Developer-facing: `project-guide mode plan_phase`
+- ❌ Developer-facing: `pyve run project-guide mode plan_phase`
+- ✅ LLM Bash-tool: `pyve run project-guide mode plan_phase`
 
-### 1. Read `docs/specs/stories.md`
+**Why:** the LLM's Bash-tool shell does not auto-activate `.venv/`, so the LLM must wrap its own commands with `pyve run`. The developer's shell is typically already pyve/direnv-activated, so the bare form resolves correctly and matches the commands quoted throughout mode templates and documentation.
 
-Load the current stories file. You will need:
+**How to apply:** never prepend environment wrappers (`pyve run`, `poetry run`, `uv run`, etc.) to commands you quote back to the developer from a mode template. Use the wrapper only when you execute the command yourself through the Bash tool.
 
-- The **latest versioned story heading** (`### Story X.y: vN.N.N ...`) — this becomes the archive version suffix.
-- The **latest `## Phase <Letter>:` heading** — informational only, but useful to show the developer which phase is being closed.
-- Whether a `## Future` section is present — it will be preserved verbatim.
+#### Python invocation rule
 
-### 2. Check for non-`[Done]` stories
+Always use `python`, never `python3`. The `python3` command bypasses `asdf` version shims and may resolve to the system interpreter rather than the project-pinned version, leading to subtle version mismatches.
 
-Scan all `### Story X.y: ... [<status>]` headings. If **any** story's status is not `[Done]`, list them for the developer:
+#### `requirements-dev.txt` story-writing rule
 
-> ⚠ The following stories are not marked `[Done]`:
-> - `Story J.o: v2.0.14 ... [In Progress]`
-> - `Story J.r: v2.0.16 ... [Planned]`
->
-> Archiving now will move these to `.archive/` along with the completed stories. You can:
-> 1. Finish or explicitly drop them first, then archive.
-> 2. Move them to the `## Future` section (they will carry over to the fresh `stories.md`).
-> 3. Proceed anyway (they stay in the archived file only).
->
-> How would you like to proceed?
+Any story that introduces dev tooling (ruff, mypy, pytest, types-* stubs) **must** include a task to create or update `requirements-dev.txt` so that `pyve testenv --install -r requirements-dev.txt` reproduces the full dev environment in one step. This keeps the dev environment reproducible and prevents "it works on my machine" drift.
 
-Wait for the developer's decision before continuing.
+#### Editable install and testenv dependency management
 
-### 3. Show the planned archive path
+LLMs often get confused about *where* to install an editable package when using pyve's two-environment model. The wrong choice "works" but creates subtle drift.
 
-Compute the archive target:
-
-- **Source**: `docs/specs/stories.md`
-- **Latest version**: `vX.Y.Z` (from step 1)
-- **Archive target**: `docs/specs/.archive/stories-vX.Y.Z.md`
-- **Future section**: will be preserved (or the template default will be used if none is present)
-
-Present this to the developer and await explicit approval.
-
-> I will archive `docs/specs/stories.md` → `docs/specs/.archive/stories-v2.0.20.md`.
-> The fresh `stories.md` will contain an empty body and carry over the current `## Future` section.
-> Say "go" to proceed.
-
-### 4. Perform the archive
-
-After approval, run:
-
+**Main environment only (preferred for library projects):**
 ```bash
-project-guide archive-stories
+pyve run pip install -e .
 ```
+Then configure pytest to find the source tree without a second editable install:
+```toml
+# pyproject.toml
+[tool.pytest.ini_options]
+pythonpath = ["."]   # or ["src"] for src layout
+```
+`pythonpath` handles import discovery cleanly and avoids maintaining two editable installs with potentially diverging dependency resolution.
 
-This CLI command wraps `project_guide.actions.perform_archive` — it moves the source to `.archive/` and re-renders a fresh `stories.md` from the bundled artifact template. If the archive target already exists (or any pre-check fails), the command raises an error and leaves the workspace untouched.
-
-On success, the command prints the archived path, the version, the phase letter, and whether a Future section was carried.
-
-### 5. Suggest next mode
-
-After the archive succeeds, suggest the next step:
-
-> ✓ Archived `stories.md` → `.archive/stories-vX.Y.Z.md` (Phase X closed).
-> The fresh `stories.md` is empty and ready for the next phase.
->
-> Next, run:
-> ```bash
-> project-guide mode plan_phase
-> ```
->
-> `plan_phase` will read `.archive/` to continue the phase letter sequence (e.g. if the archive's last phase was `K`, the next phase is `L`). See the Phase and Story ID Scheme below.
-
-**After completing all steps below**, prompt the user to change modes:
-
+**Testenv editable install (required for CLI projects):**
 ```bash
-project-guide mode plan_phase
+pyve testenv run pip install -e .
+pyve testenv --install -r requirements-dev.txt
 ```
+Use this when tests invoke CLI entry points (console scripts), because `pythonpath` only handles imports — it does not register entry points.
+
+**Rule of thumb:** use `pythonpath` for library/package projects; use editable install in testenv for projects whose tests exercise CLI entry points.
+
+**Important:** When `pyve` purges and reinitialises the main environment, the testenv remains intact and the testenv editable install survives. Re-running `pyve run pip install -e .` restores the main-environment editable install. See `developer/python-editable-install.md` for the full decision guide.
+
+
+---
+
+# code_direct mode (cycle)
+
+> Generate code directly, test after
+
+
+Implement stories rapidly with direct commits to main. Focus on feature completion and iteration speed over process overhead.
+
+**Next Action**
+Restart the cycle of steps. 
 
 ---
 
 
-## Phase and Story ID Scheme
+## Cycle Steps
 
-Phase and story IDs use a base-26 letter scheme with no zero. The same scheme applies to both — single letters first, then two-letter combinations, etc. This keeps IDs short while supporting projects of any size, and lets archive boundaries continue the sequence cleanly.
+For each story:
 
-### Phase letters
+1. **Read** the story's checklist from `docs/specs/stories.md`
+2. **Implement** all tasks in the checklist
+3. **Add copyright/license headers** to every new source file
+4. **Run tests** -- `pyve run pytest` (fix failures before continuing)
+5. **Run linting** -- fix any issues immediately
+6. **Mark tasks** as `[x]` in `stories.md` and change story suffix to `[Done]`
+7. **Bump version** in package manifest and source (if the story has a version)
+8. **Update CHANGELOG.md** with the version entry
+9. **Present** the completed story concisely: what changed (files + line refs), verification results (test counts, lint status), and the suggested next story. Do not propose commits, pushes, or bundling options. Do not offer "want me to also…?" follow-ups.
+10. **Wait** for the developer to say "go" before starting the next story
 
-Phases are labeled `A`, `B`, …, `Z`, then `AA`, `AB`, …, `AZ`, `BA`, …, `ZZ`, then `AAA`, …. The scheme is base-26 with no zero — there is no "phase 0" and `B` follows `A` (not `AB`).
+## Velocity Practices
 
-Examples in order: `A`, `B`, …, `Z`, `AA`, `AB`, `AC`, …, `AZ`, `BA`, `BB`, …, `ZZ`, `AAA`, ….
+**LLM's role in each cycle:**
 
-### Story sub-letters
+- **Version bump per story** -- v0.1.0, v0.2.0, v0.3.0, etc. — bump in package manifest and source
+- **Minimal process overhead** -- focus on making it work, not making it perfect
+- **Tests run after every story** -- not after every file, but before presenting to developer
+- **Fix linting immediately** -- small incremental fixes, not batch cleanup
+- **Update CHANGELOG.md** with the version entry before presenting
 
-Within a phase, stories use lowercase letters following the same scheme: `A.a`, `A.b`, …, `A.z`, then `A.aa`, `A.ab`, …, `A.az`, `A.ba`, ….
+**Developer's role (do NOT prompt for, offer, or initiate):**
 
-Examples: `A.a`, `A.b`, …, `A.z`, `A.aa`, `A.ab`, ….
+- **Direct commits to main** -- no branches, no PRs, no code review (velocity convention)
+- **Commit messages** reference story IDs: `"Story A.a: v0.1.0 Hello World"`
+- **Decides when to commit** -- the LLM presents, the developer commits. Multiple stories may be bundled into one commit at the developer's discretion — that is not the LLM's call to make or suggest.
 
-### Continuing across archive boundaries
+## Story Ordering
 
-When `stories.md` is archived (via `archive_stories` mode), the fresh `stories.md` starts empty — but phase letters do **not** reset. To determine the next phase letter:
+- Start with Story A.a (Hello World) if not yet implemented
+- If unclear which story is next, ask: "Which story should I work on next?"
+- Never skip ahead -- complete stories in order within each phase
 
-1. Look in `docs/specs/.archive/` for files matching `stories-vX.Y.Z.md`.
-2. If any exist, read the one with the highest version and find the highest phase letter inside it. The next phase letter is the successor in the base-26 sequence (e.g., if the archive's last phase was `K`, the next is `L`; if it was `AZ`, the next is `BA`).
-3. If `.archive/` is missing or empty, start at `A`.
+## File Header Reminder
 
-Story sub-letters reset within each phase — they do not continue across phases or archive boundaries.
+Every new source file must include the copyright and license header as the very first content (before code, docstrings, or imports).
 
----
+## When to Switch Modes
 
+Switch to **code_test_first** when:
+- Working on a story with complex logic that benefits from TDD
+- The developer requests test-first approach
+
+Switch to **debug** when:
+- A bug is discovered during implementation
+- Tests are failing unexpectedly
+
+Switch to **production mode** when:
+- CI/CD phase is complete and branch protection is enabled
+- The project is ready for public users
 

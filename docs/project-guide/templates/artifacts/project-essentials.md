@@ -36,10 +36,22 @@ What belongs here:
 
 An empty file is acceptable — omit this file entirely, or leave the comment
 block above with no content below it. When empty, the rendered `go.md` for
-every mode will simply omit the "Project Essentials" section.
+every mode will simply omit the "Project Essentials" section (unless pyve
+is installed, in which case the bundled `pyve-essentials.md` sibling
+artifact still renders under `## Project Essentials` as a `### Pyve
+Essentials` subsection — see below).
 
 The `plan_tech_spec`, `refactor_plan`, and `plan_phase` modes prompt for new
 entries at natural points in the project lifecycle.
+
+**Sibling bundled artifacts (do NOT duplicate here):** when `pyve` is
+detected at init time, the bundled `templates/artifacts/pyve-essentials.md`
+is auto-rendered into every `go.md` under `## Project Essentials > ### Pyve
+Essentials`. That artifact is package-versioned and improves across
+releases independently of this file — projects pick up upstream changes
+automatically on the next `project-guide mode` invocation. Do NOT copy or
+merge pyve-specific rules into this file; capture only project-specific
+deviations or facts not covered by the bundled artifact.
 
 - **File header conventions.** Every project should document the copyright
   holder, license, and SPDX identifier so LLMs apply them consistently.

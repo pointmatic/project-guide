@@ -68,6 +68,12 @@ def render_go_project_guide(
     # renders cleanly.
     project_essentials = _read_project_essentials(metadata.common.get("spec_artifacts_path"))
 
+    # Read the bundled pyve-essentials.md artifact when pyve is installed.
+    # Unlike project_essentials (project-owned), this is a package-versioned
+    # artifact in the template tree, so improvements flow automatically to
+    # every project on the next render.
+    pyve_essentials = _read_pyve_essentials(templates_subdir, pyve_installed)
+
     # Build context variables for Jinja2
     context = {
         "mode_name": mode.name,
@@ -78,6 +84,7 @@ def render_go_project_guide(
         "mode_template": mode_template_rel,
         "target_dir": str(template_dir),
         "project_essentials": project_essentials,
+        "pyve_essentials": pyve_essentials,
         "test_first": test_first,
         "pyve_installed": pyve_installed,
         "pyve_version": pyve_version,
@@ -175,6 +182,34 @@ def _read_project_essentials(spec_artifacts_path: str | None) -> str:
     if not spec_artifacts_path:
         return ""
     path = Path(spec_artifacts_path) / "project-essentials.md"
+    if not path.exists():
+        return ""
+    content = path.read_text(encoding="utf-8")
+    if not content.strip():
+        return ""
+    return content
+
+
+def _read_pyve_essentials(templates_subdir: Path, pyve_installed: bool) -> str:
+    """Read the bundled pyve-essentials.md artifact from the template tree.
+
+    Unlike ``project-essentials.md`` (project-owned, read from
+    ``spec_artifacts_path``), this artifact is bundled with the
+    project-guide package and lives in the template tree. When pyve is
+    installed, its content is rendered as a ``### Pyve Essentials``
+    subsection nested inside the ``## Project Essentials`` wrapper so
+    every project picks up upstream improvements on the next render
+    without any one-shot merge step.
+
+    Returns an empty string when:
+    - ``pyve_installed`` is ``False``
+    - the bundled file is missing (defensive — should not happen in
+      a working install)
+    - the file is whitespace-only
+    """
+    if not pyve_installed:
+        return ""
+    path = templates_subdir / "artifacts" / "pyve-essentials.md"
     if not path.exists():
         return ""
     content = path.read_text(encoding="utf-8")

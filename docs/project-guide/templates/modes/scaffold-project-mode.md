@@ -119,13 +119,7 @@ Read `docs/specs/stories.md` and locate Story A.a.
 - If Story A.a is found and represents project scaffolding: mark all its tasks `[x]` and change its status suffix from `[Planned]` to `[Done]`.
 - If Story A.a is not found or does not appear to be a scaffolding story: warn the developer ("Story A.a not found or does not match expected scaffolding content — skipping story update") and continue.
 
-{% if pyve_installed %}
-### 8. Merge Pyve Project Essentials
-
-Read `templates/artifacts/project-essentials-pyve.md` and copy or merge its content into `docs/specs/project-essentials.md`. This ensures Pyve-specific dev-environment rules are documented before coding begins. If `docs/specs/project-essentials.md` does not yet exist, create it from the Pyve content; if it already exists, append the Pyve sections (skip any that are already present).
-
-{% endif %}
-### {% if pyve_installed %}9{% else %}8{% endif %}. Memory Review
+### 8. Memory Review
 
 Read your recorded memories for this project (e.g., `.claude/projects/<project-path>/memory/` for Claude Code users).
 
@@ -137,7 +131,7 @@ Present candidates to the developer:
 
 Await confirmation, then append confirmed items to `docs/specs/project-essentials.md` following the heading convention (`###` subsections, no top-level `#`). If the memory store is empty or inaccessible, note this briefly and continue.
 
-### {% if pyve_installed %}10{% else %}9{% endif %}. Present for Approval
+### 9. Present for Approval
 
 Present the scaffolded project to the developer for review:
 

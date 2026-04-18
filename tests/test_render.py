@@ -943,69 +943,17 @@ def test_default_mode_with_test_first_false_suggests_code_direct():
 # --- End Story N.d -----------------------------------------------------------
 
 
-# --- Story N.j ---------------------------------------------------------------
+# --- Story O.a ---------------------------------------------------------------
 
 
-def test_scaffold_project_pyve_installed_shows_merge_instruction():
-    """Rendered scaffold_project with pyve_installed=True contains pyve merge instruction."""
-    from click.testing import CliRunner  # noqa: I001
-
-    from project_guide.cli import main
-
-    runner = CliRunner()
-    with runner.isolated_filesystem():
-        runner.invoke(main, ['init'])
-
-        result = runner.invoke(main, ['mode', 'scaffold_project'])
-        assert result.exit_code == 0
-
-        # Patch config to simulate pyve detected, then re-render via mode switch
-        import yaml
-        config_data = yaml.safe_load(Path(".project-guide.yml").read_text())
-        config_data["pyve_version"] = "1.2.3"
-        Path(".project-guide.yml").write_text(yaml.dump(config_data))
-
-        result = runner.invoke(main, ['mode', 'scaffold_project'])
-        assert result.exit_code == 0
-
-        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
-
-    assert "project-essentials-pyve.md" in content
-    assert "Pyve" in content or "pyve" in content
-
-
-def test_scaffold_project_pyve_not_installed_omits_pyve_section():
-    """Rendered scaffold_project with pyve_installed=False omits pyve merge instruction."""
-    import yaml
-    from click.testing import CliRunner  # noqa: I001
-
-    from project_guide.cli import main
-
-    runner = CliRunner()
-    with runner.isolated_filesystem():
-        runner.invoke(main, ['init'])
-
-        # Force pyve_version to None regardless of what detection found
-        config_data = yaml.safe_load(Path(".project-guide.yml").read_text())
-        config_data["pyve_version"] = None
-        Path(".project-guide.yml").write_text(yaml.dump(config_data))
-
-        result = runner.invoke(main, ['mode', 'scaffold_project'])
-        assert result.exit_code == 0
-
-        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
-
-    assert "project-essentials-pyve.md" not in content
-
-
-def test_project_essentials_pyve_artifact_has_no_unrendered_placeholders():
-    """project-essentials-pyve.md artifact contains no unrendered {{ var }} placeholders."""
+def test_pyve_essentials_artifact_has_no_unrendered_placeholders():
+    """pyve-essentials.md artifact contains no unrendered {{ var }} placeholders."""
     import importlib.resources
     import re
 
     with importlib.resources.as_file(
         importlib.resources.files("project_guide.templates").joinpath(
-            "project-guide/templates/artifacts/project-essentials-pyve.md"
+            "project-guide/templates/artifacts/pyve-essentials.md"
         )
     ) as path:
         content = path.read_text(encoding="utf-8")
@@ -1015,7 +963,200 @@ def test_project_essentials_pyve_artifact_has_no_unrendered_placeholders():
     assert "pyve" in content.lower()
 
 
-# --- End Story N.j -----------------------------------------------------------
+def test_scaffold_project_pyve_installed_omits_merge_step():
+    """Post-O.a: scaffold_project no longer has a 'Merge Pyve Project Essentials' step."""
+    import yaml
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        runner.invoke(main, ['init'])
+
+        # Force pyve_version set, re-render
+        config_data = yaml.safe_load(Path(".project-guide.yml").read_text())
+        config_data["pyve_version"] = "1.2.3"
+        Path(".project-guide.yml").write_text(yaml.dump(config_data))
+
+        result = runner.invoke(main, ['mode', 'scaffold_project'])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    assert "Merge Pyve Project Essentials" not in content
+
+
+def test_plan_tech_spec_omits_pyve_users_paragraph():
+    """Post-O.a: plan_tech_spec no longer has the 'Pyve users:' paragraph."""
+    import yaml
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        runner.invoke(main, ['init'])
+
+        config_data = yaml.safe_load(Path(".project-guide.yml").read_text())
+        config_data["pyve_version"] = "1.2.3"
+        Path(".project-guide.yml").write_text(yaml.dump(config_data))
+
+        result = runner.invoke(main, ['mode', 'plan_tech_spec'])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    assert "Pyve users:" not in content
+
+
+def test_go_md_auto_renders_pyve_essentials_when_pyve_installed(tmp_path):
+    """When pyve is installed, every rendered go.md includes pyve-essentials content
+    under ## Project Essentials > ### Pyve Essentials — even without any manual
+    merge into project-essentials.md."""
+    import yaml
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        # Force pyve_version set; do NOT create docs/specs/project-essentials.md
+        config_data = yaml.safe_load(Path(".project-guide.yml").read_text())
+        config_data["pyve_version"] = "1.2.3"
+        Path(".project-guide.yml").write_text(yaml.dump(config_data))
+
+        result = runner.invoke(main, ['mode', 'default'])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    assert "## Project Essentials" in content
+    assert "### Pyve Essentials" in content
+    # Content from the bundled artifact should appear
+    assert "two separate environments" in content
+    assert "pyve test" in content
+
+
+def test_go_md_omits_pyve_essentials_when_pyve_not_installed(tmp_path):
+    """When pyve is not installed, rendered go.md has no Pyve Essentials section."""
+    import yaml
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        # Force pyve_version to None regardless of what detection found
+        config_data = yaml.safe_load(Path(".project-guide.yml").read_text())
+        config_data["pyve_version"] = None
+        Path(".project-guide.yml").write_text(yaml.dump(config_data))
+
+        result = runner.invoke(main, ['mode', 'default'])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    assert "### Pyve Essentials" not in content
+
+
+def test_go_md_renders_project_essentials_wrapper_even_when_only_pyve_content(tmp_path):
+    """When project-essentials.md is absent but pyve is installed, the
+    ## Project Essentials wrapper still renders so ### Pyve Essentials has a parent."""
+    import yaml
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        # Set pyve_version, ensure no project-essentials.md exists
+        config_data = yaml.safe_load(Path(".project-guide.yml").read_text())
+        config_data["pyve_version"] = "1.2.3"
+        Path(".project-guide.yml").write_text(yaml.dump(config_data))
+
+        pe_path = Path("docs/specs/project-essentials.md")
+        if pe_path.exists():
+            pe_path.unlink()
+
+        result = runner.invoke(main, ['mode', 'default'])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    wrapper_pos = content.find("## Project Essentials")
+    pyve_pos = content.find("### Pyve Essentials")
+    assert wrapper_pos != -1
+    assert pyve_pos != -1
+    assert wrapper_pos < pyve_pos
+
+
+def test_go_md_has_both_project_essentials_and_pyve_essentials(tmp_path):
+    """When both project-essentials.md and pyve are present, go.md surfaces both
+    with ### Pyve Essentials nested inside the ## Project Essentials wrapper."""
+    import yaml
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        config_data = yaml.safe_load(Path(".project-guide.yml").read_text())
+        config_data["pyve_version"] = "1.2.3"
+        Path(".project-guide.yml").write_text(yaml.dump(config_data))
+
+        specs_dir = Path("docs/specs")
+        specs_dir.mkdir(parents=True, exist_ok=True)
+        (specs_dir / "project-essentials.md").write_text(
+            "### My Project Convention\n\nFoo must be bar.\n", encoding="utf-8"
+        )
+
+        result = runner.invoke(main, ['mode', 'default'])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    wrapper_pos = content.find("## Project Essentials")
+    convention_pos = content.find("### My Project Convention")
+    pyve_pos = content.find("### Pyve Essentials")
+
+    assert wrapper_pos != -1
+    assert convention_pos != -1
+    assert pyve_pos != -1
+    assert wrapper_pos < convention_pos
+    assert convention_pos < pyve_pos
+
+
+def test_old_pyve_artifact_filename_not_referenced():
+    """Regression guard: no test or bundled template still references the
+    pre-rename filename project-essentials-pyve.md."""
+    import importlib.resources
+
+    with importlib.resources.as_file(
+        importlib.resources.files("project_guide.templates").joinpath(
+            "project-guide/templates"
+        )
+    ) as templates_root:
+        for md_file in Path(templates_root).rglob("*.md"):
+            content = md_file.read_text(encoding="utf-8")
+            assert "project-essentials-pyve.md" not in content, (
+                f"Old filename reference in {md_file}"
+            )
+
+
+# --- End Story O.a -----------------------------------------------------------
 
 
 # --- Story N.k ---------------------------------------------------------------
@@ -1097,105 +1238,6 @@ def test_header_common_memory_reflection_rule_renders_in_every_mode(mode_name):
 
 
 # --- End Story N.l -----------------------------------------------------------
-
-
-# --- Story N.r ---------------------------------------------------------------
-
-
-_PYVE_SUBSECTION_HEADING = "LLM-internal vs. developer-facing invocation"
-
-
-def test_pyve_artifact_contains_llm_vs_developer_subsection():
-    """Bundled project-essentials-pyve.md contains the new invocation subsection.
-
-    The LLM reads this artifact during `scaffold_project` when pyve is
-    detected; the subsection teaches it to keep `pyve run` out of
-    developer-facing command suggestions.
-    """
-    import importlib.resources
-
-    with importlib.resources.as_file(
-        importlib.resources.files("project_guide.templates").joinpath(
-            "project-guide/templates/artifacts/project-essentials-pyve.md"
-        )
-    ) as path:
-        content = path.read_text(encoding="utf-8")
-
-    assert f"### {_PYVE_SUBSECTION_HEADING}" in content
-    assert "project-guide mode plan_phase" in content
-    assert "**Why:**" in content
-    assert "**How to apply:**" in content
-
-    # Placement: immediately after the initial bullet list, before the
-    # Python invocation rule subsection (story ordering constraint).
-    heading_pos = content.index(f"### {_PYVE_SUBSECTION_HEADING}")
-    python_rule_pos = content.index("### Python invocation rule")
-    assert heading_pos < python_rule_pos
-
-
-def test_rendered_go_md_includes_subsection_when_project_essentials_merged(tmp_path):
-    """When project-essentials.md has been merged with the pyve content, every
-    rendered go.md surfaces the subsection via the ``## Project Essentials`` block.
-
-    Simulates the post-scaffold state (the LLM has copied the pyve sections
-    into ``docs/specs/project-essentials.md``) without actually running the
-    scaffold flow.
-    """
-    import importlib.resources
-
-    from click.testing import CliRunner  # noqa: I001
-
-    from project_guide.cli import main
-
-    with importlib.resources.as_file(
-        importlib.resources.files("project_guide.templates").joinpath(
-            "project-guide/templates/artifacts/project-essentials-pyve.md"
-        )
-    ) as path:
-        pyve_essentials = path.read_text(encoding="utf-8")
-
-    runner = CliRunner()
-    with runner.isolated_filesystem(temp_dir=tmp_path):
-        result = runner.invoke(main, ['init'])
-        assert result.exit_code == 0
-
-        specs_dir = Path("docs/specs")
-        specs_dir.mkdir(parents=True, exist_ok=True)
-        (specs_dir / "project-essentials.md").write_text(pyve_essentials, encoding="utf-8")
-
-        # Re-render the current mode so project_essentials is picked up.
-        result = runner.invoke(main, ['mode', 'default'])
-        assert result.exit_code == 0
-
-        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
-
-    assert "## Project Essentials" in content
-    assert f"### {_PYVE_SUBSECTION_HEADING}" in content
-
-
-def test_rendered_go_md_omits_subsection_when_no_project_essentials(tmp_path):
-    """Fresh init → no project-essentials.md → subsection is absent from go.md.
-
-    Regression guard for the existing inclusion gate: the subsection only
-    reaches the developer when pyve detection has driven its content into
-    ``docs/specs/project-essentials.md``. Without that merge step, go.md
-    must not reference the subsection heading.
-    """
-    from click.testing import CliRunner  # noqa: I001
-
-    from project_guide.cli import main
-
-    runner = CliRunner()
-    with runner.isolated_filesystem(temp_dir=tmp_path):
-        result = runner.invoke(main, ['init'])
-        assert result.exit_code == 0
-
-        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
-
-    assert f"### {_PYVE_SUBSECTION_HEADING}" not in content
-
-
-# --- End Story N.r -----------------------------------------------------------
 
 
 @pytest.mark.parametrize("mode_name", _get_all_mode_names())

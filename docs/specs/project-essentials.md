@@ -1,27 +1,6 @@
 Must-know facts for future LLMs working on the project-guide project. These are things a smart newcomer could easily miss and waste time on. This content gets injected verbatim under a `## Project Essentials` section in every rendered mode, so entries below use `###` for subsections.
 
-### Workflow rules — pyve environment conventions
-
-This project uses `pyve` with **two separate environments**. Picking the wrong invocation form often "works" but leads to subtle drift. Use the canonical forms below:
-
-- **Runtime code (the `project_guide` package itself):** `pyve run python ...` or `pyve run project-guide ...`.
-- **Tests:** `pyve test [pytest args]` — **not** `pyve run pytest`. Pytest is not installed in the main `.venv/`; it lives in the dev testenv.
-- **Dev tools (ruff, mypy, pytest):** `pyve testenv run ruff check ...`, `pyve testenv run mypy ...`. These use `.pyve/testenv/venv/`.
-- **Install dev tools:** `pyve testenv --install -r requirements-dev.txt`. **Do not** run `pip install -e ".[dev]"` into the main venv — that pollutes the runtime environment with test-only dependencies and breaks the two-env isolation.
-
-If `pytest` fails with "not found" that is the signal to use `pyve test`, not to `pip install pytest` into the wrong venv.
-
-### LLM-internal vs. developer-facing invocation
-
-`pyve run` is for the LLM's own Bash-tool invocations; developer-facing command suggestions use the bare form verbatim from the mode template.
-
-- ✅ Developer-facing: `project-guide mode plan_phase`
-- ❌ Developer-facing: `pyve run project-guide mode plan_phase`
-- ✅ LLM Bash-tool: `pyve run project-guide mode plan_phase`
-
-**Why:** the LLM's Bash-tool shell does not auto-activate `.venv/`, so the LLM must wrap its own commands with `pyve run`. The developer's shell is typically already pyve/direnv-activated, so the bare form resolves correctly and matches the commands quoted throughout mode templates and documentation.
-
-**How to apply:** never prepend environment wrappers (`pyve run`, `poetry run`, `uv run`, etc.) to commands you quote back to the developer from a mode template. Use the wrapper only when you execute the command yourself through the Bash tool.
+**Note:** Pyve workflow rules (two-environment pattern, canonical invocation forms, `python` vs `python3`, `requirements-dev.txt` convention, editable-install/testenv guidance, LLM-internal vs. developer-facing invocation) are auto-rendered from the bundled `pyve-essentials.md` artifact under `## Project Essentials > ### Pyve Essentials` and are intentionally NOT duplicated here.
 
 ### Dogfooding rule — template source of truth
 

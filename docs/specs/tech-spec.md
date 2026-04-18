@@ -163,7 +163,11 @@ project-guide/
 **Purpose**: Jinja2 rendering pipeline.
 
 **Key function:**
-- `render_go_project_guide(template_dir, mode, metadata, output_path, pyve_installed, pyve_version)` — configures Jinja2 environment with `templates/` as the loader path, resolves mode template path (strips prefix to get relative path within `modes/`), builds context from mode fields + metadata common vars + `target_dir` + `pyve_installed` + `pyve_version`, renders `go.md` template, writes output
+- `render_go_project_guide(template_dir, mode, metadata, output_path, pyve_installed, pyve_version)` — configures Jinja2 environment with `templates/` as the loader path, resolves mode template path (strips prefix to get relative path within `modes/`), builds context from mode fields + metadata common vars + `target_dir` + `pyve_installed` + `pyve_version` + `project_essentials` + `pyve_essentials`, renders `go.md` template, writes output
+
+**Helpers:**
+- `_read_project_essentials(spec_artifacts_path)` — reads `docs/specs/project-essentials.md` (project-owned); returns `""` when missing, whitespace-only, or `spec_artifacts_path` is `None`. Empty string causes `_header-common.md` to omit the `## Project Essentials` wrapper.
+- `_read_pyve_essentials(templates_subdir, pyve_installed)` — reads `templates/artifacts/pyve-essentials.md` from the bundled template tree (package-versioned, not project-owned); returns `""` when `pyve_installed=False`, file missing, or whitespace-only. When non-empty, `_header-common.md` renders it as a `### Pyve Essentials` subsection under `## Project Essentials`. This is auto-render, not a one-shot merge — improvements flow to every project on the next render.
 
 **Jinja2 configuration:**
 - Loader: `FileSystemLoader` on `templates/` subdirectory only

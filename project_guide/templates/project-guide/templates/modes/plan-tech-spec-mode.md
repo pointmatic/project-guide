@@ -49,10 +49,6 @@ The approved `docs/specs/concept.md` and `docs/specs/features.md` must exist bef
    If the developer says there are none, skip to step 7 — do not create an empty `project-essentials.md`. An empty file is acceptable when maintaining an existing one, but a new project should only get this file if there's actual content to put in it.
 
 6. If the developer provides any facts, generate `docs/specs/project-essentials.md` using the artifact template at `templates/artifacts/project-essentials.md`. Follow the template's heading convention: **do NOT include a top-level `#` heading** (the rendered `go.md` wrapper provides `## Project Essentials`), and use `###` for subsection headings so they nest correctly. Present the document to the developer for approval and iterate as needed.
-{% if pyve_installed %}
-
-   **Pyve users:** Also read `templates/artifacts/project-essentials-pyve.md` and merge its Pyve-specific rules into `docs/specs/project-essentials.md`. These cover the two-environment pattern, the `python` vs `python3` invocation rule, and the `requirements-dev.txt` convention.
-{% endif %}
 
 7. Done — proceed to the next mode.
 

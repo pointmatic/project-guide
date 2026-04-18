@@ -328,15 +328,15 @@ The system renders a single entry-point document (`go.md`) from Jinja2 templates
 
 `metadata_overrides` in `.project-guide.yml` allows per-project patching of individual mode fields without editing the bundled `.metadata.yml`. Only these fields are patchable: `next_mode`, `files_exist`, `info`, `description`. Partial patch semantics — unmentioned fields are unchanged. Unknown mode names or fields raise `MetadataError`. Overrides are applied at every `load_metadata()` call site.
 
-### FR-13: Pyve Detection and Bundled project-essentials-pyve.md
+### FR-13: Pyve Detection and Auto-Rendered pyve-essentials.md
 
 `project-guide init` detects whether `pyve` is installed by running `pyve --version`. On success, the version string is stored as `pyve_version` in `.project-guide.yml`; on failure (`FileNotFoundError`, non-zero exit, timeout), `null` is stored. Detection failure is non-fatal.
 
-The `pyve_installed` boolean (derived from `pyve_version`) is passed as a Jinja2 context variable at every render call site. When true:
-- `scaffold-project-mode.md` gains a "Merge Pyve Project Essentials" step that copies `templates/artifacts/project-essentials-pyve.md` into `docs/specs/project-essentials.md`.
-- `plan-tech-spec-mode.md` instructs the LLM to merge pyve-specific rules when creating `project-essentials.md`.
+The `pyve_installed` boolean (derived from `pyve_version`) is passed as a Jinja2 context variable at every render call site. When true, `render.py` reads `templates/artifacts/pyve-essentials.md` from the template tree and passes its content as the `pyve_essentials` context variable. `_header-common.md` renders it as a `### Pyve Essentials` subsection nested inside the `## Project Essentials` wrapper, so every `go.md` across every mode surfaces the bundled pyve rules automatically.
 
-The bundled `templates/artifacts/project-essentials-pyve.md` artifact covers: two-environment pattern, canonical invocation forms, `python` vs `python3` asdf-shim rule, and `requirements-dev.txt` story-writing convention.
+This is a package-versioned auto-render rather than a one-shot merge: improvements to `pyve-essentials.md` flow to every project on the next `project-guide mode <name>` invocation without any scaffold-time copy step.
+
+The bundled `templates/artifacts/pyve-essentials.md` artifact covers: two-environment pattern, canonical invocation forms, LLM-internal vs. developer-facing invocation rule, `python` vs `python3` asdf-shim rule, `requirements-dev.txt` story-writing convention, and editable install / testenv dependency management.
 
 ### FR-7: Shell Completion
 

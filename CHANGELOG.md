@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.0] - 2026-04-17
+
+### Changed
+- **`project_guide/templates/project-guide/templates/artifacts/pyve-essentials.md`** — Renamed from `project-essentials-pyve.md` to signal it is a package-versioned bundled artifact (not a project-owned file). Subsection headings demoted from `###` to `####` so they nest under the new `### Pyve Essentials` wrapper rendered by `_header-common.md`.
+- **`project_guide/render.py`** — New `_read_pyve_essentials(templates_subdir, pyve_installed)` helper reads the bundled artifact from the template tree and passes its content as the `pyve_essentials` Jinja context variable. When pyve is installed, every `go.md` now auto-renders the bundled pyve rules under `## Project Essentials > ### Pyve Essentials` — upstream improvements flow to every project on the next `project-guide mode <name>` invocation without any one-shot merge step.
+- **`project_guide/templates/project-guide/templates/modes/_header-common.md`** — `{% if project_essentials or pyve_essentials %}` wrapper; renders `project_essentials` content first (if any), then `### Pyve Essentials` subsection (if pyve installed). The `## Project Essentials` wrapper still renders when only pyve content is present, so the subsection always has a parent heading.
+- **`project_guide/templates/project-guide/templates/artifacts/project-essentials.md`** — Comment block updated to document `pyve-essentials.md` as a sibling bundled artifact and explicitly instruct authors NOT to duplicate pyve-specific rules into this file.
+- **`project_guide/templates/project-guide/templates/modes/refactor-plan-mode.md`** — Step F.2 examples updated: environment-manager and runtime/dev-split examples use `hatch`/`tox` rather than `pyve`, and note that pyve-specific rules are auto-rendered from the bundled artifact (do NOT duplicate into `project-essentials.md`).
+- **`docs/specs/features.md`** — FR-13 retitled "Pyve Detection and Auto-Rendered pyve-essentials.md"; body rewritten to describe the auto-render contract instead of the former one-shot merge.
+- **`docs/specs/tech-spec.md`** — `render.py` module description expanded with the new `_read_project_essentials` and `_read_pyve_essentials` helpers and the `project_essentials` / `pyve_essentials` context variables.
+- **`docs/specs/project-essentials.md`** (dogfood) — Removed the "Workflow rules — pyve environment conventions" and "LLM-internal vs. developer-facing invocation" sections; they now auto-render from the bundled `pyve-essentials.md`.
+
+### Removed
+- **`scaffold-project-mode.md`** — "Merge Pyve Project Essentials" step (the one-shot merge at scaffold time) removed; pyve content is auto-rendered instead.
+- **`plan-tech-spec-mode.md`** — "Pyve users" merge paragraph in step 6 removed.
+
+### Migration
+Existing downstream projects may have pyve sections merged into their `docs/specs/project-essentials.md` from pre-v2.5.0 scaffold. The duplication is inert (content renders once from each source and the other is a plain re-render). Users may optionally delete the merged-in pyve sections to defer to the bundled source of truth and pick up future upstream improvements automatically.
+
 ## [2.4.19] - 2026-04-17
 
 ### Fixed
