@@ -1367,56 +1367,92 @@ def test_update_project_guide_no_input_env(runner, tmp_path, monkeypatch):
 # --- Story N.f ---------------------------------------------------------------
 
 
-def test_init_quiet_suppresses_per_file_lines(runner, tmp_path):
-    """init --quiet produces no per-file ✓ lines; summary count still present."""
+def test_init_quiet_success_emits_no_stdout(runner, tmp_path):
+    """init --quiet: success emits nothing to stdout (embedding-friendly)."""
     with runner.isolated_filesystem(temp_dir=tmp_path):
         result = runner.invoke(main, ['init', '--quiet'])
 
         assert result.exit_code == 0
-        # No per-file "✓ Installed" lines
-        assert "✓ Installed" not in result.output
-        assert "⚠ Skipped" not in result.output
-        # Summary count line is still present
-        assert "Successfully initialized" in result.output
+        assert result.stdout == ''
+        combined = result.stdout + (result.stderr or '')
+        assert "✓ Installed" not in combined
+        assert "⚠ Skipped" not in combined
 
 
-def test_update_quiet_suppresses_per_file_lines(runner, tmp_path):
-    """update --quiet suppresses per-file sync output; summary still present."""
+def test_init_quiet_already_initialized_emits_no_stdout(runner, tmp_path):
+    """init --quiet when already initialized exits 0 with empty stdout."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        runner.invoke(main, ['init'])
+        result = runner.invoke(main, ['init', '--quiet'])
+
+        assert result.exit_code == 0
+        assert result.stdout == ''
+
+
+def test_init_force_quiet_backup_notice_on_stderr(runner, tmp_path):
+    """init --force --quiet still surfaces the previous-config backup notice on stderr."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        runner.invoke(main, ['init'])
+        result = runner.invoke(main, ['init', '--force', '--quiet'])
+
+        assert result.exit_code == 0
+        assert result.stdout == ''
+        stderr = result.stderr or ''
+        assert 'Previous config backed up to' in stderr
+        assert '.project-guide.yml.bak.' in stderr
+
+
+def test_update_quiet_success_emits_no_stdout(runner, tmp_path):
+    """update --quiet: success emits nothing to stdout."""
     with runner.isolated_filesystem(temp_dir=tmp_path):
         runner.invoke(main, ['init'])
 
         result = runner.invoke(main, ['update', '--quiet'])
 
         assert result.exit_code == 0
-        # No per-file lines
-        assert "  ✓ " not in result.output
-        assert "  + " not in result.output
-        assert "  • " not in result.output
-        # Summary is still present
-        assert "up to date" in result.output or "updated" in result.output
+        assert result.stdout == ''
+        combined = result.stdout + (result.stderr or '')
+        assert "  ✓ " not in combined
+        assert "  + " not in combined
+        assert "  • " not in combined
 
 
-def test_purge_quiet_force_produces_no_progress_lines(runner, tmp_path):
-    """purge --quiet --force produces no prompts or per-file progress lines."""
+def test_update_quiet_override_warnings_on_stderr(runner, tmp_path):
+    """update --quiet still surfaces overridden-file notices on stderr."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        runner.invoke(main, ['init'])
+        runner.invoke(main, ['override', 'templates/modes/debug-mode.md', 'testing'])
+
+        result = runner.invoke(main, ['update', '--quiet'])
+
+        assert result.exit_code == 0
+        assert result.stdout == ''
+        assert 'Skipped (overridden)' in (result.stderr or '')
+        assert 'debug-mode.md' in (result.stderr or '')
+
+
+def test_purge_quiet_force_emits_no_stdout(runner, tmp_path):
+    """purge --quiet --force: no stdout; no interactive preamble."""
     with runner.isolated_filesystem(temp_dir=tmp_path):
         runner.invoke(main, ['init'])
 
         result = runner.invoke(main, ['purge', '--quiet', '--force'])
 
         assert result.exit_code == 0
-        assert "The following will be removed" not in result.output
-        assert "✓ Removed" not in result.output
-        # Summary is still shown
-        assert "purged" in result.output.lower()
+        assert result.stdout == ''
+        stderr = result.stderr or ''
+        assert 'The following will be removed' not in stderr
+        assert '✓ Removed' not in stderr
+        assert 'purged' not in stderr.lower()
 
 
 def test_quiet_does_not_suppress_errors(runner, tmp_path):
     """Error output is always emitted regardless of --quiet (regression guard)."""
     with runner.isolated_filesystem(temp_dir=tmp_path):
-        # No project-guide initialized — update should error
         result = runner.invoke(main, ['update', '--quiet'])
 
         assert result.exit_code != 0
+        assert 'Error' in (result.stderr or '')
 
 
 # --- End Story N.f -----------------------------------------------------------

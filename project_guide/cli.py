@@ -123,7 +123,11 @@ def _copy_template_tree(
     '--quiet', '-q',
     is_flag=True,
     default=False,
-    help='Suppress per-file progress output; errors and summary are always shown.',
+    help=(
+        'Machine-friendly output: on success, emit nothing to stdout. '
+        'Errors and important warnings go to stderr (always shown). '
+        'Compose with --no-input for unattended embedding.'
+    ),
 )
 @click.option(
     '--project-name',
@@ -182,10 +186,11 @@ def init(
     # `project-guide init` safe to run unattended (e.g., as a pyve post-hook)
     # without aborting on re-run.
     if config_path.exists() and not force:
-        click.echo(
-            f"project-guide already initialized at {target_dir}/ "
-            f"(use --force to reinitialize)."
-        )
+        if not quiet:
+            click.echo(
+                f"project-guide already initialized at {target_dir}/ "
+                f"(use --force to reinitialize)."
+            )
         return
 
     # --force on an existing config: back up the current .project-guide.yml
@@ -198,7 +203,8 @@ def init(
         config_backup_path = Path(f"{config_path}.bak.{timestamp}")
         shutil.copy2(config_path, config_backup_path)
 
-    click.echo(f"Initializing project-guide v{__version__}...")
+    if not quiet:
+        click.echo(f"Initializing project-guide v{__version__}...")
 
     # Copy template tree from package to target
     pkg_template_dir = _get_package_template_dir()
@@ -210,7 +216,8 @@ def init(
         click.secho(f"Error: {e}", fg='red', err=True)
         sys.exit(2)
 
-    click.secho(f"✓ Created {target_dir}/", fg='green')
+    if not quiet:
+        click.secho(f"✓ Created {target_dir}/", fg='green')
 
     # Detect pyve (non-fatal; failure stores None)
     detected_pyve_version: str | None = None
@@ -239,9 +246,10 @@ def init(
             pyve_installed=detected_pyve_version is not None,
             pyve_version=detected_pyve_version,
         )
-        click.secho(f"✓ Rendered {output_path} (mode: default)", fg='green')
+        if not quiet:
+            click.secho(f"✓ Rendered {output_path} (mode: default)", fg='green')
     except (MetadataError, RenderError) as e:
-        click.secho(f"Warning: Could not render go.md: {e}", fg='yellow')
+        click.secho(f"Warning: Could not render go.md: {e}", fg='yellow', err=True)
 
     # Add rendered output to .gitignore
     _ensure_gitignore_entry(target_dir)
@@ -258,15 +266,16 @@ def init(
         project_name=str(resolved_project_name),
     )
     config.save(str(config_path))
-    click.secho(f"✓ Created {config_path}", fg='green')
-
-    click.echo(f"\nSuccessfully initialized {count} files.")
+    if not quiet:
+        click.secho(f"✓ Created {config_path}", fg='green')
+        click.echo(f"\nSuccessfully initialized {count} files.")
 
     if config_backup_path is not None:
         click.secho(
             f"Previous config backed up to {config_backup_path}. "
             f"Delete once you've verified the new config.",
             fg='yellow',
+            err=True,
         )
 
 
@@ -821,7 +830,11 @@ def status(verbose):
     '--quiet', '-q',
     is_flag=True,
     default=False,
-    help='Suppress per-file progress output; errors and summary are always shown.',
+    help=(
+        'Machine-friendly output: on success, emit nothing to stdout. '
+        'Errors and important warnings go to stderr (always shown). '
+        'Compose with --no-input for unattended embedding.'
+    ),
 )
 def update(files: tuple, dry_run: bool, force: bool, no_input: bool, quiet: bool):
     """Update files to latest version."""
@@ -873,11 +886,11 @@ def update(files: tuple, dry_run: bool, force: bool, no_input: bool, quiet: bool
                     fg='red',
                     err=True
                 )
-                click.echo(f"Available files: {', '.join(all_files)}")
+                click.echo(f"Available files: {', '.join(all_files)}", err=True)
                 sys.exit(1)  # General error exit code
 
     # Run sync
-    if dry_run:
+    if dry_run and not quiet:
         click.echo("Dry-run mode: showing what would be updated...")
         click.echo()
 
@@ -906,12 +919,12 @@ def update(files: tuple, dry_run: bool, force: bool, no_input: bool, quiet: bool
             for f in current:
                 click.echo(f"  • {f}")
 
-    # Overridden-file warnings are always shown (explicit warnings, never suppressed)
+    # Overridden-file warnings (stderr — visible even when --quiet silences stdout)
     if skipped:
-        click.secho("Skipped (overridden):", fg='yellow')
+        click.secho("Skipped (overridden):", fg='yellow', err=True)
         for f in skipped:
             override = config.overrides[f]
-            click.secho(f"  ⊘ {f} - {override.reason}", fg='yellow')
+            click.secho(f"  ⊘ {f} - {override.reason}", fg='yellow', err=True)
 
     # Update config if not dry-run and any updates were made
     all_updated = updated + missing
@@ -937,37 +950,54 @@ def update(files: tuple, dry_run: bool, force: bool, no_input: bool, quiet: bool
                 pyve_installed=config.pyve_version is not None,
                 pyve_version=config.pyve_version,
             )
-            click.secho("✓ Re-rendered go.md", fg='green')
+            if not quiet:
+                click.secho("✓ Re-rendered go.md", fg='green')
         except (MetadataError, RenderError) as e:
-            click.secho(f"Warning: Could not re-render go.md: {e}", fg='yellow')
+            click.secho(f"Warning: Could not re-render go.md: {e}", fg='yellow', err=True)
 
-    # Print summary
-    click.echo()
-    if dry_run:
-        total_changes = len(updated) + len(missing)
-        if total_changes > 0:
-            parts = []
-            if updated:
-                parts.append(f"update {len(updated)}")
-            if missing:
-                parts.append(f"create {len(missing)}")
-            click.echo(f"Would {', '.join(parts)}.")
-            click.echo("Run without --dry-run to apply changes.")
+    # An effectively no-op run where every available file is locked by an override.
+    blocked_by_overrides = bool(skipped) and not (current or updated or missing)
+
+    # Summary: stdout when interactive, suppressed under --quiet except for the
+    # override-blocked hint, which surfaces on stderr so embedders still learn
+    # why nothing changed.
+    if not quiet:
+        click.echo()
+        if dry_run:
+            total_changes = len(updated) + len(missing)
+            if total_changes > 0:
+                parts = []
+                if updated:
+                    parts.append(f"update {len(updated)}")
+                if missing:
+                    parts.append(f"create {len(missing)}")
+                click.echo(f"Would {', '.join(parts)}.")
+                click.echo("Run without --dry-run to apply changes.")
+            elif blocked_by_overrides:
+                click.echo("All files are overridden. Use --force to update anyway.")
+            else:
+                click.echo("No updates needed.")
         else:
-            click.echo("No updates needed.")
-    else:
-        total_changes = len(updated) + len(missing)
-        if total_changes > 0:
-            parts = []
-            if updated:
-                parts.append(f"updated {len(updated)}")
-            if missing:
-                parts.append(f"created {len(missing)}")
-            click.secho(f"✓ Successfully {' and '.join(parts)} file{'s' if total_changes != 1 else ''}.", fg='green')
-        elif skipped and not current:
-            click.echo("All files are overridden. Use --force to update anyway.")
-        else:
-            click.echo("All files are up to date.")
+            total_changes = len(updated) + len(missing)
+            if total_changes > 0:
+                parts = []
+                if updated:
+                    parts.append(f"updated {len(updated)}")
+                if missing:
+                    parts.append(f"created {len(missing)}")
+                click.secho(
+                    f"✓ Successfully {' and '.join(parts)} file{'s' if total_changes != 1 else ''}.",
+                    fg='green',
+                )
+            elif blocked_by_overrides:
+                click.echo("All files are overridden. Use --force to update anyway.")
+            else:
+                click.echo("All files are up to date.")
+    elif blocked_by_overrides:
+        click.echo(
+            "All files are overridden. Use --force to update anyway.",
+            err=True,
+        )
 
 
 @main.command()
@@ -1001,7 +1031,7 @@ def override(file_name: str, reason: str):
             fg='red',
             err=True
         )
-        click.echo(f"Available files: {', '.join(all_files)}")
+        click.echo(f"Available files: {', '.join(all_files)}", err=True)
         sys.exit(1)  # General error exit code
 
     # Add override
@@ -1093,7 +1123,11 @@ def overrides():
     '--quiet', '-q',
     is_flag=True,
     default=False,
-    help='Suppress per-file progress output; errors and summary are always shown.',
+    help=(
+        'Machine-friendly output: on success, emit nothing to stdout. '
+        'Errors and important warnings go to stderr (always shown). '
+        'Compose with --no-input for unattended embedding.'
+    ),
 )
 def purge(force, no_input, quiet):
     """Remove all project-guide files from the current project."""
@@ -1130,7 +1164,7 @@ def purge(force, no_input, quiet):
             if not quiet:
                 click.secho(f"✓ Removed {target_dir}/", fg="green")
         else:
-            click.secho(f"  {target_dir}/ not found (skipped)", fg="yellow")
+            click.secho(f"  {target_dir}/ not found (skipped)", fg="yellow", err=True)
     except OSError as e:
         click.secho(f"Error removing {target_dir}/: {e}", fg="red", err=True)
         sys.exit(2)
@@ -1142,13 +1176,14 @@ def purge(force, no_input, quiet):
             if not quiet:
                 click.secho(f"✓ Removed {config_path}", fg="green")
         else:
-            click.secho(f"  {config_path} not found (skipped)", fg="yellow")
+            click.secho(f"  {config_path} not found (skipped)", fg="yellow", err=True)
     except OSError as e:
         click.secho(f"Error removing {config_path}: {e}", fg="red", err=True)
         sys.exit(2)
 
-    click.echo()
-    click.secho("project-guide has been purged from this project.", fg="green", bold=True)
+    if not quiet:
+        click.echo()
+        click.secho("project-guide has been purged from this project.", fg="green", bold=True)
 
 
 if __name__ == "__main__":

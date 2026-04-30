@@ -125,8 +125,9 @@ def test_purge_handles_missing_guides_dir(runner, tmp_path):
         # Purge should still work
         result = runner.invoke(main, ['purge', '--force'])
         assert result.exit_code == 0
-        assert "not found (skipped)" in result.output
-        assert "✓ Removed .project-guide.yml" in result.output
+        combined = (result.stdout or "") + (result.stderr or "")
+        assert "not found (skipped)" in combined
+        assert "✓ Removed .project-guide.yml" in combined
 
         # Config should be gone
         assert not Path(".project-guide.yml").exists()

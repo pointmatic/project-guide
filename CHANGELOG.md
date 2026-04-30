@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.1] - 2026-04-30
+
+### Changed
+- **`project_guide/cli.py`** — Tightened `--quiet` / `-q` on `init`, `update`, and `purge` for embedded callers (e.g. pyve): **successful runs emit nothing to stdout**; errors and material warnings use **stderr** (including render/update warnings, overridden-file notices, `init --force` config backup notice, and purge “not found (skipped)” hints). Exit codes unchanged. `--quiet` composes with `--no-input` for unattended refreshes without downstream stdout filtering.
+- **`project_guide/templates/project-guide/templates/artifacts/stories.md`** — Clarifies that a story **title** includes **`vX.Y.Z` only when that story ships the package version bump**; doc-only stories omit the version in the title (see `project-essentials.md` in each project for full commit/changelog conventions).
+
+### Fixed
+- **`project_guide/cli.py`** — The “Available files: …” hint after an unknown template path now prints to stderr on **`update`** and **`override`** for consistency with other diagnostics.
+
+### Documentation
+- **`docs/specs/features.md`** — FR-9 and Inputs bullets updated for the machine-quiet contract; acceptance criterion #8 clarified.
+- **`docs/specs/project-essentials.md`** (dogfood) — **Commit and version style**: `stories.md` headings and commit-message examples aligned with the bundled artifact; injected into every rendered `go.md`.
+
 ## [2.5.0] - 2026-04-17
 
 ### Changed

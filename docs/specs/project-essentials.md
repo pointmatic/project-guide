@@ -23,12 +23,19 @@ Any future interactive prompt added to a CLI command **must** use the `should_sk
 
 `init` currently has no prompts, but the plumbing (`skip_input = should_skip_input(no_input)` in `cli.py:init`) is already in place. The unused local is intentional — see the `# noqa: F841` comment.
 
-### Commit and version style
+### Version bumping
 
-- **One version bump per story** (code stories only — doc-only stories share the version with the preceding code story or bump to a `.N` doc release).
-- **Commit messages reference the story ID**: `"Story M.a: v2.3.0 project-essentials render hook"`.
+- **One package version per story:** When a **code** story ships, it bumps **`project_guide/version.py`**, **`pyproject.toml`**, and **`CHANGELOG.md` exactly once** — **never** two semver lines for the same story. Doc-only stories **do not** bump for themselves; they share the **preceding code story's** release (or a deliberate doc-only `.N` line when that is project policy), per `code_direct` / planning conventions in this guide.
+- **Same story, same bump:** Tasks appended to **one** story's checklist (before it ships) share **that story's** single version — do **not** open a new patch because follow-up bullets landed later. If work is genuinely **new** scope, make a **new** story; it gets **its own** version when **that** story ships.
+- **`stories.md` titles:** include **`vX.Y.Z` in the heading only for the story that owns that bump** (the story whose completion coincides with releasing that version). Omit the version in the title for doc-only stories and for **`[Planned]`** stories until the ship version is known.
+- **Bump when this story owns the release:** `project_guide/version.py`, `pyproject.toml`, and `CHANGELOG.md` (new `## [X.Y.Z]` entry dated).
+
+### Commit workflow
+
+- **Commit messages reference the story ID**; include **`vX.Y.Z`** when this commit is the **single** version bump for that story — examples:
+  - `"Story M.a: v2.3.0 project-essentials render hook"` (M.a owns v2.3.0)
+  - `"Story M.c: align specs with FR-9"` (doc-only; no version in title — rides M.b's or whichever code story owns the release line)
 - **Direct commits to main** in `code_direct` mode — no branches, no PRs.
-- **Bump version in three places** per story: `project_guide/version.py`, `pyproject.toml`, and `CHANGELOG.md` (new `## [X.Y.Z]` entry dated).
 
 ### Config schema versioning
 

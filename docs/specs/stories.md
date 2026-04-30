@@ -2,17 +2,21 @@
 
 This document breaks the `` project into an ordered sequence of small, independently completable stories grouped into phases. Each story has a checklist of concrete tasks. Stories are organized by phase and reference modules defined in `tech-spec.md`.
 
-Stories with code changes include a version number (e.g., v0.1.0). Stories with only documentation or polish changes omit the version number. The version follows semantic versioning and is bumped per story. Stories are marked with `[Planned]` initially and changed to `[Done]` when completed.
+Put **`vX.Y.Z` in the story title only when that story ships the package version bump** for that release. Doc-only or polish stories **omit the version from the title** (they share the release with the preceding code story, or use your project’s doc-release policy). **One semver bump per owning story** — extra tasks on the *same* story share that bump; see `project-essentials.md`. Semantic versioning applies to the package. Stories are marked with `[Planned]` initially and changed to `[Done]` when completed.
 
 For a high-level concept (why), see `concept.md`. For requirements and behavior (what), see `features.md`. For implementation details (how), see `tech-spec.md`. For project-specific must-know facts, see `project-essentials.md` (`plan_phase` appends new facts per phase).
 
 ---
 
-## Phase O: (Theme TBD)
+## Phase O: UX improvements
+
+Phase O improves how developers and **agents** (IDE assistants, embedders) interact with project-guide: clearer bundled workflow text in `go.md`, machine-friendly CLI output, and editor-native hints—without changing core mode semantics.
+
+Completed work includes **O.a** (auto-rendered `pyve-essentials.md` in `go.md`), **O.b–c** (embedded **`--quiet`** contract and spec alignment; see `docs/specs/quiet-non-interactive-embedding.md` and `docs/specs/phase-o-pyve-quiet-embedding-plan.md`).
 
 ### Story O.a: v2.5.0 Rename project-essentials-pyve.md → pyve-essentials.md and Auto-Render in go.md [Done]
 
-Today `project-essentials-pyve.md` is *merged once* into `docs/specs/project-essentials.md` at scaffold/plan-tech-spec time. Upstream improvements to the bundled pyve rules never reach existing projects — a real drift source. Rename to `pyve-essentials.md` (to signal it is a package-versioned bundled artifact, not a project-owned file) and render it directly in `go.md` behind the `pyve_installed` gate so every `project-guide mode <name>` invocation picks up the latest content automatically.
+Today `project-essentials-pyve.md` is *merged once* into `docs/specs/project-essentials.md` at scaffold/plan-tech-spec time. Upstream improvements to the bundled pyve rules never reach existing projects — a real drift source. Rename to `pyve-essentials.md` (to signal it is a package-versioned bundled artifact, not a project-owned file) and render it directly in `go.md` behind the `pyve_installed` gate so every `project-guide mode <name>` invocation picks up the latest content automatically. **Released as v2.5.0** (package version and `CHANGELOG.md` section `[2.5.0]` — not tracked again as a separate checkbox below).
 
 - [x] Rename `project_guide/templates/project-guide/templates/artifacts/project-essentials-pyve.md` → `pyve-essentials.md`
 - [x] In `project_guide/render.py`:
@@ -40,7 +44,26 @@ Today `project-essentials-pyve.md` is *merged once* into `docs/specs/project-ess
   - [x] `scaffold_project` rendered output no longer contains "Merge Pyve Project Essentials"
   - [x] `plan_tech_spec` rendered output no longer contains "Pyve users:"
   - [x] `pyve-essentials.md` artifact contains no unrendered `{{ var }}` placeholders (update the existing guard test for the new name)
-- [x] Bump `project_guide/version.py`, `pyproject.toml`, and `CHANGELOG.md` to v2.5.0 (Changed + Removed categories)
+
+### Story O.b: v2.5.1 Embedded-invocation quiet contract ('init' / 'update' / 'purge') [Done]
+
+**Goal:** Match `docs/specs/quiet-non-interactive-embedding.md`: with `--quiet`, **successful** runs produce **no stdout** (pyve/log aggregation friendly); **errors** and important **warnings** (e.g. overridden files, schema mismatch) remain visible; **exit codes** unchanged vs today.
+
+- [x] **`init`**: When `quiet=True`, suppress informational stdout on success paths (`Initializing…`, `✓ Created`, render messages, file count line). Early exit when already initialized emits nothing when quiet. **`init --force` config backup notice → stderr** (`err=True`).
+- [x] **`update`**: When `quiet=True`, suppress success-path stdout (dry-run banners/summaries, `✓ Re-rendered`, terminal summaries). Overridden-file notices → stderr. **`All files are overridden…`** when quiet → stderr only.
+- [x] **`purge`**: When `quiet=True`, suppress final success banner; removal errors on stderr; **not found (skipped)** hints → stderr.
+- [x] **CLI help**: `--quiet` strings describe success silence + stderr diagnostics; FR-9 documents **`--quiet` vs `--verbose`** (only `mode` has `--verbose` today).
+- [x] **Tests** (`tests/test_cli.py`, `tests/test_purge.py`): quiet success asserts empty stdout; overridden notices on stderr; errors still emitted (`test_quiet_does_not_suppress_errors`).
+- [x] **CHANGELOG** + version bump: `project_guide/version.py`, `pyproject.toml`, `CHANGELOG.md` → v2.5.1.
+- [x] **Bundled `templates/artifacts/stories.md` + dogfood `docs/specs/project-essentials.md`:** clarify **Commit and version style** — a **`stories.md` title includes `vX.Y.Z` only when that story shipped the package bump**. **`go.md`** incorporates `project-essentials.md` automatically on the next **`project-guide mode <name>`** or **`project-guide update`** (dynamic rendering — `features.md` FR-1, FR-3 step 6, acceptance criterion #2); no hand-edit.
+
+### Story O.c: Align specs with tightened `--quiet` contract [Done]
+
+**Documentation only.** Spec updates shipped together with **O.b** in package **v2.5.1**; this checklist does **not** imply its own semver bump beyond that release.
+
+- [x] **`docs/specs/features.md`**: FR-9 rewritten; Inputs bullets and acceptance criterion #8 updated.
+- [x] **`docs/specs/tech-spec.md`**: CLI Design → **Machine-quiet commands** subsection.
+- [x] **Cross-link**: `docs/specs/quiet-non-interactive-embedding.md` points at FR-9 / tech-spec and references **v2.5.1**.
 
 ---
 

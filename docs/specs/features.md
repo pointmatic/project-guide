@@ -60,7 +60,7 @@ For a high-level concept (why), see `concept.md`. For implementation details (ho
 - Optional: `--target-dir` (default: `docs/project-guide`)
 - Optional: `--force` (overwrite existing files)
 - Optional: `--no-input` (skip stdin; auto-enabled by `CI=1` or non-TTY)
-- Optional: `--quiet` / `-q` (suppress per-file progress output)
+- Optional: `--quiet` / `-q` (machine mode: **no stdout on success**; errors/warnings on stderr — see FR-9)
 
 **`project-guide mode [MODE_NAME]`**
 - Optional: mode name to switch to
@@ -76,7 +76,7 @@ For a high-level concept (why), see `concept.md`. For implementation details (ho
 - Optional: `--dry-run` (show what would change without applying)
 - Optional: `--force` (update even overridden/modified files, creates backups)
 - Optional: `--no-input` (non-interactive; reserved for future prompts)
-- Optional: `--quiet` / `-q` (suppress per-file progress output)
+- Optional: `--quiet` / `-q` (machine mode: **no stdout on success**; errors/warnings on stderr — see FR-9)
 
 **`project-guide override FILE_NAME REASON`**
 - Required: file name (template-relative path)
@@ -91,7 +91,7 @@ For a high-level concept (why), see `concept.md`. For implementation details (ho
 **`project-guide purge`**
 - Optional: `--force` (skip confirmation prompt)
 - Optional: `--no-input` (skip stdin; auto-enabled by `CI=1` or non-TTY)
-- Optional: `--quiet` / `-q` (suppress per-file progress output)
+- Optional: `--quiet` / `-q` (machine mode: **no stdout on success**; errors/warnings on stderr — see FR-9)
 
 ### Configuration File
 
@@ -307,9 +307,16 @@ The system renders a single entry-point document (`go.md`) from Jinja2 templates
 - `update`: flag is present for future-prompt parity; `update` currently has no interactive prompts.
 - `init`: flag is present; no prompts exist today but the plumbing is in place.
 
-### FR-9: Quiet Mode
+### FR-9: Quiet Mode (machine / embedding)
 
-`--quiet` / `-q` on `init`, `update`, and `purge` suppresses per-file progress lines. Errors, final count summaries, and explicit warnings (e.g., overridden-file notices) are always shown regardless of `--quiet`. Composes cleanly with `--no-input` for fully silent unattended runs.
+`--quiet` / `-q` on `init`, `update`, and `purge` is intended for **embedded** and CI callers that compose with **`--no-input`** (e.g. pyve scaffolding refreshes).
+
+**Behavior:**
+- On **success**, these commands emit **nothing to stdout** (including dry-run summaries, progress banners, and green completion lines).
+- **Errors** and **material warnings** are **never suppressed**: they print to **stderr** (e.g. schema/load failures, render warnings, skipped overridden files, `init --force` previous-config backup notice, purge “not found (skipped)” hints when paths were already removed).
+- Exit codes are unchanged vs non-quiet invocation.
+
+**Interaction with `--verbose`:** Only **`project-guide mode`** defines `--verbose` today; there is no combined `--quiet` + `--verbose` on the same command. If both flags ever apply to one command, **`--quiet` wins**.
 
 ### FR-10: Story Detection in Status
 
@@ -455,7 +462,7 @@ modes:
 5. `project-guide update` syncs files using content-hash comparison, not version numbers
 6. `project-guide override/unoverride` manages file locks correctly
 7. `project-guide purge` cleanly removes all project-guide files; respects `--no-input` / `CI=1`
-8. `--no-input` and `--quiet` flags work on `init`, `update`, and `purge`
+8. `--no-input` and `--quiet` on `init`, `update`, and `purge`: prompts suppressed via FR-8; FR-9 guarantees **silent stdout on success** and diagnostics on stderr
 9. `metadata_overrides` in `.project-guide.yml` patches mode fields without editing bundled metadata
 10. All 15 modes render without errors (parametrized test)
 11. Shell completion (Tab) works for commands, flags, and mode names in bash/zsh/fish after one-line setup

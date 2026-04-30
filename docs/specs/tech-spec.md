@@ -295,6 +295,12 @@ project-guide = "project_guide.cli:main"
 - **Red**: errors, missing counts
 - **Dim**: action prompts, hints
 
+### Machine-quiet commands (`init`, `update`, `purge`)
+
+When **`--quiet` / `-q`** is set and the command **succeeds**, **`stdout` stays empty** so wrappers (pyve, CI logs) are not polluted. Diagnostics use **`stderr`**: Click handlers pass **`err=True`** for errors, render/update warnings, overridden-file notices, config-backup notices on **`init --force`**, and optional purge skip hints.
+
+Commands whose UX remains interactive (`mode`, `status`, etc.) do not accept `--quiet` unless extended explicitly later.
+
 ---
 
 ## Cross-Cutting Concerns
