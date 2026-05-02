@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.2] - 2026-05-01
+
+### Changed
+- **`project_guide/templates/project-guide/templates/modes/code-direct-mode.md`** and **`code-test-first-mode.md`** — Cycle step 1 now explicitly mandates a fresh `Read` of `docs/specs/stories.md` from disk at the start of every cycle, calling out that the developer may have edited the file since the LLM last viewed it and that prior conversation context must not be relied on. Closes a recurring drift where the LLM worked from a stale in-context snapshot of `stories.md` after the developer made manual edits and said "go".
+
 ## [2.5.1] - 2026-04-30
 
 ### Changed

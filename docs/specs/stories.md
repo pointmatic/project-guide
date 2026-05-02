@@ -65,6 +65,16 @@ Today `project-essentials-pyve.md` is *merged once* into `docs/specs/project-ess
 - [x] **`docs/specs/tech-spec.md`**: CLI Design → **Machine-quiet commands** subsection.
 - [x] **Cross-link**: `docs/specs/quiet-non-interactive-embedding.md` points at FR-9 / tech-spec and references **v2.5.1**.
 
+### Story O.d: v2.5.2 Tighten cycle step 1 to mandate fresh Read of stories.md [Done]
+
+**Problem:** In `code_direct` and `code_test_first`, step 1 says *"Read the story's checklist from `docs/specs/stories.md`"*. LLMs treat this as already-done because the file is in their context, so when the developer edits `stories.md` between cycles and says "go", the LLM works from a stale cache and silently overwrites or ignores the edits. Tighten the language so step 1 is unambiguous about re-fetching from disk on every cycle.
+
+- [x] **`project_guide/templates/project-guide/templates/modes/code-direct-mode.md`** step 1 — extend the bullet to mandate a fresh `Read` tool call at the start of each cycle and explicitly call out that prior conversation context may be stale because the developer may have edited the file.
+- [x] **`project_guide/templates/project-guide/templates/modes/code-test-first-mode.md`** step 1 — same tightening.
+- [x] **Tests** in `tests/test_render.py`: add `test_code_direct_step_one_mandates_fresh_read` and `test_code_test_first_step_one_mandates_fresh_read` asserting the new "re-fetch from disk" / "may have edited" language renders into `go.md` for both modes.
+- [x] **Re-render** dogfood `docs/project-guide/go.md` via `project-guide update` so this project picks up the change.
+- [x] **CHANGELOG** + version bump: `project_guide/version.py`, `pyproject.toml`, `CHANGELOG.md` → **v2.5.2**.
+
 ---
 
 ## Future

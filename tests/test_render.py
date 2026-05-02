@@ -904,6 +904,61 @@ def test_code_test_first_present_step_forbids_followup_prompts():
 # --- End Story M.g tests ---------------------------------------------------
 
 
+# --- Story O.d tests --------------------------------------------------------
+
+
+def test_code_direct_step_one_mandates_fresh_read():
+    """code_direct step 1 must instruct the LLM to re-fetch stories.md from disk.
+
+    Reason: LLMs treat a previously-read file as cached in conversation context
+    and skip the re-read on subsequent cycles. When the developer edits
+    `stories.md` between cycles and says "go", the LLM works from a stale
+    snapshot. The cycle template must make the freshness requirement explicit.
+    """
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        result = runner.invoke(main, ['mode', 'code_direct'])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    assert "always re-fetch from disk" in content
+    assert "do not rely on prior conversation context" in content
+
+
+def test_code_test_first_step_one_mandates_fresh_read():
+    """code_test_first step 1 must carry the same fresh-read requirement.
+
+    See `test_code_direct_step_one_mandates_fresh_read` for rationale.
+    """
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        result = runner.invoke(main, ['mode', 'code_test_first'])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    assert "always re-fetch from disk" in content
+    assert "do not rely on prior conversation context" in content
+
+
+# --- End Story O.d tests ---------------------------------------------------
+
+
 # --- Story N.d ---------------------------------------------------------------
 
 
