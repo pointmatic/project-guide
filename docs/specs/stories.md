@@ -75,6 +75,20 @@ Today `project-essentials-pyve.md` is *merged once* into `docs/specs/project-ess
 - [x] **Re-render** dogfood `docs/project-guide/go.md` via `project-guide update` so this project picks up the change.
 - [x] **CHANGELOG** + version bump: `project_guide/version.py`, `pyproject.toml`, `CHANGELOG.md` → **v2.5.2**.
 
+### Story O.e: v2.5.3 Tighten debug-mode Step 5 as a named approval gate [Done]
+
+**Problem:** In `debug_mode`, the 5-step Structured Debugging Workflow has a cognitive shape that lets an LLM mis-anchor "done" at Step 4. Step 4's output reads as terminus ("Working code with passing tests"); Step 5's output is the only one without a single nameable artifact ("updated documentation and comprehensive test coverage"); the Golden Rule mantra at the bottom reinforces a 3-beat rhythm (test → fix → verify) that excludes Step 5; and the Debugging Checklist (which *does* enumerate the Step 5 obligations including the `stories.md` write-up) lives several sections away after the case study and anti-patterns. Tighten the structure so Step 5 reads as a gate, not a wrap-up. **Out of scope:** the universal Approval Gate rule in `modes/_header-common.md` — other modes have differently-shaped cycles where "name the output artifact for every step" doesn't map cleanly.
+
+- [x] **`debug-mode.md` Step 5** — rename heading to *"Step 5: Document the Fix in `stories.md` (Approval Gate)"*. Replace the bundled "Document and Prevent" actions with two explicitly separated artifacts: **(a) the story write-up** in `stories.md` (implementation tasks `[x]`'d, housekeeping tasks `[ ]`) — *the gate artifact*; **(b) prevention scan** ("look elsewhere in the codebase for similar bugs"). Output line: *"A story in `stories.md` matching the project format. Until this exists, the cycle is not complete."*
+- [x] **`debug-mode.md` Step 4 Output** — change *"Working code with passing tests"* to *"Working code with passing tests — but the cycle is not complete; proceed to Step 5."*
+- [x] **`debug-mode.md` cycle-steps section footer** — add a single line after Step 5: *"The approval gate is not reached until all five steps have produced their named output artifact. If you cannot name the Step 5 artifact, you are not at the gate."*
+- [x] **`debug-mode.md` Debugging Checklist** — move from its current location (after the Case Study and "Common Debugging Scenarios") to immediately after Step 5. Add a one-line preamble: *"Before pausing for approval, run this checklist and confirm each item."*
+- [x] **`debug-mode.md` Anti-Patterns** — add a new entry: *"❌ Declaring the fix complete after Step 4"*.
+- [x] **`debug-mode.md` Golden Rule** (Summary section) — reframe to a four-beat: *"Write a failing test first. Fix the code second. Verify the test passes third. Document the fix in `stories.md` fourth."*
+- [x] **Tests** in `tests/test_render.py`: add `test_debug_mode_step_five_is_named_approval_gate` covering (a) Step 5 heading contains "Approval Gate", (b) four-beat Golden Rule present, (c) Debugging Checklist appears between Step 5 and the Root Cause Analysis Framework (positional check), (d) the new anti-pattern entry text is present.
+- [x] **Re-render** dogfood `docs/project-guide/go.md` via `project-guide update`.
+- [x] **CHANGELOG** + version bump: `project_guide/version.py`, `pyproject.toml`, `CHANGELOG.md` → **v2.5.3**.
+
 ---
 
 ## Future

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.3] - 2026-05-02
+
+### Changed
+- **`project_guide/templates/project-guide/templates/modes/debug-mode.md`** — Restructured the 5-step Structured Debugging Workflow so Step 5 reads as a named approval gate rather than a wrap-up. Step 5 renamed to *"Document the Fix in `stories.md` (Approval Gate)"* with a single nameable output artifact (the new story); the previous bundle of "Document and Prevent" actions is split into the gate artifact (the story write-up) and a secondary prevention scan. Step 4's Output line now ends with *"but the cycle is not complete; proceed to Step 5"*. The Debugging Checklist moved from its location after the Case Study to immediately after Step 5 and is framed as a mandatory pre-gate run-through. Golden Rule reframed to a four-beat mantra (*"…Document the fix in `stories.md` fourth"*) so the rhythmic anchor includes Step 5. Added an anti-pattern entry *"Declaring the Fix Complete After Step 4"*. Closes a recurring failure where LLMs treated Step 4 ("working code with passing tests") as terminus and skipped the project-record write-up.
+
 ## [2.5.2] - 2026-05-01
 
 ### Changed

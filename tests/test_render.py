@@ -959,6 +959,62 @@ def test_code_test_first_step_one_mandates_fresh_read():
 # --- End Story O.d tests ---------------------------------------------------
 
 
+# --- Story O.e tests --------------------------------------------------------
+
+
+def test_debug_mode_step_five_is_named_approval_gate():
+    """debug_mode Step 5 must be a named approval gate, not a wrap-up.
+
+    Reason: the prior Step 5 ("Document and Prevent") was the only step
+    without a single nameable output artifact, and the Golden Rule's
+    3-beat mantra (test/fix/verify) excluded Step 5 entirely. LLMs
+    pattern-matched on the 3-beat rhythm and treated Step 4 as terminus.
+    This test pins the structural changes that make Step 5 read as a gate.
+    """
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        result = runner.invoke(main, ['mode', 'debug'])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    # (a) Step 5 heading is renamed to make the gate explicit
+    assert "Step 5: Document the Fix in `stories.md` (Approval Gate)" in content
+
+    # (b) Golden Rule is now a four-beat mantra including the documentation step
+    assert "Document the fix in `stories.md` fourth" in content
+
+    # (c) Debugging Checklist sits between Step 5 and the Root Cause Analysis
+    #     Framework — moved from its old location after the case study so it
+    #     reads as a mandatory pre-gate run-through, not a late reference.
+    step5_idx = content.find("Step 5: Document the Fix")
+    checklist_idx = content.find("## Debugging Checklist")
+    rca_idx = content.find("## Root Cause Analysis Framework")
+    assert step5_idx >= 0 and checklist_idx >= 0 and rca_idx >= 0
+    assert step5_idx < checklist_idx < rca_idx, (
+        "Debugging Checklist must appear between Step 5 and the "
+        "Root Cause Analysis Framework"
+    )
+    # And it should appear exactly once (not duplicated by a missed deletion).
+    assert content.count("## Debugging Checklist") == 1
+
+    # (d) New anti-pattern entry pinning the "Step 4 is terminus" failure mode
+    assert "Declaring the Fix Complete After Step 4" in content
+
+    # Step 4's output line breaks the terminus illusion
+    assert "the cycle is not complete; proceed to Step 5" in content
+
+
+# --- End Story O.e tests ---------------------------------------------------
+
+
 # --- Story N.d ---------------------------------------------------------------
 
 
