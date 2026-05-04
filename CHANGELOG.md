@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.4] - 2026-05-02
+
+### Changed
+- **`project_guide/templates/project-guide/templates/modes/plan-features-mode.md`** — Reframed Prerequisites so `docs/specs/concept.md` is named as the primary source for almost every field, with each prerequisite annotated with where it usually comes from (`concept.md` or `LICENSE`). Inserted a new Step 1 ("Read what already exists before asking anything") that mandates reading `concept.md` in full plus referenced sibling documents and any `LICENSE` file *before* presenting the developer with prerequisites or questions; renumbered the existing gather/generate/approve steps accordingly. Step 2 explicitly forbids enumerating prerequisites or asking for items `concept.md` already supplies, and requires any genuinely-missing items to be asked in a single consolidated round. Closes a recurring failure where the LLM treated the Prerequisites list as a checklist to interrogate the developer about, even when the upstream artifact already supplied the answers.
+- **`project_guide/templates/project-guide/templates/artifacts/stories.md`** — Cross-reference paragraph extended with a pointer to `docs/project-guide/go.md` for the workflow steps tailored to the current mode (cycle steps, approval gates, conventions), with a re-read hint for mode changes and post-compaction. Helps an LLM dropped into a session with `stories.md` open pick up the mode-tailored guide rather than proceeding without it.
+
 ## [2.5.3] - 2026-05-02
 
 ### Changed
