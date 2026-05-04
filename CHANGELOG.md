@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.5] - 2026-05-02
+
+### Changed
+- **`project_guide/templates/project-guide/templates/artifacts/{concept,features,tech-spec,brand-descriptions}.md`** — Extended each artifact's cross-reference paragraph with a pointer to `docs/project-guide/go.md` for the workflow steps tailored to the current mode (cycle steps, approval gates, conventions), with a re-read hint for mode changes and post-compaction. Matches the v2.5.4 change to `stories.md`; ensures an LLM dropped into a session with any sibling spec open is reminded that mode-tailored guidance lives in `go.md`.
+- **`project_guide/templates/project-guide/templates/artifacts/{concept,features,tech-spec,stories,brand-descriptions}.md`** — Cross-reference paragraphs converted from backtick code spans to markdown local links (e.g. `` `concept.md` `` → `` [`concept.md`](concept.md) ``), making sibling-spec references click-navigable in IDEs and on GitHub. The `docs/project-guide/go.md` reference uses a `../project-guide/go.md` relative path so the link resolves from the rendered artifact's location at `docs/specs/`.
+
 ## [2.5.4] - 2026-05-02
 
 ### Changed
