@@ -34,7 +34,7 @@ These inputs may also be supplied directly by the developer, but in practice the
    - performance_expectations: User-facing performance requirements (e.g., real-time processing, batch reports within 1 hour, response time under 200ms) (if applicable)
    - acceptance_criteria: Definition of done for the whole project
 
-3. Generate `docs/specs/features.md` using the artifact template at `templates/artifacts/features.md`
+3. Generate `docs/specs/features.md` using the artifact template at `docs/project-guide/templates/artifacts/features.md` (installed by `project-guide init`; refreshed by `project-guide update`)
 
 4. Present the complete document to the developer for approval. Iterate as needed.
 

@@ -19,7 +19,7 @@ If yes, include a CI/CD phase in the stories. If no, skip it.
 
 1. Read the approved concept, features, and tech-spec documents.
 
-2. Generate `docs/specs/stories.md` using the artifact template at `templates/artifacts/stories.md`
+2. Generate `docs/specs/stories.md` using the artifact template at `docs/project-guide/templates/artifacts/stories.md` (installed by `project-guide init`; refreshed by `project-guide update`)
 
 3. Present the complete document to the developer for approval. Iterate as needed.
 

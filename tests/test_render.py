@@ -1378,3 +1378,108 @@ def test_every_mode_renders_successfully(mode_name):
         output = Path("docs/project-guide/go.md")
         assert output.exists()
         assert len(output.read_text(encoding="utf-8")) > 0
+
+
+# --- Story O.i (v2.5.7) -----------------------------------------------------
+# Artifact-template paths must be project-root-relative
+# (`docs/project-guide/templates/artifacts/<file>.md`) so the LLM finds them
+# without searching the filesystem or groping in environment-manager-specific
+# install locations (.venv/, micromamba envs, conda envs, site-packages).
+
+
+@pytest.mark.parametrize("mode_name", _get_all_mode_names())
+def test_header_common_anchors_artifact_templates_install_location(mode_name):
+    """Every rendered mode must anchor where bundled artifact templates live.
+
+    The anchor lives in `_header-common.md` so it loads with every mode. If
+    any mode misses it, the include chain is broken or someone removed the
+    rule. The anchor sentence pins the install location and explicitly
+    forbids the symptom that triggered Story O.i (searching the filesystem
+    or `site-packages`).
+    """
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        result = runner.invoke(main, ['mode', mode_name])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    assert "docs/project-guide/templates/artifacts/" in content, (
+        f"mode {mode_name!r}: missing the install-location anchor"
+    )
+    assert "do not search the filesystem" in content.lower(), (
+        f"mode {mode_name!r}: missing the explicit no-search instruction"
+    )
+
+
+# Mode → list of artifact files whose path the rendered go.md must reference
+# explicitly with the project-root-relative form. Drives the parametrized
+# tests below. If a new mode begins referencing an artifact template, add it
+# here in the same commit.
+_MODE_ARTIFACT_REFERENCES = [
+    ("plan_concept", "concept.md"),
+    ("plan_features", "features.md"),
+    ("plan_stories", "stories.md"),
+    ("plan_tech_spec", "tech-spec.md"),
+    ("plan_tech_spec", "project-essentials.md"),
+    ("plan_phase", "project-essentials.md"),
+    ("scaffold_project", "project-essentials.md"),
+    ("refactor_plan", "concept.md"),
+    ("refactor_plan", "features.md"),
+    ("refactor_plan", "tech-spec.md"),
+    ("refactor_plan", "project-essentials.md"),
+    ("refactor_document", "brand-descriptions.md"),
+]
+
+
+@pytest.mark.parametrize("mode_name,artifact_file", _MODE_ARTIFACT_REFERENCES)
+def test_mode_uses_project_root_relative_artifact_path(mode_name, artifact_file):
+    """Each mode's reference to an artifact template uses the explicit path.
+
+    The path `docs/project-guide/templates/artifacts/<file>.md` is the only
+    install-location-agnostic, environment-manager-agnostic location the
+    LLM can read directly. Bare `templates/artifacts/<file>.md` references
+    are ambiguous (relative to what?) and triggered the Story O.i symptom.
+    """
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        result = runner.invoke(main, ['mode', mode_name])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    explicit_path = f"docs/project-guide/templates/artifacts/{artifact_file}"
+    assert explicit_path in content, (
+        f"mode {mode_name!r}: missing explicit path {explicit_path!r}"
+    )
+
+    # Negative regression guard: every bare `templates/artifacts/<file>.md`
+    # must be embedded inside the longer explicit path. The simplest way to
+    # check is that the count of the bare form equals the count of the
+    # explicit form (the bare form only appears as the suffix of the
+    # explicit form).
+    bare_path = f"templates/artifacts/{artifact_file}"
+    bare_count = content.count(bare_path)
+    explicit_count = content.count(explicit_path)
+    assert bare_count == explicit_count, (
+        f"mode {mode_name!r}: found {bare_count - explicit_count} bare "
+        f"reference(s) to {bare_path!r} outside of the explicit path. "
+        "Every bare reference must be replaced with the explicit form."
+    )
+
+
+# --- End Story O.i ----------------------------------------------------------

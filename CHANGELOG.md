@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.7] - 2026-05-04
+
+### Changed
+- **`project_guide/templates/project-guide/templates/modes/{plan-concept,plan-features,plan-stories,plan-tech-spec,plan-phase,scaffold-project,refactor-plan,refactor-document}-mode.md`** — Every reference to a bundled artifact template now uses the project-root-relative path `docs/project-guide/templates/artifacts/<file>.md` (installed by `project-guide init`, refreshed by `project-guide update`) instead of the ambiguous bare `templates/artifacts/<file>.md` form. The bare form had no base directory the LLM could discover from inside a downstream project, leading at least one observed session (nbfoundry) to attempt `find / -path '*/project_guide*/templates/...'` before being interrupted.
+- **`project_guide/templates/project-guide/templates/modes/_header-common.md`** — Added a Rules-block anchor sentence naming `docs/project-guide/templates/artifacts/` as the canonical install location and explicitly forbidding filesystem / `site-packages` / install-location searches. Loads with every mode so the rule is always-context.
+- **`project_guide/templates/project-guide/templates/artifacts/project-essentials.md`** — Added a project-guide-consumer hint under the **Architecture quirks** category naming the install location and listing the environment managers (pip, poetry, uv, conda, mamba, micromamba, pyve, pixi) that all stash `site-packages` differently — the canonical "why the project-root-relative path is the only environment-agnostic answer" rationale.
+
 ## [2.5.6] - 2026-05-04
 
 ### Changed

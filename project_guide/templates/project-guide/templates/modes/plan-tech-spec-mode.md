@@ -30,7 +30,7 @@ The approved `docs/specs/concept.md` and `docs/specs/features.md` must exist bef
    - testing_strategy: Unit tests, integration tests, and what each covers
    - packaging_and_distribution: Package metadata, registry (PyPI/npm/crates.io), installation methods, console scripts, package data inclusion (if applicable)
 
-3. Generate `docs/specs/tech-spec.md` using the artifact template at `templates/artifacts/tech-spec.md`
+3. Generate `docs/specs/tech-spec.md` using the artifact template at `docs/project-guide/templates/artifacts/tech-spec.md` (installed by `project-guide init`; refreshed by `project-guide update`)
 
 4. Present the complete document to the developer for approval. Iterate as needed.
 
@@ -50,7 +50,7 @@ The approved `docs/specs/concept.md` and `docs/specs/features.md` must exist bef
 
    Even if the developer has no additional facts, still create `project-essentials.md` with the file header conventions section pre-filled.
 
-6. Generate `docs/specs/project-essentials.md` using the artifact template at `templates/artifacts/project-essentials.md`. The **File header conventions** section is mandatory; substitute `<YEAR>`, `<OWNER>`, and `<LICENSE>` with concrete values and remove the trailing TODO note. Append any additional facts the developer provided in step 5. Follow the template's heading convention: **do NOT include a top-level `#` heading** (the rendered `go.md` wrapper provides `## Project Essentials`), and use `###` for subsection headings so they nest correctly. Present the document to the developer for approval and iterate as needed.
+6. Generate `docs/specs/project-essentials.md` using the artifact template at `docs/project-guide/templates/artifacts/project-essentials.md` (installed by `project-guide init`; refreshed by `project-guide update`). The **File header conventions** section is mandatory; substitute `<YEAR>`, `<OWNER>`, and `<LICENSE>` with concrete values and remove the trailing TODO note. Append any additional facts the developer provided in step 5. Follow the template's heading convention: **do NOT include a top-level `#` heading** (the rendered `go.md` wrapper provides `## Project Essentials`), and use `###` for subsection headings so they nest correctly. Present the document to the developer for approval and iterate as needed.
 
 7. Done — proceed to the next mode.
 

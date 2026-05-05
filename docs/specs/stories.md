@@ -123,6 +123,46 @@ The artifact template at `templates/artifacts/project-essentials.md` includes a 
 
 ---
 
+### Story O.i: v2.5.7 Make artifact-template paths in 'go.md' project-root-relative [Done]
+
+The mode templates instruct the LLM to "Generate `docs/specs/<artifact>.md` using the artifact template at `templates/artifacts/<artifact>.md`" — a relative path with no base. In the source repo it resolves from `project_guide/templates/project-guide/`; in a downstream project it resolves from `docs/project-guide/` (where `project-guide init` installs a copy of the entire template tree, including `docs/project-guide/templates/artifacts/*.md`). The LLM has no way to know either base directory and starts groping. A careful LLM running `plan_stories` on a downstream project (observed: nbfoundry) tried `find / -path '*/project_guide*/templates/...'` before the developer interrupted.
+
+The fix is to **make the path explicit and project-root-relative** in the mode-step language: `docs/project-guide/templates/artifacts/<file>.md`. That path exists in every initialized project (created by `project-guide init` and refreshed by `project-guide update`), so the LLM can `Read` it directly with no discovery step. Pairing this with a one-time note in `_header-common.md` (or equivalent shared header) — "bundled artifact templates live at `docs/project-guide/templates/artifacts/` in this project" — anchors the LLM's mental model so it doesn't relapse on a future mode that omits the explicit path.
+
+**Why not inline the content** (rejected alternative): we considered injecting the artifact template content into `go.md` at render time, mirroring the `pyve_essentials` pattern from O.a. Rejected because (a) artifact templates are several KB each and would bloat every `go.md` render even for modes that don't reference them; (b) a 50-byte path that the LLM `Read`s on demand is dramatically more memory-efficient than the bytes themselves; (c) the LLM doesn't actually need the template structure visible at every read of `go.md` — only when it's generating that specific artifact.
+
+**Affected planning modes** (those whose Steps reference an artifact template by path):
+- `plan_concept` → `templates/artifacts/concept.md`
+- `plan_features` → `templates/artifacts/features.md`
+- `plan_tech_spec` → `templates/artifacts/tech-spec.md` and `templates/artifacts/project-essentials.md` (step 6)
+- `plan_stories` → `templates/artifacts/stories.md`
+- `plan_phase` create branch → `templates/artifacts/project-essentials.md`
+- `refactor_plan` Step F.3 create path → `templates/artifacts/project-essentials.md`
+- `scaffold_project` step 8a create case → `templates/artifacts/project-essentials.md`
+- `refactor_document` (sibling pattern) → `templates/artifacts/brand-descriptions.md`
+
+**Tasks:**
+
+- [x] **Mode templates** (`plan-concept-mode.md`, `plan-features-mode.md`, `plan-tech-spec-mode.md`, `plan-stories-mode.md`): rewrite each "Generate … using the artifact template at `templates/artifacts/<file>.md`" to "Generate … using the artifact template at `docs/project-guide/templates/artifacts/<file>.md`". Where present, also add a parenthetical: *"(installed by `project-guide init`; refreshed by `project-guide update`)"* — this answers the LLM's implicit "is this real?" question without prose bloat.
+- [x] **`plan-phase-mode.md` step 7 create branch**, **`refactor-plan-mode.md` Step F.3 create path**, **`scaffold-project-mode.md` step 8a create case**: same path rewrite for the `project-essentials.md` reference.
+- [x] **`refactor-document-mode.md`** (uses `brand-descriptions.md` artifact via the same pattern): same path rewrite.
+- [x] **`_header-common.md`** (the shared header rendered in every mode's `go.md`): added an anchor sentence under the **Rules** block naming `docs/project-guide/templates/artifacts/` as the canonical install location and explicitly forbidding filesystem / `site-packages` / install-location searches. Loads with every mode so the rule is always-context. **Note:** the path is hardcoded with forward slashes (not `{{ target_dir }}/templates/artifacts/`) because `target_dir` carries OS-native separators and rendered as `docs\project-guide/templates/artifacts/` on Windows CI — mixed-separator output is confusing for the LLM and broke the anchor-detection test on Windows. Hardcoding matches the same convention used by the mode-template path rewrites in this story.
+- [x] **`templates/artifacts/project-essentials.md`** (artifact comment block): added a project-guide-consumer hint under the **Architecture quirks** category naming the install location and listing the environment managers (pip, poetry, uv, conda, mamba, micromamba, pyve, pixi) that all stash `site-packages` differently — captures the "why the project-root-relative path is the only environment-agnostic answer" rationale for any future LLM that re-reads the artifact.
+- [x] **Tests in `tests/test_render.py`** (27 new parametrized tests, +27 to total):
+  - [x] `test_header_common_anchors_artifact_templates_install_location` — parametrized over every mode; asserts the rendered `go.md` contains `docs/project-guide/templates/artifacts/` and the explicit *"do not search the filesystem"* instruction.
+  - [x] `test_mode_uses_project_root_relative_artifact_path` — parametrized over a `_MODE_ARTIFACT_REFERENCES` mapping (12 mode→file pairs spanning the 8 affected modes); asserts the explicit project-root-relative path appears, and that the count of bare `templates/artifacts/<file>.md` equals the count of explicit `docs/project-guide/templates/artifacts/<file>.md` (negative regression guard — every bare reference must be embedded inside the longer explicit path).
+  - [x] `test_every_mode_renders_successfully` still passes (no regression).
+- [x] No update needed to `docs/specs/features.md` or `docs/specs/tech-spec.md` — the install layout was already covered there; no new cross-reference required.
+- [x] Update CHANGELOG and version bump: `project_guide/version.py`, `pyproject.toml`, `CHANGELOG.md` → **v2.5.7**.
+
+**Out of scope:**
+- Changing artifact template content (this story is purely about path clarity and mode-step language).
+- Inline-rendering artifact templates into `go.md` (rejected alternative; see rationale above).
+- Changing the install layout itself (`docs/project-guide/templates/artifacts/` is the canonical location set by `project-guide init` since v2.0; this story leans on that, doesn't change it).
+- Path rewrites for non-planning modes (`code_direct`, `debug`, etc. — they don't reference artifact templates).
+
+---
+
 ## Future
 
 ### Code Mode Hierarchy [Deferred]
