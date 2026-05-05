@@ -163,6 +163,24 @@ The fix is to **make the path explicit and project-root-relative** in the mode-s
 
 ---
 
+### Story O.j: v2.5.8 Update bundled docs to current pyve 'testenv' subcommand CLI shape [Done]
+
+The bundled `pyve-essentials.md` artifact (auto-rendered into every downstream `go.md` under `## Project Essentials > ### Pyve Essentials` since v2.5.0) and the bundled developer doc `python-editable-install.md` quoted pyve commands in the **flag form** `pyve testenv --install -r requirements-dev.txt`. The current pyve CLI uses the **subcommand form** `pyve testenv install -r requirements-dev.txt` — `install` is one of four subcommands alongside `init`, `purge`, and `run` (per `pyve testenv --help`). The flag form is gone. Every downstream project that consumes `pyve-essentials.md` was being told the wrong command shape. `plan-tech-spec-mode.md`'s "Dev tool installation" example (used as a worked-example prompt during project-essentials capture) carried the same stale form.
+
+- [x] **`templates/artifacts/pyve-essentials.md`**: replace all 3 occurrences of `pyve testenv --install -r requirements-dev.txt` with `pyve testenv install -r requirements-dev.txt` (lines 8, 30, 51).
+- [x] **`developer/python-editable-install.md`**: replace all 3 occurrences (lines 82, 95, 125) — bundled developer doc shipped with the package via `init`.
+- [x] **`templates/modes/plan-tech-spec-mode.md`** step 5 worked-example list: change `\`pyve testenv --install\`` → `\`pyve testenv install\`` so the prompt the developer sees during project-essentials capture matches the current CLI.
+- [x] Source-tree scan (`grep -rn "testenv --install\|testenv --purge\|testenv --init\|testenv --run" project_guide/`) returned empty after edits — no other flag-form references remain. `.archive/*.md` files retain the stale form intentionally (historical record).
+- [x] **`pyve testenv init` is required** before `pyve testenv install` or `pyve testenv run` — those subcommands do not auto-create `.pyve/testenv/venv/` (per [pyve `testenv` subcommand reference](https://pointmatic.github.io/pyve/usage/#testenv-subcommand)). Add the init step to the bundled docs:
+  - **`templates/artifacts/pyve-essentials.md`**: added a new "Initialize the testenv (one-time)" bullet citing the upstream URL; updated "Install dev tools" bullet to reference the prior init step; added a sentence to the "If `pytest` fails" hint covering the env-doesn't-exist failure mode; updated `requirements-dev.txt` story-writing rule to say the reproducible setup is `pyve testenv init && pyve testenv install -r requirements-dev.txt` (two commands); added `pyve testenv init` to the testenv editable-install code block.
+  - **`developer/python-editable-install.md`**: added `pyve testenv init` to both runnable code blocks (the testenv-only block and the preferred-pattern block); added a new "Common Mistakes" row covering `pyve testenv install/run` before `pyve testenv init`.
+- [x] Update CHANGELOG and version bump: `project_guide/version.py`, `pyproject.toml`, `CHANGELOG.md` → **v2.5.8**.
+
+**Out of scope:**
+- Auditing other bundled commands (`pyve test`, `pyve run`, `pyve testenv run`) for CLI-shape drift — those still match the current help output as of writing.
+
+---
+
 ## Future
 
 ### Code Mode Hierarchy [Deferred]

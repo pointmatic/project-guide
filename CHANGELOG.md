@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.8] - 2026-05-05
+
+### Changed
+- **`project_guide/templates/project-guide/templates/artifacts/pyve-essentials.md`**, **`developer/python-editable-install.md`**, and **`templates/modes/plan-tech-spec-mode.md`** — Updated all `pyve testenv` invocations from the stale **flag form** `pyve testenv --install -r requirements-dev.txt` to the current **subcommand form** `pyve testenv install -r requirements-dev.txt`. The pyve CLI now exposes `init`, `install`, `purge`, and `run` as subcommands of `testenv` (per `pyve testenv --help`); the `--install` flag is gone. Six occurrences across two artifacts and one mode template; `.archive/*.md` files retain the historical form.
+- **`pyve-essentials.md`** and **`developer/python-editable-install.md`** — Added the required `pyve testenv init` step before `pyve testenv install` / `pyve testenv run` invocations. Those subcommands do not auto-create `.pyve/testenv/venv/` and fail until `init` runs once. `pyve-essentials.md` gains a new "Initialize the testenv (one-time)" bullet citing the upstream [pyve `testenv` subcommand reference](https://pointmatic.github.io/pyve/usage/#testenv-subcommand). `python-editable-install.md` gets the init step in both runnable code blocks plus a new "Common Mistakes" table row for the env-doesn't-exist failure mode.
+
 ## [2.5.7] - 2026-05-04
 
 ### Changed
