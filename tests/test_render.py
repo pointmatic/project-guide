@@ -521,9 +521,14 @@ def test_plan_tech_spec_mode_prompts_for_project_essentials():
     assert "Workflow rules" in content
     assert "Architecture quirks" in content
 
-    # The "skip if none" escape hatch must be present so plan_tech_spec does
-    # not leave empty project-essentials.md files behind on fresh projects.
-    assert "skip to step 7" in content or "do not create an empty" in content
+    # Story O.h (v2.5.6): file headers are mandatory baseline content. The
+    # mode must instruct the LLM to pre-fill the headers without asking, and
+    # to create project-essentials.md unconditionally — even when the
+    # developer has no additional facts to add. The previous "skip to step 7
+    # / do not create an empty" escape hatch was deliberately removed.
+    assert "File header conventions" in content
+    assert "mandatory" in content
+    assert "Even if the developer has no additional facts" in content
 
     # References the artifact template path (so the LLM knows what to render)
     assert "templates/artifacts/project-essentials.md" in content

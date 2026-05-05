@@ -34,7 +34,9 @@ The approved `docs/specs/concept.md` and `docs/specs/features.md` must exist bef
 
 4. Present the complete document to the developer for approval. Iterate as needed.
 
-5. **After tech-spec approval, capture project essentials.** Ask the developer whether there are any must-know facts that future LLMs would need to avoid blunders on this project — things that are **not** obvious from the tech-spec alone. Put these concrete worked examples in front of them to jog their memory (don't just name the categories — name the gotchas):
+5. **After tech-spec approval, capture project essentials.** The **File header conventions** section is mandatory baseline content — pre-fill `<YEAR>`, `<OWNER>`, and `<LICENSE>` from the project's `concept.md` / `LICENSE` / `pyproject.toml` (whichever is authoritative for this mode) and remove the trailing TODO note. Do **not** ask the developer whether to include the headers — the question is only ever about *additional* facts.
+
+   Then ask the developer whether there are any **additional** must-know facts that future LLMs would need to avoid blunders on this project — things that are **not** obvious from the tech-spec alone. Put these concrete worked examples in front of them to jog their memory (don't just name the categories — name the gotchas):
 
    - **Workflow rules — tool wrappers and environment conventions.** A common source of "random walks" by LLMs: multiple invocation forms all *work*, but only one is canonical. Capture which form to use so the LLM doesn't pick whatever happens to succeed first.
      - *Python invocation*: wrapper command (e.g., `pyve run python ...`, `poetry run python ...`, `hatch run python ...`, `uv run python ...`) vs `python -m ...` vs `.venv/bin/python ...`. All may execute, but only one matches the project's setup.
@@ -46,9 +48,9 @@ The approved `docs/specs/concept.md` and `docs/specs/features.md` must exist bef
    - **Hidden coupling** — files that mirror each other, auto-generated code, regenerated outputs that look hand-edited.
    - **Dogfooding / meta notes** — if the project uses itself, capture the rules that keep the dogfood loop safe.
 
-   If the developer says there are none, skip to step 7 — do not create an empty `project-essentials.md`. An empty file is acceptable when maintaining an existing one, but a new project should only get this file if there's actual content to put in it.
+   Even if the developer has no additional facts, still create `project-essentials.md` with the file header conventions section pre-filled.
 
-6. If the developer provides any facts, generate `docs/specs/project-essentials.md` using the artifact template at `templates/artifacts/project-essentials.md`. Follow the template's heading convention: **do NOT include a top-level `#` heading** (the rendered `go.md` wrapper provides `## Project Essentials`), and use `###` for subsection headings so they nest correctly. Present the document to the developer for approval and iterate as needed.
+6. Generate `docs/specs/project-essentials.md` using the artifact template at `templates/artifacts/project-essentials.md`. The **File header conventions** section is mandatory; substitute `<YEAR>`, `<OWNER>`, and `<LICENSE>` with concrete values and remove the trailing TODO note. Append any additional facts the developer provided in step 5. Follow the template's heading convention: **do NOT include a top-level `#` heading** (the rendered `go.md` wrapper provides `## Project Essentials`), and use `###` for subsection headings so they nest correctly. Present the document to the developer for approval and iterate as needed.
 
 7. Done — proceed to the next mode.
 

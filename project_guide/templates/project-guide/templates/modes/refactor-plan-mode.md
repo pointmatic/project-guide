@@ -108,7 +108,7 @@ Ask the developer whether the refactor introduced any new must-know facts that f
 
 Depending on Step F.1's branch:
 
-- **Create path**: Generate a new `docs/specs/project-essentials.md` from the artifact template at `templates/artifacts/project-essentials.md`. For legacy projects, this is often the first time these rules have been written down — take the time to capture them properly. Present to the developer for approval and iterate as needed.
+- **Create path**: Generate a new `docs/specs/project-essentials.md` from the artifact template at `templates/artifacts/project-essentials.md`. The **File header conventions** section is mandatory baseline content — pre-fill `<YEAR>`, `<OWNER>`, and `<LICENSE>` from the project's `LICENSE` file and `pyproject.toml` (or equivalent manifest) and remove the trailing TODO note. Do **not** ask the developer whether to include the headers — the question is only ever about *additional* facts (gathered in Step F.2). For legacy projects, this is often the first time these rules have been written down — take the time to capture them properly. Present to the developer for approval and iterate as needed.
 - **Modify path**: Read the existing `docs/specs/project-essentials.md`, integrate the new facts from Step F.2, and write the updated file. Preserve existing content that is still accurate; update content that the refactor has changed; add new sections for new categories.
 
 In both paths, follow the artifact template's heading convention: **do NOT include a top-level `#` heading** (the rendered `go.md` wrapper provides `## Project Essentials`), and use `###` for subsection headings so they nest correctly.

@@ -1,6 +1,6 @@
 # concept.md — project-guide (Python)
 
-This document defines why the `{{project_name}}` project exists. 
+This document defines why the `project-guide` project exists. 
 - **Problem space**: problem statement, why, pain points, target users, value criteria
 - **Solution space**: solution statement, goals, scope, constraints
 - **Value mapping**: Pain point to solution mapping

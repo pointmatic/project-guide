@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.6] - 2026-05-04
+
+### Changed
+- **`project_guide/templates/project-guide/templates/modes/{plan-tech-spec,plan-phase,refactor-plan,scaffold-project}-mode.md`** and **`templates/artifacts/project-essentials.md`** — Reframed the **File header conventions** section as mandatory baseline content the LLM pre-fills automatically from `concept.md` / `LICENSE` / `pyproject.toml`, rather than as optional starter content gated on developer-provided "must-know facts". `plan_tech_spec` step 5 no longer treats `project-essentials.md` creation as conditional on extra facts; step 6 is unconditional and requires substituting `<YEAR>` / `<OWNER>` / `<LICENSE>` and removing the trailing TODO note. `plan_phase` step 7 create branch and `refactor_plan` Step F.3 create path each gain the same canonical pre-fill instruction. `scaffold_project` step 8 split into 8a (verify or create with concrete file headers using values from steps 1–3) and 8b (existing memory-review behavior). Artifact comment block replaces the "An empty file is acceptable — omit this file entirely" guidance with "This file is **always** created — file headers are mandatory baseline content; additional sections are optional". Closes a recurring failure where the LLM (observed in a downstream nbfoundry session) asked the developer whether to include SPDX/copyright headers despite the license/copyright being already authoritative in `concept.md`.
+
 ## [2.5.5] - 2026-05-02
 
 ### Changed

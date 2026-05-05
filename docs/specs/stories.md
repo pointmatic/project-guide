@@ -110,6 +110,19 @@ Today `project-essentials-pyve.md` is *merged once* into `docs/specs/project-ess
 
 ---
 
+### Story O.h: v2.5.6 Make file-header conventions mandatory baseline content in 'project-essentials.md' [Done]
+
+The artifact template at `templates/artifacts/project-essentials.md` includes a **File header conventions** section as starter content with `<YEAR>`, `<OWNER>`, `<LICENSE>` placeholders, but the four modes that own `project-essentials.md` lifecycle (`plan_tech_spec`, `plan_phase`, `refactor_plan`, `scaffold_project`) treated the entire file as conditional on developer-provided "must-know facts". A careful LLM running `plan_tech_spec` on a downstream project (observed: nbfoundry) asked the developer whether to include SPDX/copyright headers — silly, since copyright/license info is already in `concept.md` / `LICENSE` / `pyproject.toml` and headers are always required. This story reframes file headers as mandatory baseline content the LLM pre-fills automatically; the developer is asked only about *additional* project-specific facts.
+
+- [x] **`plan-tech-spec-mode.md` steps 5–6**: reframe step 5 opener so the **File header conventions** section is mandatory baseline content the LLM pre-fills from `concept.md` / `LICENSE` / `pyproject.toml`; the developer is asked only about *additional* must-know facts. Replace the closing line ("If the developer says there are none, skip to step 7 — do not create an empty `project-essentials.md`") with "Even if the developer has no additional facts, still create `project-essentials.md` with the file header conventions section pre-filled." Drop the conditional opener of step 6 ("If the developer provides any facts, generate…") so creation is unconditional; require substituting `<YEAR>` / `<OWNER>` / `<LICENSE>` and removing the trailing TODO note.
+- [x] **`plan-phase-mode.md` step 7 create branch** ("If it does NOT exist"): add the canonical pre-fill instruction — the **File header conventions** section is mandatory baseline content; pre-fill `<YEAR>` / `<OWNER>` / `<LICENSE>` from the project's `LICENSE` file and `pyproject.toml`; remove the trailing TODO note; do **not** ask the developer about headers (the question below is only about *additional* facts).
+- [x] **`refactor-plan-mode.md` Step F.3 create path**: same pre-fill instruction as `plan_phase`. This is the highest-impact site since legacy projects being migrated to v2.x most often hit the create path.
+- [x] **`scaffold-project-mode.md` step 8**: split into 8a ("Verify or create `project-essentials.md` with concrete file headers") + 8b (the existing memory-review behavior). Step 8a covers two cases — file missing (create from artifact template, substitute headers from steps 1–3) and file present with placeholders (substitute and remove TODO). If headers are already concrete, leave alone. Renamed step heading to "Project Essentials: Verify or Create, then Memory Review".
+- [x] **`templates/artifacts/project-essentials.md` comment block**: replace "An empty file is acceptable — omit this file entirely…" paragraph with "This file is **always** created — the **File header conventions** section below is mandatory baseline content. Additional sections beyond file headers are optional…" Update the bulleted "File header conventions" item (line ~56–59) to say the LLM substitutes the placeholders during the four lifecycle modes and removes the trailing TODO note in the same pass — without asking the developer.
+- [x] Update CHANGELOG and version bump: `project_guide/version.py`, `pyproject.toml`, `CHANGELOG.md` → **v2.5.6**.
+
+---
+
 ## Future
 
 ### Code Mode Hierarchy [Deferred]
