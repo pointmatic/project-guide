@@ -181,6 +181,29 @@ The bundled `pyve-essentials.md` artifact (auto-rendered into every downstream `
 
 ---
 
+### Story O.k: v2.5.9 Channel discipline (rich vs. logging) and install-output protection [Done]
+
+Two related rules ship together as Rules-block hardening + tech-spec defaults:
+
+1. **Channel discipline.** A common LLM failure mode: emitting an operational warning ("stage X took longer than expected") via `console.print(...)` because the message *feels* user-facing. Wrong channel — operational concerns are unfilterable downstream that way. The rule (`rich` is for users; `logging` is for operators; warnings/retries/fallbacks go to logs) is universal-Python, not project-specific. Bake it into the **tech-spec artifact's Cross-Cutting Concerns** section as static default content (similar to how File header conventions in project-essentials.md is mandatory baseline) so every project's generated `tech-spec.md` carries the rule, and `plan_stories` reads tech-spec → stories carry the discipline → code modes implement it correctly. Avoid the per-project Q&A pattern entirely (do **not** add this as a worked example to `plan-tech-spec-mode.md` step 5; that step is for project-specific gotchas).
+2. **Install-output protection.** A second recurring LLM failure: editing files under `docs/project-guide/` to "fix" a discrepancy, then watching the edit get silently clobbered on the next `project-guide update` or `project-guide mode` invocation. Add a Rules-block bullet in `_header-common.md` (sibling to the O.i bundled-artifact-templates anchor) that names `docs/project-guide/` as install output, surfaces the `project-guide override` escape hatch, and presents three resolution paths the LLM should offer the developer rather than editing silently: override locally, file an issue/PR upstream at https://github.com/pointmatic/project-guide, or wait for guidance. The dogfooding-specific "edit source-of-truth template" path stays in **this repo's `docs/specs/project-essentials.md`** (where it already lived); only the universal moves go into `_header-common.md`.
+
+- [x] **`developer/best-practices-guide.md`**: added a new **Logging and User Output** section between Error Handling and Open Source Sustainability. Captures the rich/logging discipline with rationale, anti-pattern (`console.print(...)` for warnings), and cross-language analogues (`chalk`/`pino` Node, `pterm`/`slog` Go, `console`/`tracing` Rust).
+- [x] **`templates/artifacts/tech-spec.md`** Cross-Cutting Concerns section: added a static **Logging and User Output** subsection naming `rich`/`logging` (Python), `chalk`/`pino`, `pterm`/`slog`, `console`/`tracing` analogues, and the warnings-go-to-logs rule. Preserved `{{cross_cutting}}` placeholder under a new **Additional Cross-Cutting Concerns** subheading so project-specific cross-cutting concerns still get captured during plan-tech-spec mode's developer Q&A.
+- [x] **`templates/modes/_header-common.md`** Rules block: added a new bullet (immediately after the O.i bundled-artifact-templates anchor) naming `docs/project-guide/` as install output, citing `project-guide override <file> "<reason>"` and `project-guide unoverride <file>` as the escape hatch, instructing the LLM to flag conflicts as substantive (not silently edit), and enumerating three universal resolution paths: (1) override and edit locally, (2) file an issue/PR at https://github.com/pointmatic/project-guide, (3) wait for developer guidance.
+- [x] **`docs/specs/project-essentials.md`** dogfooding rule (this repo only): augmented the "Installed copy" bullet to mention the `project-guide override`/`unoverride` escape hatch alongside the existing "Never hand-edit" guidance, with a note that for dogfooding work the override path is rarely the right answer (the fix lives in the source-of-truth template).
+- [x] Decision-record: in this story, do **not** add the rich/logging rule to `plan-tech-spec-mode.md` step 5 worked-examples (the project-essentials Q&A) — adding a universal rule to a project-specific Q&A is the per-project asking pattern we're trying to avoid. Tech-spec ownership is sufficient.
+- [x] **Tests in `tests/test_render.py`** (16 new parametrized tests):
+  - [x] `test_header_common_install_output_rule_renders_in_every_mode` — parametrized over every mode; pins four observable behaviors of the new rule: directory naming, override-command name, upstream URL, "do not edit silently" instruction.
+  - [x] `test_tech_spec_artifact_has_logging_and_user_output_subsection` — reads the bundled artifact directly via `importlib.resources`; asserts the subsection header, both Python channels (`rich`, `logging`), at least one cross-language analogue (`chalk`, `pino`/`slog`), the operator-log rule for warnings, and that the original `{{cross_cutting}}` placeholder is preserved under a separate **Additional Cross-Cutting Concerns** subheading.
+- [x] Update CHANGELOG and version bump: `project_guide/version.py`, `pyproject.toml`, `CHANGELOG.md` → **v2.5.9**.
+
+**Out of scope:**
+- Adding a re-read instruction in `code_direct` / `code_test_first` modes to re-load tech-spec.md when implementing logging/output stories. Trust the story-task → implementation propagation path for now (well-planned stories carry the discipline implicitly). Revisit if drift is observed in practice.
+- Gating the install-output rule's path-to-resolve options with a Jinja conditional based on `project_name`. The dogfooding-specific source-of-truth path lives in this repo's `project-essentials.md` already; the shared header should carry only universal moves. Adding a `project_name`-based template branch for a single-repo carve-out is over-engineering.
+
+---
+
 ## Future
 
 ### Code Mode Hierarchy [Deferred]

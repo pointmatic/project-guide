@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.9] - 2026-05-06
+
+### Changed
+- **`project_guide/templates/project-guide/templates/artifacts/tech-spec.md`** — Cross-Cutting Concerns section gains a static **Logging and User Output** subsection naming `rich`/`logging` (Python) and cross-language analogues (`chalk`/`pino`, `pterm`/`slog`, `console`/`tracing`). The rule (user-facing output goes to `rich`; structured operational events including warnings/retries go to stdlib `logging`) is mandatory baseline content the LLM does not negotiate per-project; it ships as default tech-spec content so `plan_stories` reads it and stories carry the discipline into code modes. The original `{{cross_cutting}}` placeholder is preserved under a new **Additional Cross-Cutting Concerns** subheading for project-specific cross-cutting concerns gathered during plan-tech-spec mode's developer Q&A.
+- **`project_guide/templates/project-guide/developer/best-practices-guide.md`** — New **Logging and User Output** section between Error Handling and Open Source Sustainability. Captures the rich/logging discipline with rationale, the `console.print(...)` anti-pattern for operational warnings, and cross-language analogues. The bundled developer doc that ships with the package via `init`.
+- **`project_guide/templates/project-guide/templates/modes/_header-common.md`** — Rules block gains a new bullet (sibling to the v2.5.7 bundled-artifact-templates anchor) naming `docs/project-guide/` as **install output, not source**: hand-edits are silently lost on `project-guide update` / `project-guide mode` invocations unless the file is first marked overridden via `project-guide override <file> "<reason>"` (reverse: `project-guide unoverride <file>`). The LLM is instructed to flag conflicts as substantive and surface three resolution paths to the developer — override locally, file an issue/PR at `https://github.com/pointmatic/project-guide`, or wait for guidance — rather than editing silently. The dogfooding-specific "edit source-of-truth template" path stays in this repo's `docs/specs/project-essentials.md` (where it already lived); only universal moves go into the shared header.
+- **`docs/specs/project-essentials.md`** (this repo, dogfooding) — Augmented the existing dogfooding rule's "Installed copy" bullet to mention the `project-guide override`/`unoverride` escape hatch alongside the existing "Never hand-edit" guidance, with a note that for dogfooding work in this repo the override path is rarely the right answer (the fix lives in the source-of-truth template).
+
 ## [2.5.8] - 2026-05-05
 
 ### Changed

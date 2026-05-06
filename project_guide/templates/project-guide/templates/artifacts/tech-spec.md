@@ -56,6 +56,19 @@ For requirements and behavior, see [`features.md`](features.md). For the impleme
 
 ## Cross-Cutting Concerns
 
+### Logging and User Output
+
+This project uses two-channel output discipline:
+
+- **User-facing output** — `rich` (Python) / `chalk` / `pterm` / `console`. CLI output, progress bars, tables, colored hints, error messages humans read in their terminal. Lives on stdout/stderr.
+- **Operator logs** — stdlib `logging` (Python, with JSON formatter) / `pino` / `slog` / `tracing`. Structured, filterable, level-tagged events for log aggregation, monitoring, and post-hoc debugging.
+
+Warnings and operational concerns ("stage X took longer than expected", "fell back to slower path", "retried 3 times") go to the **operator-log** channel — even when the message *feels* user-facing. If downstream tooling can't filter or alert on it, it's useless. Errors that block the user go on both channels: human-readable stderr message *and* structured log entry.
+
+See `docs/project-guide/developer/best-practices-guide.md` for full rationale.
+
+### Additional Cross-Cutting Concerns
+
 {{cross_cutting}}
 
 ---

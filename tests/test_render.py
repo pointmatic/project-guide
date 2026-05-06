@@ -1483,3 +1483,89 @@ def test_mode_uses_project_root_relative_artifact_path(mode_name, artifact_file)
 
 
 # --- End Story O.i ----------------------------------------------------------
+
+
+# --- Story O.k (v2.5.9) -----------------------------------------------------
+# Pin the install-output rule (every rendered mode must carry the rule that
+# `docs/project-guide/` is install output and how to handle conflicts) and
+# the tech-spec artifact's static "Logging and User Output" subsection.
+
+
+@pytest.mark.parametrize("mode_name", _get_all_mode_names())
+def test_header_common_install_output_rule_renders_in_every_mode(mode_name):
+    """Every rendered mode must carry the install-output rule.
+
+    Pins the four observable behaviors of the rule:
+      1. Names the directory (`docs/project-guide/`) as install output.
+      2. Names the `project-guide override` escape hatch with command name.
+      3. Names the upstream issue/PR URL so the LLM has a concrete option.
+      4. The "do not edit silently" instruction is present so the LLM treats
+         a discrepancy as a substantive conflict, not a fix opportunity.
+
+    If any mode misses these the include chain is broken or someone removed
+    the rule from `_header-common.md`.
+    """
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        result = runner.invoke(main, ['mode', mode_name])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    assert "install output, not source" in content, (
+        f"mode {mode_name!r}: missing the install-output framing"
+    )
+    assert "project-guide override" in content, (
+        f"mode {mode_name!r}: missing the override escape-hatch command"
+    )
+    assert "github.com/pointmatic/project-guide" in content, (
+        f"mode {mode_name!r}: missing the upstream issue/PR URL"
+    )
+    assert "do **not** edit silently" in content.lower() or "do not edit silently" in content.lower(), (
+        f"mode {mode_name!r}: missing the no-silent-edit instruction"
+    )
+
+
+def test_tech_spec_artifact_has_logging_and_user_output_subsection():
+    """The tech-spec artifact ships a static Logging and User Output subsection.
+
+    Story O.k (v2.5.9): the channel-discipline rule (rich/chalk/pterm for
+    users; logging/pino/slog for operators) is baked into the bundled
+    tech-spec template's Cross-Cutting Concerns section so every project's
+    generated tech-spec.md carries the rule at story-planning time. The
+    `{{cross_cutting}}` placeholder is preserved for project-specific
+    additions under a separate sub-heading.
+    """
+    import importlib.resources
+
+    with importlib.resources.as_file(
+        importlib.resources.files("project_guide.templates").joinpath(
+            "project-guide/templates/artifacts/tech-spec.md"
+        )
+    ) as path:
+        content = path.read_text(encoding="utf-8")
+
+    # Static subsection present
+    assert "### Logging and User Output" in content
+    # Both Python channels named
+    assert "`rich`" in content
+    assert "`logging`" in content
+    # Cross-language analogues named (so non-Python projects adapt)
+    assert "`chalk`" in content
+    assert "`pino`" in content or "`slog`" in content
+    # Operator-channel rule for warnings is the load-bearing instruction
+    assert "operator-log" in content.lower()
+    # The original {{cross_cutting}} placeholder is preserved for
+    # project-specific additions (under its own subsection header)
+    assert "{{cross_cutting}}" in content
+    assert "### Additional Cross-Cutting Concerns" in content
+
+
+# --- End Story O.k ----------------------------------------------------------
