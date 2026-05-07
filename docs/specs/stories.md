@@ -266,6 +266,33 @@ Two related rules ship together as Rules-block hardening + tech-spec defaults:
 
 ---
 
+### Story O.n: v2.5.12 Tighten code_direct / code_test_first cycles to announce the next story before implementing [Done]
+
+**Problem:** The `code_direct` and `code_test_first` cycle templates conflate "read story" (Step 1) with "implement it" (Step 2): no explicit gate sits between them. After a mode switch the LLM reads `go.md`, says "the next step is to read `stories.md`...", and waits. When the developer says "go", the LLM silently picks a story (its best guess of what's next) and starts implementing — the developer has no chance to confirm or redirect *which specific story* is being worked on. Same family of bug as O.f / O.l / O.m: a missing read-and-announce-before-acting gate. The existing Step 9 ("Present" completed story) handles the *exit* gate cleanly; this story adds the symmetric *entry* gate so every "go" is precise.
+
+**Tasks:**
+
+- [x] **`templates/modes/code-direct-mode.md` Cycle Steps** — insert a new **Step 2: Identify and announce the intended next story** between the existing Read and Implement steps. The new step requires the LLM to state the story ID, title, and a one-line scope summary, then wait for "go" (or a redirect to a different story) before proceeding to implementation. Renumber Implement→3, Headers→4, Tests→5, Lint→6, Mark→7, Bump→8, CHANGELOG→9, Present→10, Wait→11.
+- [x] **Step 11 (formerly Step 10) Wait** — extend the language so "go" re-enters the cycle at Step 1, triggering a fresh `stories.md` read and a *new* announce — never silent implementation of whatever the LLM assumed was next. This makes the cycle's two gates (announce-before-implement, present-before-next-cycle) symmetric.
+- [x] **`templates/modes/code-test-first-mode.md` Cycle Steps** — same insertion. New Step 2 announces; existing TDD inner loop (red/green/refactor) becomes Step 3; subsequent steps renumber to 4–10. Step 10 (formerly 9) Wait extended with the same re-enter-at-Step-1 language.
+- [x] **`code-direct-mode.md` Story Ordering section** — update the "If unclear which story is next, ask" bullet so it is explicit that asking is part of Step 2's announce, not a fallback the LLM may skip when it *thinks* it knows.
+- [x] **Tests in `tests/test_render.py`** (4 new tests):
+  - [x] `test_code_direct_step_two_announces_before_implementing` — asserts the rendered `code_direct` `go.md` contains a Step 2 named "Identify and announce" (or equivalent), names "story ID, title", and instructs the LLM to wait for "go" before implementing.
+  - [x] `test_code_test_first_step_two_announces_before_implementing` — same shape for `code_test_first`.
+  - [x] `test_code_direct_wait_step_re_enters_at_step_one` — asserts the final Wait step instructs "go" to re-enter the cycle at Step 1 with a fresh stories.md read.
+  - [x] `test_code_test_first_wait_step_re_enters_at_step_one` — same for `code_test_first`.
+  - [x] All prior render tests still pass.
+- [x] **Re-render** dogfood `docs/project-guide/go.md` via `project-guide update`.
+- [x] **Prevention scan** — `debug` mode's cycle entry condition is different (developer reports a specific bug; LLM debugs it; no "pick a story from a list" beat), so the announce-before-implement gate doesn't apply. `archive_stories` and `default` modes are sequence-shaped, not cycle-shaped. No other cycle modes carry this pattern.
+- [x] Update CHANGELOG and version bump: `project_guide/version.py`, `pyproject.toml`, `CHANGELOG.md` → **v2.5.12**.
+- [x] Verify: ran `pyve test` (full suite green) and `pyve testenv run ruff check project_guide tests` (clean); re-rendered both code modes locally and confirmed the new Step 2 announce gate plus the re-enter-at-Step-1 wait language render correctly.
+
+**Out of scope:**
+- Combining the cycle's two gates into one (pre-announcing the next story inside the previous cycle's Present step). Two separate gates are clearer for the post-mode-switch case and for cycles where the developer redirects to a different story than the LLM expected. One gate per concern.
+- Adding the same announce gate to `debug` mode. The cycle entry there is "developer reports a bug"; the LLM doesn't pick a story off a list. If the symptom shows up there in practice, address separately.
+
+---
+
 ## Future
 
 ### Code Mode Hierarchy [Deferred]

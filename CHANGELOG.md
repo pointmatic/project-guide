@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.12] - 2026-05-06
+
+### Changed
+- **`project_guide/templates/project-guide/templates/modes/code-direct-mode.md`** and **`code-test-first-mode.md`** Cycle Steps — Inserted a new **Step 2: Identify and announce** between Read and Implement. Before implementing anything, the LLM must announce the intended next story to the developer (story ID, title, one-line scope summary) and wait for "go" — a *precise* confirmation of that specific story — or redirect to a different story. Renumbered subsequent steps (`code_direct` cycle is now 11 steps; `code_test_first` is now 10 steps). The final Wait step extended with explicit "go re-enters the cycle at Step 1" language so the cycle's two gates (announce-before-implement, present-before-next-cycle) are symmetric. Same family of bug as Stories O.f / O.l / O.m: a missing read-and-announce-before-acting gate let the LLM pick a story silently after a mode switch and start implementing whatever it thought was next.
+- **`code-direct-mode.md` Story Ordering section** — Reframed the "If unclear which story is next, ask" bullet so it reads as guidance for the Step 2 announce (surface ambiguity in the announce, e.g., "I see two candidates: Story B.c and Story B.d — which?"), not a fallback the LLM may skip when it *thinks* it knows.
+
 ## [2.5.11] - 2026-05-06
 
 ### Changed

@@ -855,7 +855,7 @@ def test_code_direct_mode_separates_llm_lane_from_developer_lane():
 
 
 def test_code_direct_present_step_forbids_followup_prompts():
-    """code_direct step 9 must explicitly forbid follow-up proposals.
+    """code_direct's Present step must explicitly forbid follow-up proposals.
 
     Belt-and-suspenders reinforcement: the universal rule in
     `_header-common.md` should be sufficient, but pinning the forbidden
@@ -882,11 +882,11 @@ def test_code_direct_present_step_forbids_followup_prompts():
 
 
 def test_code_test_first_present_step_forbids_followup_prompts():
-    """code_test_first step 8 must also forbid follow-up proposals.
+    """code_test_first's Present step must also forbid follow-up proposals.
 
     code_test_first does not get the Velocity Practices lane restructure
     (it has no analogous section), but its Present step gets the same
-    tightening as code_direct step 9.
+    tightening as code_direct's Present step.
     """
     from click.testing import CliRunner  # noqa: I001
 
@@ -1810,3 +1810,131 @@ def test_scaffold_project_step_numbers_renumbered():
 
 
 # --- End Story O.m ----------------------------------------------------------
+
+
+# --- Story O.n (v2.5.12) ----------------------------------------------------
+# Pin the new Step 2 ("Identify and announce") gate in code_direct and
+# code_test_first cycles, plus the symmetric "go re-enters at Step 1"
+# language in the final Wait step. Same family of bug as O.f / O.l / O.m:
+# read-and-announce-before-acting eliminates the silent-pick failure mode.
+
+
+def test_code_direct_step_two_announces_before_implementing():
+    """code_direct cycle Step 2 must announce the next story and wait for go.
+
+    Reason: previously, Step 1 (Read) flowed straight into Step 2 (Implement)
+    with no gate between. After a mode switch the LLM picked a story
+    silently and the developer had no chance to confirm or redirect which
+    *specific* story was being worked on. The new Step 2 makes "go" precise.
+    """
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        result = runner.invoke(main, ['mode', 'code_direct'])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    # The new step name is present.
+    assert "Identify and announce" in content
+    # The announce must include story ID + title (load-bearing — without
+    # these the developer cannot tell which story is being proposed).
+    assert "story ID" in content
+    assert "title" in content
+    # The wait-before-implementing instruction is explicit.
+    assert "before implementing anything" in content
+    # The redirect path is named so the LLM doesn't treat the announce
+    # as a one-way notification.
+    assert "redirect" in content
+
+
+def test_code_test_first_step_two_announces_before_implementing():
+    """code_test_first cycle Step 2 must announce the next story and wait.
+
+    Same gate as code_direct — TDD just changes what happens *after* the
+    announce (red-green-refactor) but the announce-and-wait beat is
+    identical.
+    """
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        result = runner.invoke(main, ['mode', 'code_test_first'])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    assert "Identify and announce" in content
+    assert "story ID" in content
+    assert "title" in content
+    # code_test_first phrases the wait-before as "before writing any tests
+    # or implementation" since the inner loop starts with a failing test.
+    assert "before writing any tests or implementation" in content
+    assert "redirect" in content
+
+
+def test_code_direct_wait_step_re_enters_at_step_one():
+    """code_direct's final Wait step must instruct go to re-enter at Step 1.
+
+    The two cycle gates (announce-before-implement at Step 2,
+    present-before-next-cycle at the final Wait) are symmetric: each "go"
+    is a precise confirmation of a specific story, never a license for
+    silent implementation of whatever the LLM assumed was next.
+    """
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        result = runner.invoke(main, ['mode', 'code_direct'])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    # The Wait step now spells out where "go" goes.
+    assert "re-enters the cycle at" in content
+    assert "Step 1" in content
+    # Fresh read is named so the LLM doesn't reuse stale stories.md state.
+    assert "fresh `stories.md` read" in content
+    # The negative behavior is named explicitly.
+    assert "never silent implementation" in content
+
+
+def test_code_test_first_wait_step_re_enters_at_step_one():
+    """code_test_first's final Wait step carries the same re-enter language."""
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        result = runner.invoke(main, ['mode', 'code_test_first'])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    assert "re-enters the cycle at" in content
+    assert "Step 1" in content
+    assert "fresh `stories.md` read" in content
+    assert "never silent implementation" in content
+
+
+# --- End Story O.n ----------------------------------------------------------
