@@ -1866,3 +1866,160 @@ def test_bump_version_warns_when_no_version_file_found(runner, tmp_path):
 
 
 # --- End Story O.p (CLI tests) -----------------------------------------------
+
+
+# --- Story O.q (v2.5.15) -----------------------------------------------------
+# Pin the mode-section rename, _CATEGORY_ORDER reorder, and CLI help expansion:
+#   - Planning → Project Planning
+#   - Post-Release → Release Planning
+#   - plan_phase moves from Project Planning to Release Planning
+#   - plan_production_phase joins Release Planning
+#   - _CATEGORY_ORDER: Getting Started, Project Planning, Scaffold, Coding,
+#     Debugging, Documentation, Refactoring, Release Planning
+#   - mode --help docstring enumerates three invocation paths
+
+
+def test_mode_help_documents_three_invocation_paths(runner, tmp_path):
+    """`project-guide mode --help` must enumerate the three invocation modes.
+
+    Reason: the docstring was a single line ("Set or show the active
+    development mode."), giving no indication that a positional skips
+    the menu, --no-input enumerates modes, or that the bare invocation
+    opens an interactive picker. The expanded docstring closes that gap.
+    """
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(main, ['mode', '--help'])
+        assert result.exit_code == 0
+
+    # All three invocation paths are documented as worked examples.
+    assert "project-guide mode <name>" in result.output
+    assert "project-guide mode --no-input" in result.output
+    # The interactive menu is named.
+    assert "interactive" in result.output.lower()
+
+
+def test_mode_listing_uses_renamed_sections(runner, tmp_path):
+    """The annotated mode listing uses the renamed section labels.
+
+    `Planning` is now `Project Planning`; `Post-Release` is now
+    `Release Planning`. The legacy labels must not appear as standalone
+    section headers (substring matches like 'Project Planning' contain
+    'Planning' — that's expected).
+    """
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        result = runner.invoke(main, ['mode', '--no-input'])
+        assert result.exit_code == 0
+
+    # New labels present
+    assert "Project Planning" in result.output
+    assert "Release Planning" in result.output
+    # Legacy labels are gone as standalone section headers — pin the
+    # exact section heading shape so partial matches don't false-positive.
+    # Section headings are indented with two spaces in the listing.
+    assert "  Post-Release\n" not in result.output
+
+
+def test_mode_listing_section_order(runner, tmp_path):
+    """Sections appear in the new lifecycle order.
+
+    Order: Getting Started → Project Planning → Scaffold → Coding →
+    Debugging → Documentation → Refactoring → Release Planning.
+    """
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        result = runner.invoke(main, ['mode', '--no-input'])
+        assert result.exit_code == 0
+
+    output = result.output
+    # Find each section heading's index; assert ascending order.
+    sections_in_order = [
+        "Getting Started",
+        "Project Planning",
+        "Scaffold",
+        "Coding",
+        "Debugging",
+        "Documentation",
+        "Refactoring",
+        "Release Planning",
+    ]
+    indices = [output.find(s) for s in sections_in_order]
+    # All sections present
+    for s, i in zip(sections_in_order, indices, strict=True):
+        assert i >= 0, f"Section {s!r} missing from listing"
+    # Ascending order
+    for s_prev, s_next, i_prev, i_next in zip(
+        sections_in_order[:-1],
+        sections_in_order[1:],
+        indices[:-1],
+        indices[1:],
+        strict=True,
+    ):
+        assert i_prev < i_next, (
+            f"{s_prev!r} (idx {i_prev}) must appear before "
+            f"{s_next!r} (idx {i_next}) in the listing"
+        )
+
+
+def test_plan_phase_in_release_planning_section(runner, tmp_path):
+    """plan_phase is grouped under Release Planning, not Project Planning.
+
+    Per Story O.q's lifecycle organization: phase planning is repeated
+    work (each release ships at least one phase), not one-time-per-project
+    work. plan_phase moves to Release Planning alongside plan_production_phase
+    and archive_stories.
+    """
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        result = runner.invoke(main, ['mode', '--no-input'])
+        assert result.exit_code == 0
+
+    output = result.output
+    release_idx = output.find("Release Planning")
+    project_idx = output.find("Project Planning")
+    # The next section after Release Planning is the end of the listing
+    # (or the implicit footer); use the end of output as the upper bound.
+    plan_phase_idx = output.find("plan_phase\n") if "plan_phase\n" in output else output.find("plan_phase ")
+    # plan_phase must appear after the Release Planning header and before
+    # any text following it that isn't another mode name.
+    assert release_idx >= 0
+    assert plan_phase_idx > release_idx, (
+        "plan_phase must appear under the Release Planning section, "
+        "not under Project Planning."
+    )
+    # And plan_phase appears AFTER Project Planning (the previous section
+    # heading), not within it — the Project Planning section is bounded
+    # above by the Release Planning section heading.
+    assert plan_phase_idx > project_idx
+
+
+def test_plan_production_phase_registered_in_release_planning(runner, tmp_path):
+    """plan_production_phase appears under Release Planning.
+
+    Confirms that `_MODE_CATEGORIES["plan_production_phase"]` resolves
+    to "Release Planning" and that the mode appears in the rendered
+    listing under that section.
+    """
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        result = runner.invoke(main, ['mode', '--no-input'])
+        assert result.exit_code == 0
+
+    output = result.output
+    release_idx = output.find("Release Planning")
+    pp_idx = output.find("plan_production_phase")
+    assert release_idx >= 0
+    assert pp_idx > release_idx, (
+        "plan_production_phase must appear under the Release Planning section."
+    )
+
+
+# --- End Story O.q -----------------------------------------------------------

@@ -326,7 +326,7 @@ The system renders a single entry-point document (`go.md`) from Jinja2 templates
 
 `project-guide mode` (no argument) displays a grouped, annotated mode listing:
 
-- Modes are grouped by category (Getting Started, Planning, Coding, Post-Release, Scaffold, Documentation, Debugging, Refactoring) with ordered category headers.
+- Modes are grouped by category (Getting Started, Project Planning, Scaffold, Coding, Debugging, Documentation, Refactoring, Release Planning) with ordered category headers reflecting the project lifecycle flow.
 - Each mode is annotated: `→` (current, cyan background highlight), `✓` (all prerequisites met, green), `✗` (unmet prerequisites, yellow, dimmed name).
 - `--verbose` / `-v` shows the unmet prerequisite file paths beneath each `✗` entry.
 - On a real TTY (unless `--no-input`, `CI=1`, or non-TTY stdin), a numbered selection menu is shown after the listing, allowing the developer to switch mode by entering a number. Empty input cancels. Up to 3 attempts before exit 1.

@@ -306,32 +306,41 @@ def _ensure_gitignore_entry(target_dir: str) -> None:
 
 _MODE_CATEGORIES: dict[str, str] = {
     "default": "Getting Started",
-    "plan_concept": "Planning",
-    "plan_features": "Planning",
-    "plan_tech_spec": "Planning",
-    "plan_stories": "Planning",
-    "archive_stories": "Post-Release",
-    "plan_phase": "Post-Release",
-    "plan_production_phase": "Post-Release",
+    # Project Planning — one-time-per-project work; the four spec documents
+    # that establish the project before any code lands.
+    "plan_concept": "Project Planning",
+    "plan_features": "Project Planning",
+    "plan_tech_spec": "Project Planning",
+    "plan_stories": "Project Planning",
+    # Scaffold — the one-time bridge from Project Planning to Coding.
     "scaffold_project": "Scaffold",
-    "document_brand": "Documentation",
-    "document_landing": "Documentation",
+    # Coding — the cycle modes for implementing stories.
     "code_direct": "Coding",
     "code_test_first": "Coding",
+    # Debugging — bug-fix cycle.
     "debug": "Debugging",
+    # Documentation — README, brand, landing page.
+    "document_brand": "Documentation",
+    "document_landing": "Documentation",
+    # Refactoring — update existing planning / documentation artifacts.
     "refactor_plan": "Refactoring",
     "refactor_document": "Refactoring",
+    # Release Planning — repeated per release; phase planning, production
+    # phase planning (post-1.0 mandatory), and end-of-phase archive.
+    "plan_phase": "Release Planning",
+    "plan_production_phase": "Release Planning",
+    "archive_stories": "Release Planning",
 }
 
 _CATEGORY_ORDER = [
     "Getting Started",
-    "Planning",
-    "Coding",
-    "Post-Release",
+    "Project Planning",
     "Scaffold",
-    "Documentation",
+    "Coding",
     "Debugging",
+    "Documentation",
     "Refactoring",
+    "Release Planning",
     "Other",
 ]
 
@@ -453,7 +462,30 @@ def _complete_mode_names(ctx, param, incomplete):
     help='Skip interactive menu; print annotated list and exit. (Also auto-enabled by CI=1 or non-TTY stdin.)',
 )
 def set_mode(mode_name: str | None, verbose: bool, no_input: bool):
-    """Set or show the active development mode."""
+    """Set or show the active development mode.
+
+    Three invocation paths:
+
+    \b
+      project-guide mode <name>     # set the mode and re-render go.md
+      project-guide mode --no-input # print the annotated mode list and exit
+      project-guide mode            # interactive numbered menu (TTY only)
+
+    Modes are grouped by lifecycle section in the listing: Getting Started,
+    Project Planning, Scaffold, Coding, Debugging, Documentation,
+    Refactoring, Release Planning. The current mode is marked with → in
+    the listing; modes whose prerequisite files exist are marked ✓; modes
+    whose prerequisites are unmet are marked ✗.
+
+    Each mode change re-renders `docs/project-guide/go.md` from the
+    bundled mode template plus the project's metadata. With --verbose,
+    the listing also shows which prerequisite files are missing per mode.
+
+    The --no-input behavior is the discovery / automation path. It is
+    auto-enabled when CI=1 is set in the environment or when stdin is
+    not a TTY (the embedded-invocation case used by pyve and similar
+    wrappers).
+    """
     config_path = Path(".project-guide.yml")
 
     if not config_path.exists():

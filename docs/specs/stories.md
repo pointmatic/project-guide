@@ -387,24 +387,27 @@ Two related rules ship together as Rules-block hardening + tech-spec defaults:
 
 ---
 
-### Story O.q: v2.5.15 Mode reordering, section rename, and CLI help expansion [Planned]
+### Story O.q: v2.5.15 Mode reordering, section rename, and CLI help expansion [Done]
 
 **Problem:** The `_MODE_CATEGORIES` and `_CATEGORY_ORDER` dicts in `cli.py` reflect an older organizational model. Three updates needed: (a) rename "Planning" → "Project Planning" (one-time-per-project work) and "Post-Release" → "Release Planning" (repeated work); (b) move `plan_phase` from Project Planning to Release Planning, register `plan_production_phase` (from O.p) under Release Planning; (c) reorder `_CATEGORY_ORDER` to match the lifecycle flow (Getting Started → Project Planning → Scaffold → Coding → Debugging → Documentation → Refactoring → Release Planning). Plus expand `mode` CLI help to enumerate the three invocation modes (positional / `--no-input` discovery / interactive menu) since the docstring is currently a single line.
 
 **Tasks:**
 
-- [ ] **`project_guide/cli.py` `_MODE_CATEGORIES`** — rename section labels: `"Planning"` → `"Project Planning"`, `"Post-Release"` → `"Release Planning"`. Move `plan_phase` from Planning to Release Planning. Register `plan_production_phase` (per O.p) under Release Planning.
-- [ ] **`project_guide/cli.py` `_CATEGORY_ORDER`** — reorder per lifecycle flow: `Getting Started`, `Project Planning`, `Scaffold`, `Coding`, `Debugging`, `Documentation`, `Refactoring`, `Release Planning`, `Other`.
-- [ ] **`project_guide/cli.py` `set_mode` docstring** — expand from `"""Set or show the active development mode."""` to a multi-line block enumerating the three invocation paths: positional (`project-guide mode <name>` sets and exits), `--no-input` (prints annotated mode list and exits), bare invocation (interactive numbered menu). Add `--verbose` description (shows unmet prerequisite files per mode). Click renders `\b` blocks correctly so the help output shows the three paths cleanly.
-- [ ] **README mode list (if any)** — grep for any sectioned mode list in `README.md` and update parallel to the CLI section labels.
-- [ ] **`docs/specs/features.md` / `docs/specs/tech-spec.md`** — grep for "Post-Release" / "Planning" section labels; update if present.
-- [ ] **Tests in `tests/test_cli.py`**:
-  - [ ] `test_mode_help_documents_three_invocation_paths` — `project-guide mode --help` output mentions positional, `--no-input` discovery, and interactive menu.
-  - [ ] `test_mode_listing_uses_renamed_sections` — `project-guide mode --no-input` output contains `Project Planning` and `Release Planning` (not `Planning` or `Post-Release`).
-  - [ ] `test_mode_listing_section_order` — sections appear in the new lifecycle order.
-  - [ ] `test_plan_phase_in_release_planning_section` — `plan_phase` is grouped under Release Planning (not Project Planning).
-  - [ ] `test_plan_production_phase_registered_in_section` — `plan_production_phase` (from O.p) is grouped under Release Planning.
-- [ ] Update CHANGELOG and version bump: `project_guide/version.py`, `pyproject.toml`, `CHANGELOG.md` → **v2.5.15**.
+- [x] **`project_guide/cli.py` `_MODE_CATEGORIES`** — renamed section labels: `"Planning"` → `"Project Planning"`, `"Post-Release"` → `"Release Planning"`. Moved `plan_phase` from Planning to Release Planning. Registered `plan_production_phase` under Release Planning. Added inline comments explaining each section's role.
+- [x] **`project_guide/cli.py` `_CATEGORY_ORDER`** — reordered per lifecycle flow: `Getting Started → Project Planning → Scaffold → Coding → Debugging → Documentation → Refactoring → Release Planning → Other`.
+- [x] **`project_guide/cli.py` `set_mode` docstring** — expanded from one line to a multi-paragraph block enumerating the three invocation paths (positional / `--no-input` / interactive menu) with worked-example syntax via Click `\b` blocks. Documents section ordering, per-mode markers (→ / ✓ / ✗), `--verbose` behavior, and `--no-input` auto-enable conditions (CI=1, non-TTY stdin).
+- [x] **README mode list** — updated **Available Modes** section. Renamed "Planning Modes" → "Project Planning Modes" and "Post-Release Modes" → "Release Planning Modes". Added `plan_phase` (pre-1.0) and `plan_production_phase` (post-1.0 mandatory) under Release Planning Modes; removed `plan_phase` from Project Planning Modes. Added one-line role description above each section.
+- [x] **`docs/specs/features.md`** FR-11 — updated section-grouping bullet to use new labels and ordering.
+- [x] **`docs/specs/tech-spec.md`** — grep returned no matches for legacy labels; no update needed.
+- [x] **Tests in `tests/test_cli.py`** (5 new tests):
+  - [x] `test_mode_help_documents_three_invocation_paths` — pins all three worked-example syntaxes in `mode --help` output and the "interactive" keyword.
+  - [x] `test_mode_listing_uses_renamed_sections` — pins presence of `Project Planning` and `Release Planning` headers; pins absence of legacy `Post-Release` standalone section heading.
+  - [x] `test_mode_listing_section_order` — asserts ascending index order of all 8 section headings in the rendered listing.
+  - [x] `test_plan_phase_in_release_planning_section` — confirms `plan_phase` appears after the Release Planning header.
+  - [x] `test_plan_production_phase_registered_in_release_planning` — confirms `plan_production_phase` appears under Release Planning.
+  - [x] All 462 prior tests still pass (substring-match assertions like `"Planning" in output` continue to hold against `Project Planning`); full suite is **467 passed**.
+- [x] **Smoke test:** ran `project-guide init` + `project-guide mode --no-input` in a scratch directory; verified the rendered listing shows the lifecycle order (Getting Started → Project Planning → Scaffold → Coding → Debugging → Documentation → Refactoring → Release Planning) with `plan_phase` and `plan_production_phase` grouped under Release Planning alongside `archive_stories`.
+- [x] Updated CHANGELOG and version bump: `project_guide/version.py`, `pyproject.toml`, `CHANGELOG.md` → **v2.5.15**.
 
 **Out of scope:**
 - Driving the section labels from a `section:` field in `.metadata.yml` (decentralizing what's currently centralized in `cli.py`). Possible future improvement; not needed for the rename + reorder fix.

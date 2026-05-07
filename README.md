@@ -429,7 +429,9 @@ metadata_overrides:             # optional — per-project mode field patches
 
 ## Available Modes
 
-### Planning Modes
+### Project Planning Modes
+
+One-time-per-project work — the four spec documents that establish the project before any code lands.
 
 | Mode | Command | Output |
 |------|---------|--------|
@@ -437,7 +439,6 @@ metadata_overrides:             # optional — per-project mode field patches
 | **Features** | `project-guide mode plan_features` | `docs/specs/features.md` |
 | **Tech Spec** | `project-guide mode plan_tech_spec` | `docs/specs/tech-spec.md` + `docs/specs/project-essentials.md` (initial population) |
 | **Stories** | `project-guide mode plan_stories` | `docs/specs/stories.md` |
-| **Phase** | `project-guide mode plan_phase` | New phase added to `stories.md` + append to `project-essentials.md` |
 
 ### Coding Modes
 
@@ -454,10 +455,14 @@ metadata_overrides:             # optional — per-project mode field patches
 | **Branding** | `project-guide mode document_brand` | `docs/specs/brand-descriptions.md` |
 | **Landing Page** | `project-guide mode document_landing` | GitHub Pages + MkDocs docs |
 
-### Post-Release Modes
+### Release Planning Modes
+
+Repeated per release — phase planning (pre-1.0 vs. post-1.0), end-of-phase archive.
 
 | Mode | Command | Purpose |
 |------|---------|---------|
+| **Phase** | `project-guide mode plan_phase` | Pre-1.0 phase planning. New phase added to `stories.md` + append to `project-essentials.md` |
+| **Production Phase** | `project-guide mode plan_production_phase` | Post-1.0 mandatory phase planning. Adds production-readiness checklist + breaking-change negotiation + explicit version-bump target |
 | **Archive Stories** | `project-guide mode archive_stories` | Move completed `stories.md` to `.archive/` and re-render an empty one for the next phase |
 
 ### Refactoring Modes

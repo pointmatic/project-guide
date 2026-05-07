@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.15] - 2026-05-07
+
+### Changed
+- **`project_guide/cli.py:_MODE_CATEGORIES`** — Renamed two section labels to reflect the project lifecycle's one-time-vs-repeated split: `"Planning"` → `"Project Planning"` (one-time-per-project), `"Post-Release"` → `"Release Planning"` (repeated per release). Moved `plan_phase` from Project Planning to Release Planning (each release ships at least one phase, so phase planning is repeated work). `plan_production_phase` (added in O.p) is now registered under Release Planning. Added inline comments documenting the rationale for each section group.
+- **`project_guide/cli.py:_CATEGORY_ORDER`** — Reordered to match the lifecycle flow: `Getting Started → Project Planning → Scaffold → Coding → Debugging → Documentation → Refactoring → Release Planning → Other`. Previously the order was alphabetic-ish; now it reads top-to-bottom as "what you do first → what you do last."
+- **`project_guide/cli.py:set_mode` docstring** — Expanded from a single line ("Set or show the active development mode.") to a multi-paragraph block enumerating the three invocation paths: positional (`project-guide mode <name>` sets and exits), `--no-input` (prints annotated mode list and exits — the discovery / automation path), and bare invocation (interactive numbered menu, TTY only). Also documents the section ordering, the per-mode annotation markers (→ / ✓ / ✗), what `--verbose` adds, and the auto-enable conditions for `--no-input` (CI=1 or non-TTY stdin).
+- **`README.md`** — Updated the **Available Modes** section to match the new section labels and ordering. Renamed "Planning Modes" → "Project Planning Modes" (one-time-per-project) and "Post-Release Modes" → "Release Planning Modes" (repeated per release). Added `plan_phase` (pre-1.0) and `plan_production_phase` (post-1.0 mandatory) to Release Planning Modes, removed `plan_phase` from Project Planning. Added a one-line description above each section explaining its lifecycle role.
+- **`docs/specs/features.md`** FR-11 — Updated the section-grouping bullet to use the new labels and ordering.
+
 ## [2.5.14] - 2026-05-07
 
 ### Added
