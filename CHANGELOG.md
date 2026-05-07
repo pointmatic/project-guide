@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.13] - 2026-05-07
+
+### Changed
+- **`project_guide/templates/project-guide/templates/artifacts/stories.md`** — Added a new top-level **`## Version Cadence`** section as static baseline content (parallel to file-header-conventions in `project-essentials.md` from O.h, channel-discipline in `tech-spec.md` from O.k, and CI/CD-summary in `tech-spec.md` from O.l). Documents the project-guide default cadence: every story belongs to a phase; per-story bumping is bugfix=patch, feature=minor, breaking=major (post-1.0 only via `plan_production_phase`); phase-bundling option lets stories run unversioned during work with one tag at end-of-phase; no out-of-order implementation. Pre-1.0 starts at v0.1.0; post-1.0 must use `plan_production_phase`. Closes a downstream failure mode where the LLM extrapolated patch-bumps from `pyproject.toml`'s `0.0.1` placeholder for 48 stories before randomly switching to minor.
+- **`project_guide/templates/project-guide/templates/modes/_header-cycle.md`** — Added a Version Cadence quick-reference (the four bump-magnitude bullets + bundling option + no-extrapolation rule) and a separate Out-of-scope items rule (when announcing a story, briefly summarize any "Out of scope" items so the developer can opt some back in). Loads with every cycle mode (`code_direct`, `code_test_first`, `debug`).
+- **`project_guide/templates/project-guide/templates/modes/plan-phase-mode.md`** step 3 — Extended the "Out of scope" bullet so the LLM walks each item with the developer; out-of-scope is a negotiation, not a unilateral declaration. Primary site for this rule (cycle-header summary is the backstop).
+- **`project_guide/templates/project-guide/templates/modes/plan-stories-mode.md`** step 3 + Story Writing Rules — Cross-references the Version Cadence rule. Story A.a starts at v0.1.0; most initial-planning stories are features → minor; bugfixes are patch; major is forward-deferred to `plan_production_phase`.
+- **`project_guide/templates/project-guide/templates/modes/code-direct-mode.md`** Step 8 + Velocity Practices, **`code-test-first-mode.md`** Step 7 — Bump-version step now references the Version Cadence rule and forbids extrapolation from `pyproject.toml`'s current version.
+- **`project_guide/templates/project-guide/templates/modes/debug-mode.md`** Step 5 — Added a one-line note that bug-fix stories take patch bumps per the cadence rule (or run unversioned if phase-bundling is in play).
+
 ## [2.5.12] - 2026-05-06
 
 ### Changed

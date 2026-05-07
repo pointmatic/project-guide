@@ -332,7 +332,11 @@ def test_perform_archive_happy_path(tmp_path):
     assert source.exists()
     fresh = source.read_text(encoding="utf-8")
     assert "## Phase A" not in fresh
-    assert "Story A.a" not in fresh
+    # The fresh template's Version Cadence section legitimately mentions
+    # "Story A.a" in prose ("version starts at v0.1.0 (Story A.a)"), so the
+    # leak-check pins on the heading form, which only appears in archived
+    # story content.
+    assert "### Story A.a" not in fresh
     assert "## Future" in fresh
     assert "Deferred Feature" in fresh
     assert "Something to do later." in fresh

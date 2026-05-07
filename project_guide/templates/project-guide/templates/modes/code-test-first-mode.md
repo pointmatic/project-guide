@@ -18,7 +18,7 @@ For each story:
 4. **Add copyright/license headers** to every new source file
 5. **Run linting** -- fix any issues immediately
 6. **Mark tasks** as `[x]` in `stories.md` and change story suffix to `[Done]`
-7. **Bump version** in package manifest and source (if the story has a version)
+7. **Bump version** in package manifest and source — only if the story has a version assigned. **Determine the bump magnitude per the Version Cadence rule** (see `docs/specs/stories.md`'s Version Cadence section, summarized in this mode's header above): patch for bugfix, minor for feature, major for breaking (post-1.0 only via `plan_production_phase`). **Do not extrapolate from `pyproject.toml`'s current version** — re-read the cadence rule if unsure.
 8. **Update CHANGELOG.md** with the version entry
 9. **Present** the completed story concisely: what changed (files + line refs), verification results (test counts, lint status, red-green-refactor summary), and the suggested next story. Do not propose commits, pushes, or bundling options. Do not offer "want me to also…?" follow-ups.
 10. **Wait** for the developer to say "go" before starting the next cycle. "Go" re-enters the cycle at **Step 1** — a fresh `stories.md` read and a new announce in Step 2 — never silent implementation of whatever you assumed was next.

@@ -293,6 +293,113 @@ Two related rules ship together as Rules-block hardening + tech-spec defaults:
 
 ---
 
+### Story O.o: v2.5.13 Version-cadence rule (standard semver, phase-bundling, no out-of-order) [Done]
+
+**Problem:** The bundled `templates/artifacts/stories.md` carries one terse line about versioning ("Put `vX.Y.Z` in the story title only when..."), which left a careful downstream LLM (datarefinery) extrapolating from `pyproject.toml`'s `version = "0.0.1"` placeholder and patch-bumping 48 stories before randomly switching to minor and then major. The rule was load-bearing but absent. This story documents the project-guide default cadence as static baseline content (parallel to file-header-conventions in `project-essentials.md` from O.h, channel-discipline in `tech-spec.md` from O.k, and CI/CD-summary in `tech-spec.md` from O.l) so every new project's `stories.md` carries it, and code modes read it deterministically rather than extrapolating.
+
+**Cadence rule (the locked content):**
+- **Every story belongs to a phase.** Bugfix stories included. No orphan stories.
+- **Per-story bumping** (when a story owns its own release):
+  - Bugfix or trivial change → **patch**
+  - Feature or improvement → **minor**
+  - Breaking change → **major** (post-1.0 only; only via `plan_production_phase` mode, which negotiates whether the breakage is substantively user-facing or technically-but-trivially breaking)
+- **Bundling option:** a phase can run unversioned during work and ship a single release/tag at end-of-phase; bump magnitude is determined by the highest-impact change in the bundle.
+- **No out-of-order implementation.** Story order in `stories.md` is the order of execution. If work order needs to change, reorganize/renumber here first — don't skip ahead and create version-number gaps.
+- **Pre-1.0:** standard semver; version starts at `v0.1.0` (Story A.a).
+- **Post-1.0:** every phase goes through `plan_production_phase` (the lighter `plan_phase` is pre-1.0 only).
+
+**Plus:** a procedural rule that "Out of scope" sections in stories or phase plans must be **negotiated** with the developer at planning time, not silently committed.
+
+**Tasks:**
+
+- [x] **`templates/artifacts/stories.md`** — added a new top-level **`## Version Cadence`** section after the existing `vX.Y.Z`-in-title paragraph and before the first `---`. Static baseline content; forward-references `plan_production_phase` (Story O.p) without depending on it.
+- [x] **`templates/modes/_header-cycle.md`** — added the **Version Cadence (quick reference)** section: four bump-magnitude bullets, phase-bundling option, anti-extrapolation closer pointing at `docs/specs/stories.md`'s authoritative section.
+- [x] **`templates/modes/_header-cycle.md`** — added the **Out-of-scope items in stories** subsection: when announcing a story, briefly summarize any "Out of scope" items so the developer can opt some back into scope. They are a negotiation point, not a unilateral deferral.
+- [x] **`templates/modes/plan-phase-mode.md` step 3** — extended the "Out of scope" bullet so the LLM walks through each Out-of-scope item with the developer before committing the phase plan. Primary site for the rule.
+- [x] **`templates/modes/plan-stories-mode.md`** — added a Version-assignment cross-reference under Step 3 (most stories default to minor; bugfix=patch; major forward-deferred to `plan_production_phase`; A.a starts at v0.1.0). Updated Story Writing Rules' Version bullet to match.
+- [x] **`templates/modes/code-direct-mode.md` Step 8 (Bump version)** — replaced the bare bullet with a one-liner cross-referencing the Version Cadence rule and forbidding extrapolation from `pyproject.toml`. Velocity Practices' "Version bump per story" bullet updated to match.
+- [x] **`templates/modes/code-test-first-mode.md` Step 7 (Bump version)** — same cross-reference and anti-extrapolation language.
+- [x] **`templates/modes/debug-mode.md`** Step 5 — added a one-line note that bug-fix stories take patch bumps per the Version Cadence rule (or run unversioned if the phase-bundling option is in play).
+- [x] **Tests in `tests/test_render.py`** (10 new test cases — 5 test functions, 7 of them parametrized to give 10 total):
+  - [x] `test_stories_artifact_has_version_cadence_section` — pins the section heading, all four bump-magnitude rules, phase-bundling, no-out-of-order, anti-extrapolation, v0.1.0 start, and `plan_production_phase` forward-reference.
+  - [x] `test_header_cycle_carries_version_cadence_quick_reference` — parametrized over `code_direct`, `code_test_first`, `debug`; pins the quick-reference renders into every cycle-mode `go.md`.
+  - [x] `test_header_cycle_carries_out_of_scope_negotiation_rule` — parametrized over the same three modes; pins the out-of-scope summary instruction.
+  - [x] `test_plan_phase_mandates_out_of_scope_negotiation` — pins the "walk through each Out-of-scope item with the developer" + "negotiation, not a unilateral declaration" language.
+  - [x] `test_code_modes_bump_step_references_cadence_rule` — parametrized over `code_direct`, `code_test_first`; pins the Bump-version step's cadence-rule reference and step-level anti-extrapolation language.
+  - [x] All prior render tests still pass (no regression). Full suite **446 passed** (436 prior + 10 new).
+- [x] **Fixed two pre-existing tests** (`tests/test_actions.py::test_perform_archive_happy_path` and `tests/test_archive_stories_mode.py::test_archive_stories_cli_happy_path`) whose archived-content-leak assertions used a bare-substring `"Story A.a" not in fresh` — the new Version Cadence section legitimately mentions `(Story A.a)` in prose, so the leak-check needed to pin on the heading form `### Story A.a` instead.
+- [x] **Re-rendered** dogfood `docs/project-guide/go.md` via `project-guide update`.
+- [x] **Prevention scan** — confirmed no other mode's "Bump version" or version-handling step extrapolates from `pyproject.toml`. The existing dogfood `project-essentials.md` "Version bumping" section is project-specific (keeps project-guide's own v2.x.y patch-per-story convention) — the new bundled cadence rule applies to *downstream* projects, not retroactively to this repo.
+- [x] Updated CHANGELOG and version bump: `project_guide/version.py`, `pyproject.toml`, `CHANGELOG.md` → **v2.5.13**.
+- [x] Verify: ran `pyve test` (446 passed) and `pyve testenv run ruff check project_guide tests` (clean); re-rendered `code_direct` / `code_test_first` / `debug` / `plan_phase` / `plan_stories` modes locally and confirmed the Version Cadence + out-of-scope-negotiation language renders correctly.
+
+**Out of scope:**
+- Implementing `plan_production_phase` mode itself — that's Story O.p. This story forward-references it but does not depend on it existing yet; the cadence rule's "post-1.0 major-via-`plan_production_phase`" language reads as forward guidance.
+- Retroactively re-numbering this project's own dogfood `docs/specs/stories.md` to match the new cadence. Project-guide's own version history follows a different convention (patch-per-story v2.x.y) that is intentionally project-specific.
+- Mode reordering / section renaming (`Planning` → `Project Planning`, `Post-Release` → `Release Planning`). That's Story O.q.
+
+---
+
+### Story O.p: v2.5.14 plan_production_phase mode + bump-version helper [Planned]
+
+**Problem:** Post-1.0 phases need production-level scrutiny *every time*, not just at the v1.0.0 threshold crossing. Standard `plan_phase` is the right regimen for pre-1.0 rapid iteration but too light once users depend on the package. This story introduces `plan_production_phase` mode — a copy of `plan_phase` plus production readiness prerequisites, an end-of-phase qualification checklist sourced from `developer/best-practices-guide.md`'s Velocity-vs-Production section, a breaking-change negotiation step (since "breaking" is often technically-but-trivially so — e.g., log-format changes when logs aren't a core consumer capability), and a deterministic version bump on developer green-light. Plus a CLI helper `project-guide bump-version <X.Y.Z>` parallel to `archive-stories` that does the mechanical write to `version.py` / `pyproject.toml` / `CHANGELOG.md`.
+
+**Mandatory-vs-recommended:** post-1.0, `plan_production_phase` is **the only valid phase-planning mode**. `plan_phase` becomes pre-1.0-only.
+
+**Tasks:**
+
+- [ ] **Audit existing `plan-production-mode.md`** (renamed from `production-mode.md` by the developer prior to this story). Read it; salvage any usable readiness-checklist content; otherwise rewrite from scratch. Rename the file once more to `plan-production-phase-mode.md` to match the final mode name.
+- [ ] **`templates/modes/plan-production-phase-mode.md`** — derive structure from `plan-phase-mode.md`. Add:
+  - **Prerequisites section** that names what should already be true before invoking this mode: package version is at the verge of v1.0.0 (or already past it), CI is green, all planned phases shipped through end-of-phase, etc. Tied to readiness-checklist concerns from `best-practices-guide.md`.
+  - **Step inserted after step 1** (before gathering phase info): walk the **Production-readiness checklist** sourced from `best-practices-guide.md`'s Velocity-vs-Production section — branch protection, SECURITY.md, CONTRIBUTING.md, Dependabot, trusted publisher, mandatory CI, bundled-release cadence. Each item: "is this in place? if no, what's blocking?" The mode does not proceed past unmet items without explicit developer override.
+  - **Breaking-change negotiation step** at end-of-phase: walk through any potentially-breaking changes in the phase and ask the developer per-change whether each substantively breaks user expectations or is technically-but-trivially breaking. Worked example: "Log format change — does this project consider log consumers a core capability?" Mode suggests major vs. minor based on the negotiation; developer makes the final call.
+  - **Version bump (gated):** on developer green-light, bump version per the negotiation result. First invocation crosses the v1.0.0 threshold (mandatory major bump); subsequent invocations bump major or minor per the negotiation.
+- [ ] **`project_guide/cli.py`** — add `bump_version` subcommand: `project-guide bump-version <X.Y.Z>` that writes the new version to `project_guide/version.py` (or equivalent — needs to be configurable per project), `pyproject.toml`, and adds a fresh `## [X.Y.Z] - <today>` entry to `CHANGELOG.md`. Mirrors `archive-stories`'s deterministic-helper pattern. Used by `plan_production_phase` (and optionally by code modes' Bump version step). Includes `--no-input` contract compliance.
+- [ ] **`templates/modes/plan-phase-mode.md`** — add a Pre-conditions check: if `pyproject.toml` reports version >= 1.0.0, halt and recommend the developer use `plan_production_phase` instead. Plain semver-version check.
+- [ ] **`.metadata.yml`** — register `plan_production_phase` mode (next_mode chain, generation_type, etc., parallel to `plan_phase`).
+- [ ] **`project_guide/cli.py` `_MODE_CATEGORIES`** — register `plan_production_phase` under "Release Planning" (set up by Story O.q's section rename; if O.q hasn't shipped yet, register under current "Post-Release" and rely on O.q to rename).
+- [ ] **`developer/best-practices-guide.md`** — cross-reference `plan_production_phase` mode in the Velocity-vs-Production section so readers know how the checklist gets exercised.
+- [ ] **Tests in `tests/test_render.py` and `tests/test_cli.py`**:
+  - [ ] `test_plan_production_phase_renders_successfully` — `project-guide mode plan_production_phase` produces a valid `go.md`.
+  - [ ] `test_plan_production_phase_carries_readiness_checklist` — pins the readiness items.
+  - [ ] `test_plan_production_phase_breaking_change_negotiation` — pins the per-change negotiation step language.
+  - [ ] `test_plan_phase_redirects_post_1_0` — when `pyproject.toml` reports a `>= 1.0.0` version, `plan_phase` halts and recommends `plan_production_phase`.
+  - [ ] `test_bump_version_cli_writes_three_files` — the helper writes the new version to all three files and adds a CHANGELOG entry.
+  - [ ] `test_bump_version_cli_no_input_contract` — `--no-input` failure path for missing version arg fails loud per the `_require_setting()` contract.
+- [ ] **Re-render** dogfood `docs/project-guide/go.md` via `project-guide update`.
+- [ ] Update CHANGELOG and version bump: `project_guide/version.py`, `pyproject.toml`, `CHANGELOG.md` → **v2.5.14**.
+
+**Out of scope:**
+- Auto-detecting whether the developer should run `plan_phase` or `plan_production_phase`. The version-comparison check in `plan_phase` halts and recommends; the developer initiates the mode change.
+- Backfilling existing post-1.0 projects to use `plan_production_phase`. They opt in by switching modes; project-guide doesn't migrate them.
+
+---
+
+### Story O.q: v2.5.15 Mode reordering, section rename, and CLI help expansion [Planned]
+
+**Problem:** The `_MODE_CATEGORIES` and `_CATEGORY_ORDER` dicts in `cli.py` reflect an older organizational model. Three updates needed: (a) rename "Planning" → "Project Planning" (one-time-per-project work) and "Post-Release" → "Release Planning" (repeated work); (b) move `plan_phase` from Project Planning to Release Planning, register `plan_production_phase` (from O.p) under Release Planning; (c) reorder `_CATEGORY_ORDER` to match the lifecycle flow (Getting Started → Project Planning → Scaffold → Coding → Debugging → Documentation → Refactoring → Release Planning). Plus expand `mode` CLI help to enumerate the three invocation modes (positional / `--no-input` discovery / interactive menu) since the docstring is currently a single line.
+
+**Tasks:**
+
+- [ ] **`project_guide/cli.py` `_MODE_CATEGORIES`** — rename section labels: `"Planning"` → `"Project Planning"`, `"Post-Release"` → `"Release Planning"`. Move `plan_phase` from Planning to Release Planning. Register `plan_production_phase` (per O.p) under Release Planning.
+- [ ] **`project_guide/cli.py` `_CATEGORY_ORDER`** — reorder per lifecycle flow: `Getting Started`, `Project Planning`, `Scaffold`, `Coding`, `Debugging`, `Documentation`, `Refactoring`, `Release Planning`, `Other`.
+- [ ] **`project_guide/cli.py` `set_mode` docstring** — expand from `"""Set or show the active development mode."""` to a multi-line block enumerating the three invocation paths: positional (`project-guide mode <name>` sets and exits), `--no-input` (prints annotated mode list and exits), bare invocation (interactive numbered menu). Add `--verbose` description (shows unmet prerequisite files per mode). Click renders `\b` blocks correctly so the help output shows the three paths cleanly.
+- [ ] **README mode list (if any)** — grep for any sectioned mode list in `README.md` and update parallel to the CLI section labels.
+- [ ] **`docs/specs/features.md` / `docs/specs/tech-spec.md`** — grep for "Post-Release" / "Planning" section labels; update if present.
+- [ ] **Tests in `tests/test_cli.py`**:
+  - [ ] `test_mode_help_documents_three_invocation_paths` — `project-guide mode --help` output mentions positional, `--no-input` discovery, and interactive menu.
+  - [ ] `test_mode_listing_uses_renamed_sections` — `project-guide mode --no-input` output contains `Project Planning` and `Release Planning` (not `Planning` or `Post-Release`).
+  - [ ] `test_mode_listing_section_order` — sections appear in the new lifecycle order.
+  - [ ] `test_plan_phase_in_release_planning_section` — `plan_phase` is grouped under Release Planning (not Project Planning).
+  - [ ] `test_plan_production_phase_registered_in_section` — `plan_production_phase` (from O.p) is grouped under Release Planning.
+- [ ] Update CHANGELOG and version bump: `project_guide/version.py`, `pyproject.toml`, `CHANGELOG.md` → **v2.5.15**.
+
+**Out of scope:**
+- Driving the section labels from a `section:` field in `.metadata.yml` (decentralizing what's currently centralized in `cli.py`). Possible future improvement; not needed for the rename + reorder fix.
+- Renaming `plan_phase` itself. The mode keeps its name; only its section moves.
+
+---
+
 ## Future
 
 ### Code Mode Hierarchy [Deferred]

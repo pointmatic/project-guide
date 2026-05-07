@@ -1938,3 +1938,184 @@ def test_code_test_first_wait_step_re_enters_at_step_one():
 
 
 # --- End Story O.n ----------------------------------------------------------
+
+
+# --- Story O.o (v2.5.13) ----------------------------------------------------
+# Pin the Version Cadence rule and out-of-scope-negotiation rule:
+#   - bundled stories.md artifact carries the authoritative cadence section
+#   - _header-cycle.md (rendered into every cycle mode's go.md) carries the
+#     quick-reference and the out-of-scope summary instruction
+#   - plan_phase mode mandates out-of-scope negotiation at planning time
+#   - code_direct / code_test_first Bump-version steps cross-reference the
+#     cadence rule and forbid extrapolation from pyproject.toml
+
+
+def test_stories_artifact_has_version_cadence_section():
+    """The bundled stories.md artifact ships a Version Cadence section.
+
+    Story O.o (v2.5.13): the cadence rule (bugfix=patch, feature=minor,
+    breaking=major-via-plan_production_phase) is mandatory baseline content
+    so every project's generated stories.md carries it, and code modes
+    read it deterministically rather than extrapolating from
+    pyproject.toml's current version.
+    """
+    import importlib.resources
+
+    with importlib.resources.as_file(
+        importlib.resources.files("project_guide.templates").joinpath(
+            "project-guide/templates/artifacts/stories.md"
+        )
+    ) as path:
+        content = path.read_text(encoding="utf-8")
+
+    # Section heading present
+    assert "## Version Cadence" in content
+    # Four bump-magnitude rules
+    assert "patch" in content.lower()
+    assert "minor" in content.lower()
+    assert "major" in content.lower()
+    assert "Bugfix or trivial change" in content
+    assert "Feature or improvement" in content
+    assert "Breaking change" in content
+    # Forward-references plan_production_phase (introduced in O.p)
+    assert "plan_production_phase" in content
+    # Phase-bundling option named
+    assert "Phase-bundling option" in content or "Phase-bundling" in content
+    # No-out-of-order rule
+    assert "No out-of-order implementation" in content
+    # Anti-extrapolation closer
+    assert "Do not extrapolate" in content
+    # Pre-1.0 starts at v0.1.0
+    assert "v0.1.0" in content
+
+
+_CYCLE_MODES = ["code_direct", "code_test_first", "debug"]
+
+
+@pytest.mark.parametrize("mode_name", _CYCLE_MODES)
+def test_header_cycle_carries_version_cadence_quick_reference(mode_name):
+    """Every cycle mode's rendered go.md carries the Version Cadence quick-ref.
+
+    The `_header-cycle.md` partial loads into all cycle modes (code_direct,
+    code_test_first, debug). Its quick-reference summarizes the four
+    bump-magnitude rules and forbids extrapolation from pyproject.toml.
+    Pinned across all three modes so a future change to the partial that
+    accidentally breaks the include in one mode is caught.
+    """
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        result = runner.invoke(main, ['mode', mode_name])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    # Quick-reference section heading
+    assert "## Version Cadence" in content, (
+        f"mode {mode_name!r}: missing Version Cadence quick-reference"
+    )
+    # Four bump-magnitude bullets
+    assert "Bugfix or trivial change" in content
+    assert "Feature or improvement" in content
+    assert "Breaking change" in content
+    # Phase-bundling mention
+    assert "Phase-bundled" in content or "phase-bundled" in content
+    # The load-bearing anti-extrapolation rule
+    assert "Do not extrapolate" in content
+
+
+@pytest.mark.parametrize("mode_name", _CYCLE_MODES)
+def test_header_cycle_carries_out_of_scope_negotiation_rule(mode_name):
+    """Every cycle mode's rendered go.md carries the out-of-scope rule.
+
+    When announcing a story, the LLM should briefly summarize any
+    "Out of scope" items so the developer can opt some back in — not
+    silently treat them as deferred.
+    """
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        result = runner.invoke(main, ['mode', mode_name])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    assert "Out-of-scope items in stories" in content, (
+        f"mode {mode_name!r}: missing out-of-scope-summary instruction"
+    )
+    assert "negotiation point" in content
+    assert "opt some items back into scope" in content
+
+
+def test_plan_phase_mandates_out_of_scope_negotiation():
+    """plan_phase step 3 must mandate out-of-scope negotiation.
+
+    Primary site for the rule. The cycle-mode summary is the backstop;
+    plan_phase is the authoritative planning-time gate where the
+    Out-of-scope section gets negotiated with the developer before the
+    phase plan is committed.
+    """
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        result = runner.invoke(main, ['mode', 'plan_phase'])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    assert "Walk through each Out-of-scope item with the developer" in content
+    assert "negotiation, not a unilateral declaration" in content
+
+
+@pytest.mark.parametrize("mode_name", ["code_direct", "code_test_first"])
+def test_code_modes_bump_step_references_cadence_rule(mode_name):
+    """Code modes' Bump version step must reference the cadence rule.
+
+    The step previously read 'Bump version in package manifest and source
+    (if the story has a version)' — too thin a spec. LLMs extrapolated
+    patch-bumps from pyproject.toml's current version. The new wording
+    points at the Version Cadence rule and forbids extrapolation.
+    """
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        result = runner.invoke(main, ['mode', mode_name])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    # Bump-step text references the cadence rule
+    assert "Determine the bump magnitude per the Version Cadence rule" in content, (
+        f"mode {mode_name!r}: bump step missing cadence-rule reference"
+    )
+    # Anti-extrapolation language present in the bump step itself
+    # (not just in the header — the step-level pin catches LLMs that
+    # skim the cycle steps without re-reading the header)
+    assert "Do not extrapolate from `pyproject.toml`" in content
+
+
+# --- End Story O.o ----------------------------------------------------------

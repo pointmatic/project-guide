@@ -182,6 +182,23 @@ Restart the cycle of steps.
 
 ---
 
+## Version Cadence (quick reference)
+
+When bumping the package version for a completed story, follow the **Version Cadence** rule documented at the top of `docs/specs/stories.md`. Quick reference:
+
+- Bugfix or trivial change → **patch**
+- Feature or improvement → **minor**
+- Breaking change → **major** (post-1.0 only; only via `plan_production_phase`)
+- **Phase-bundled releases:** stories within a phase can run unversioned during work; the phase ships a single release/tag at end-of-phase, with bump magnitude determined by the highest-impact change in the bundle.
+
+**Do not extrapolate the bump magnitude from `pyproject.toml`'s current version.** Re-read `docs/specs/stories.md`'s Version Cadence section if unsure.
+
+## Out-of-scope items in stories
+
+When announcing a story (Step 2 in code cycles, or the equivalent gate in other cycle modes), check whether the story or its parent phase plan has an "Out of scope" section. If so, **briefly summarize those items to the developer**. They are a negotiation point — the developer may opt some items back into scope before implementation begins. Do not silently treat them as deferred.
+
+---
+
 
 ## Cycle Steps
 
@@ -194,7 +211,7 @@ For each story:
 5. **Run tests** -- `pyve run pytest` (fix failures before continuing)
 6. **Run linting** -- fix any issues immediately
 7. **Mark tasks** as `[x]` in `stories.md` and change story suffix to `[Done]`
-8. **Bump version** in package manifest and source (if the story has a version)
+8. **Bump version** in package manifest and source — only if the story has a version assigned. **Determine the bump magnitude per the Version Cadence rule** (see `docs/specs/stories.md`'s Version Cadence section, summarized in this mode's header above): patch for bugfix, minor for feature, major for breaking (post-1.0 only via `plan_production_phase`). **Do not extrapolate from `pyproject.toml`'s current version** — re-read the cadence rule if unsure.
 9. **Update CHANGELOG.md** with the version entry
 10. **Present** the completed story concisely: what changed (files + line refs), verification results (test counts, lint status), and the suggested next story. Do not propose commits, pushes, or bundling options. Do not offer "want me to also…?" follow-ups.
 11. **Wait** for the developer to say "go" before starting the next cycle. "Go" re-enters the cycle at **Step 1** — a fresh `stories.md` read and a new announce in Step 2 — never silent implementation of whatever you assumed was next.
@@ -203,7 +220,7 @@ For each story:
 
 **LLM's role in each cycle:**
 
-- **Version bump per story** -- v0.1.0, v0.2.0, v0.3.0, etc. — bump in package manifest and source
+- **Version bump per story** — magnitude per the Version Cadence rule (bugfix=patch, feature=minor, breaking=major-post-1.0-only); bump in package manifest and source
 - **Minimal process overhead** -- focus on making it work, not making it perfect
 - **Tests run after every story** -- not after every file, but before presenting to developer
 - **Fix linting immediately** -- small incremental fixes, not batch cleanup

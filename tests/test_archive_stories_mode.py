@@ -157,7 +157,11 @@ def test_archive_stories_cli_happy_path(runner, initialized_project):
     fresh = stories.read_text(encoding="utf-8")
     assert "## Phase A" not in fresh
     assert "## Phase B" not in fresh
-    assert "Story A.a" not in fresh
+    # The fresh template's Version Cadence section legitimately mentions
+    # "Story A.a" in prose ("version starts at v0.1.0 (Story A.a)"), so the
+    # leak-check pins on the heading form, which only appears in archived
+    # story content.
+    assert "### Story A.a" not in fresh
     assert "## Future" in fresh
     assert "Deferred Thing" in fresh
     # Header extraction populated project_name/programming_language — no

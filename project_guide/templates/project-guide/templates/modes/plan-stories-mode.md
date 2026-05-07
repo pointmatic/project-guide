@@ -26,6 +26,8 @@ The high-level concept (why) should be captured in `concept.md`. The requirement
 
 3. Generate `docs/specs/stories.md` using the artifact template at `docs/project-guide/templates/artifacts/stories.md` (installed by `project-guide init`; refreshed by `project-guide update`). Include a CI/CD phase (Phase G) if and only if `tech-spec.md` indicates the project needs CI/CD automation.
 
+   **Version assignment** — the artifact template's **Version Cadence** section (rendered into the generated `stories.md`) is the authoritative rule for every story's version. Most stories in initial planning are features → **minor** bumps. Bug-fix stories are **patch**. Major bumps are forward-deferred to `plan_production_phase` (post-1.0 only). Story A.a starts at **v0.1.0**. Do not extrapolate from prior projects' version schemes.
+
 4. Present the complete document to the developer for approval. Iterate as needed.
 
 {% include "modes/_phase-letters.md" %}
@@ -33,7 +35,7 @@ The high-level concept (why) should be captured in `concept.md`. The requirement
 ## Story Writing Rules
 
 - **Story ID**: see the Phase and Story ID Scheme above.
-- **Version**: semver, bumped per story. Stories with no code changes omit the version.
+- **Version**: per the **Version Cadence** section in the generated `stories.md` — bugfix=patch, feature=minor, breaking=major (post-1.0 only, via `plan_production_phase`). Stories with no code changes (doc-only / polish) omit the version. Phase-bundled releases also omit per-story versions; the bundle ships with one tag at end-of-phase.
 - **Status suffix**: `[Planned]` initially, changed to `[Done]` when completed.
 - **Checklist**: use `- [ ]` for planned tasks, `- [x]` for completed tasks. Subtasks indented with two spaces.
 - **First story (A.a)**: Always Project Scaffolding — LICENSE, copyright header, package manifest, README, CHANGELOG, .gitignore. This story is executed in `scaffold_project` mode, not `{% if test_first %}code_test_first{% else %}code_direct{% endif %}`. It is marked `[Done]` by `scaffold_project` mode upon completion.
