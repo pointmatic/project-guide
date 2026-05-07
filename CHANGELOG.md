@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.10] - 2026-05-06
+
+### Changed
+- **`project_guide/templates/project-guide/templates/modes/plan-stories-mode.md`** — Three tightenings to prevent observed `plan_stories` missteps:
+  1. **Prerequisites no longer instruct the LLM to confirm "approval".** The presence of `concept.md` / `features.md` / `tech-spec.md` and the developer's choice to invoke this mode imply approval; the natural pause-on-summary at the present-for-approval step is the rejection path. Mirrors the `plan_features` tightening from Story O.f (v2.5.4).
+  2. **Standalone CI/CD question removed.** The previous "Will this project need CI/CD automation?" prompt is replaced with a one-liner pointing the LLM at `tech-spec.md`'s `## CI/CD Automation` section as the authoritative source. Permission to ask the developer is preserved only when the spec is silent or genuinely ambiguous.
+  3. **New Step 1 ("Verify this is the right mode") with three deterministic checks** — existing `### Story` headings in `stories.md`, substantive source beyond Phase A scaffolding, or `git log` deeper than ~10 commits. If any check trips, the LLM halts and recommends `plan_phase` (optionally preceded by `refactor_plan`) rather than silently overwriting prior planning work. Existing read/generate/approve steps renumbered to 2/3/4.
+- **`project_guide/templates/project-guide/templates/modes/plan-tech-spec-mode.md`** step 2 — Added `ci_cd_automation` to the technical-details list. One-line summary of CI/CD scope (lint/test on push, coverage reporting, automated registry publishing on tag); "None" is a valid answer. The single fact `plan_stories` reads to decide whether to include a Phase G — captured once during plan-tech-spec rather than scattered across packaging/distribution and cross-cutting breadcrumbs.
+- **`project_guide/templates/project-guide/templates/artifacts/tech-spec.md`** — New top-level **CI/CD Automation** section with `{{ci_cd_automation}}` placeholder, between Packaging and Distribution and the document end. Pinned by `test_tech_spec_artifact_has_ci_cd_automation_section` and located so `plan_stories` can deterministically locate it during inference.
+
 ## [2.5.9] - 2026-05-06
 
 ### Changed

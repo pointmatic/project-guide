@@ -204,6 +204,40 @@ Two related rules ship together as Rules-block hardening + tech-spec defaults:
 
 ---
 
+### Story O.l: v2.5.10 Tighten plan_stories — assume approval, derive CI/CD, detect wrong mode [Done]
+
+**Problem:** In `plan_stories` mode, the LLM exhibits three avoidable missteps that all stem from the current template wording:
+
+1. **Asks the developer to confirm prerequisites are "approved"** — the Prerequisites section reads "Before writing stories, the following must be approved: concept.md, features.md, tech-spec.md", which the LLM treats as an instruction to interrogate the developer. The presence of those files (and the developer's choice to invoke `plan_stories`) already implies approval; the mode's natural pause-on-summary gate is the rejection path. Mirrors the pattern fixed for `plan_features` in O.f.
+2. **Asks a CI/CD question whose answer is in `tech-spec.md`** — the standalone "Will this project need CI/CD automation?" prompt is presented even when `tech-spec.md` already specifies packaging/distribution and CI scope. The LLM should derive the answer from the spec and only escalate when the spec is genuinely silent. Two complementary fixes: capture a single explicit CI/CD summary fact during `plan_tech_spec` so it lands in the spec; teach `plan_stories` to read it.
+3. **Cannot detect that it's the wrong mode** — `plan_stories` is for *initial* story planning. If `stories.md` already has substantive content beyond the template scaffold, or the codebase is already populated, or `git log` is deep, the developer has stumbled into the wrong mode and should be using `plan_phase` (optionally preceded by `refactor_plan` to formalize spec changes). The LLM has no guardrail and silently proceeds to overwrite or duplicate prior planning work.
+
+**Tasks:**
+
+- [x] **`templates/modes/plan-stories-mode.md` Prerequisites** — reframed to name `concept.md`, `features.md`, and `tech-spec.md` as inputs the LLM reads at the start of Step 2 (presence + developer's invocation imply approval). Dropped the "must be approved" phrasing. Replaced the standalone CI/CD-automation prompt with a one-liner pointing the LLM at `tech-spec.md`'s `## CI/CD Automation` section as the authoritative source, with permission to ask only if the spec is silent or genuinely ambiguous. To keep the test contract clean, the meta-instruction names "CI/CD-automation prompt" rather than quoting the previous verbatim question (the test pins absence of the verbatim phrase).
+- [x] **`plan-stories-mode.md` Steps** — inserted new Step 1 "Verify this is the right mode" with three deterministic checks: existing `### Story` headings in `stories.md`, substantive source beyond Phase A scaffolding, and `git log --oneline | wc -l` deeper than ~10 commits. On trip, halt with a one-paragraph diagnosis and recommend `plan_phase` (optionally preceded by `refactor_plan`); do not proceed without explicit developer override. Renumbered existing steps to 2/3/4.
+- [x] **`plan-stories-mode.md` Step 2 (formerly Step 1)** — extended the read instruction so the LLM extracts CI/CD scope from `tech-spec.md` to inform the Phase G decision and does not re-ask the developer when the spec answers the question. Step 3 now conditions Phase G inclusion on the spec's CI/CD section.
+- [x] **`templates/modes/plan-tech-spec-mode.md` step 2** — added `ci_cd_automation` bullet to the technical-details list. One-line summary of CI/CD scope (lint/test on push, coverage reporting, automated registry publishing on tag); "None" is a valid opt-out. Captured once during plan-tech-spec Q&A — `plan_stories` reads this single fact.
+- [x] **`templates/artifacts/tech-spec.md`** — added a dedicated top-level **`## CI/CD Automation`** section with `{{ci_cd_automation}}` placeholder, between Packaging and Distribution and end-of-document. A grep-able anchor `plan_stories` can deterministically locate independent of how packaging/distribution is structured.
+- [x] **Tests in `tests/test_render.py`** (5 new tests):
+  - [x] `test_plan_stories_mandates_wrong_mode_check` — asserts the rendered `plan_stories` `go.md` carries the "Verify this is the right mode" step name and mentions both `plan_phase` and `refactor_plan` plus at least one observable check (`### Story` headings).
+  - [x] `test_plan_stories_does_not_ask_ci_cd_when_spec_present` — asserts the standalone "Will this project need CI/CD automation?" prompt no longer appears verbatim and that the replacement instruction names `tech-spec.md` as the source of truth.
+  - [x] `test_plan_stories_drops_explicit_approval_ask` — asserts "must be approved" wording is gone from the rendered `plan_stories` `go.md` and the replacement framing names "imply approval".
+  - [x] `test_plan_tech_spec_captures_ci_cd_automation_summary` — asserts the rendered `plan_tech_spec` `go.md` lists `ci_cd_automation` and names the destination ("CI/CD Automation") so the LLM knows where the fact lands.
+  - [x] `test_tech_spec_artifact_has_ci_cd_automation_section` — reads the bundled artifact directly via `importlib.resources` and asserts both the section heading and the placeholder.
+  - [x] All 138 prior render tests still pass (no regression); full suite is 430 passed.
+- [x] **Re-rendered** dogfood `docs/project-guide/go.md` via `project-guide update`.
+- [x] **Prevention scan** — confirmed the "must be approved" wording was unique to `plan-stories-mode.md` (no other mode template carried it; `plan_features` was already tightened in O.f). The wrong-mode-guardrail pattern is unique to `plan_stories` because it is the only "initial" planning mode that would conflict with prior story content; `plan_phase` and `refactor_plan` are by design used on existing projects. No follow-up tasks needed.
+- [x] Updated CHANGELOG and version bump: `project_guide/version.py`, `pyproject.toml`, `CHANGELOG.md` → **v2.5.10**.
+- [x] Verify: ran `pyve test` (430 passed), `pyve testenv run ruff check project_guide tests` (clean), and re-rendered `plan_stories` mode locally — wrong-mode check, CI/CD-from-spec instruction, and reframed prerequisites all present in the rendered `go.md`. End-to-end "scratch project with populated stories.md" verification deferred to first downstream encounter — pinning is via the unit tests above.
+
+**Out of scope:**
+- Auto-detecting the right mode and switching automatically. The guardrail halts and recommends; the developer initiates the mode change. Auto-switching is too magical for a workflow tool.
+- Validating the *content* of `tech-spec.md`'s CI/CD section during `plan_stories`. The mode reads what's there; it does not lint the spec. Spec quality is a `plan_tech_spec` concern.
+- Backfilling the new CI/CD summary into existing downstream `tech-spec.md` files. Downstream projects pick this up the next time they run `plan_tech_spec` or via a manual edit; this story does not ship a migration.
+
+---
+
 ## Future
 
 ### Code Mode Hierarchy [Deferred]

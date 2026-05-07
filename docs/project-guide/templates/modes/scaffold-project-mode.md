@@ -125,7 +125,7 @@ Read `docs/specs/stories.md` and locate Story A.a.
 
 Check whether `docs/specs/project-essentials.md` exists:
 
-- **If it does NOT exist**: create it from the artifact template at `templates/artifacts/project-essentials.md`. The **File header conventions** section is mandatory baseline content — substitute `<YEAR>`, `<OWNER>`, and `<LICENSE>` with the concrete values gathered in steps 1–3 above (the SPDX identifier from step 1, the copyright holder from the prerequisites, and the current year). Remove the trailing TODO note. Do **not** ask the developer whether to include the headers.
+- **If it does NOT exist**: create it from the artifact template at `docs/project-guide/templates/artifacts/project-essentials.md` (installed by `project-guide init`; refreshed by `project-guide update`). The **File header conventions** section is mandatory baseline content — substitute `<YEAR>`, `<OWNER>`, and `<LICENSE>` with the concrete values gathered in steps 1–3 above (the SPDX identifier from step 1, the copyright holder from the prerequisites, and the current year). Remove the trailing TODO note. Do **not** ask the developer whether to include the headers.
 - **If it exists**: read the **File header conventions** section. If it still contains `<YEAR>`, `<OWNER>`, or `<LICENSE>` placeholders (or a trailing TODO note), substitute the concrete values from steps 1–3 and remove the TODO note. If the section is already concrete, leave it alone.
 
 **8b. Memory review (append additional project-specific facts).**

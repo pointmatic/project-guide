@@ -24,6 +24,15 @@ What belongs here:
 - **Architecture quirks.** Source-of-truth vs generated/installed file
   locations (edit the source, not the copy); build outputs that get
   regenerated; files that look hand-edited but aren't.
+    - *project-guide consumers:* bundled artifact templates (`concept.md`,
+      `features.md`, `tech-spec.md`, `stories.md`, `project-essentials.md`,
+      `brand-descriptions.md`, `pyve-essentials.md`) live at
+      `docs/project-guide/templates/artifacts/` in every initialized
+      project — installed by `project-guide init`, refreshed by
+      `project-guide update`. Read directly from that path; never search
+      `site-packages`, the active venv, or environment-manager-specific
+      install locations (pip, poetry, uv, conda, mamba, micromamba, pyve,
+      pixi all stash site-packages differently).
 
 - **Domain conventions.** Money stored in cents, all timestamps UTC, IDs
   are strings not ints, and similar non-obvious rules.

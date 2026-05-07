@@ -1569,3 +1569,158 @@ def test_tech_spec_artifact_has_logging_and_user_output_subsection():
 
 
 # --- End Story O.k ----------------------------------------------------------
+
+
+# --- Story O.l (v2.5.10) ----------------------------------------------------
+# Pin three plan_stories tightenings: drop the "must be approved" prerequisite
+# ask, drop the standalone CI/CD question (derive from tech-spec.md instead),
+# and add a wrong-mode guardrail that recommends plan_phase / refactor_plan
+# when the project already has prior planning or implementation work. Plus
+# pin that plan_tech_spec captures `ci_cd_automation` as a single fact and
+# the tech-spec artifact has a CI/CD Automation section.
+
+
+def test_plan_stories_drops_explicit_approval_ask():
+    """plan_stories Prerequisites must not instruct the LLM to interrogate.
+
+    The previous wording ("Before writing stories, the following must be
+    approved: ...") read as a checklist the LLM should walk the developer
+    through, defeating the natural pause-on-summary gate at the
+    present-for-approval step. Mirrors the plan_features fix in Story O.f.
+    """
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        result = runner.invoke(main, ['mode', 'plan_stories'])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    assert "must be approved" not in content, (
+        "plan_stories still uses the 'must be approved' phrasing the LLM "
+        "treats as an instruction to interrogate the developer."
+    )
+    # The replacement framing names presence-implies-approval explicitly.
+    assert "imply approval" in content
+
+
+def test_plan_stories_does_not_ask_ci_cd_when_spec_present():
+    """plan_stories must derive CI/CD scope from tech-spec.md, not ask.
+
+    The standalone "Will this project need CI/CD automation?" prompt is a
+    redundant developer interrogation when tech-spec.md already carries the
+    answer. The tightened mode points the LLM at the spec's CI/CD section
+    and only permits asking when the spec is silent.
+    """
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        result = runner.invoke(main, ['mode', 'plan_stories'])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    # The standalone question is gone (verbatim phrase no longer present).
+    assert "Will this project need CI/CD automation?" not in content
+    # The replacement instruction names tech-spec.md as the source of truth.
+    assert "CI/CD scope" in content
+    assert "tech-spec.md" in content
+
+
+def test_plan_stories_mandates_wrong_mode_check():
+    """plan_stories must run a wrong-mode guardrail before reading specs.
+
+    `plan_stories` is for *initial* story planning. If stories.md already has
+    content, the codebase is already populated, or git log is deep, the
+    developer is in the wrong mode and should use plan_phase (optionally
+    preceded by refactor_plan). The new Step 1 mandates three deterministic
+    checks before proceeding.
+    """
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        result = runner.invoke(main, ['mode', 'plan_stories'])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    # The guardrail step exists and is named.
+    assert "Verify this is the right mode" in content
+    # Recommends plan_phase as the alternative for existing projects.
+    assert "plan_phase" in content
+    # Recommends refactor_plan when specs need to change first.
+    assert "refactor_plan" in content
+    # At least one of the three deterministic checks is present (the
+    # `### Story` headings check is the most observable / load-bearing).
+    assert "### Story" in content
+
+
+def test_plan_tech_spec_captures_ci_cd_automation_summary():
+    """plan_tech_spec step 2 must capture ci_cd_automation as a single fact.
+
+    Story O.l (v2.5.10): the tech-spec is the single source of truth that
+    plan_stories reads for CI/CD scope. plan_tech_spec must capture the fact
+    once during the developer Q&A rather than scattering CI/CD breadcrumbs
+    across packaging/distribution and cross-cutting.
+    """
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        result = runner.invoke(main, ['mode', 'plan_tech_spec'])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    assert "ci_cd_automation" in content, (
+        "plan_tech_spec step 2 must list ci_cd_automation as a captured fact."
+    )
+    # Must name the destination so the LLM knows where the fact lands.
+    assert "CI/CD Automation" in content
+
+
+def test_tech_spec_artifact_has_ci_cd_automation_section():
+    """The tech-spec artifact ships a dedicated CI/CD Automation section.
+
+    Story O.l (v2.5.10): plan_stories needs a deterministic location to read
+    CI/CD scope from. A top-level `## CI/CD Automation` section with the
+    `{{ci_cd_automation}}` placeholder under it gives the LLM a single,
+    grep-able anchor independent of how packaging/distribution is structured.
+    """
+    import importlib.resources
+
+    with importlib.resources.as_file(
+        importlib.resources.files("project_guide.templates").joinpath(
+            "project-guide/templates/artifacts/tech-spec.md"
+        )
+    ) as path:
+        content = path.read_text(encoding="utf-8")
+
+    assert "## CI/CD Automation" in content
+    assert "{{ci_cd_automation}}" in content
+
+
+# --- End Story O.l ----------------------------------------------------------

@@ -45,7 +45,7 @@ modes:
     files_exist:
       - "{{spec_artifacts_path}}/concept.md"
   - name: plan_tech_spec
-    info: Generate a technical specification prompt (how it's built)
+    info: Generate the technical specifications (how it's built)
     description: This details the requirements for how the project is built (architecture, modules, dependencies, but not code).
     sequence_or_cycle: sequence
     generation_type: document
@@ -60,7 +60,7 @@ modes:
       - "{{spec_artifacts_path}}/concept.md"
       - "{{spec_artifacts_path}}/features.md"
   - name: plan_stories
-    info: Generate a user stories prompt
+    info: Generate multiple phases of user stories for a new project (zero to first release)
     description: Based on the concept, features, and technical specification documents, scaffold the project, determine the implementation phases, and breakdown all that into stories.
     sequence_or_cycle: sequence
     generation_type: document
@@ -88,7 +88,7 @@ modes:
     files_exist:
       - "{{spec_artifacts_path}}/stories.md"
   - name: plan_phase
-    info: Generate a feature phase prompt, which includes a mini-concept, features, and technical details
+    info: Generate a phase of stories with a shared theme or goal
     description: Based on a specific request from the developer, develop a combined concept, features, and technical specification document that describes the gap to fill, then create a new phase in the stories document, and breakdown all that into stories.
     sequence_or_cycle: sequence
     generation_type: document

@@ -88,3 +88,11 @@ See `docs/project-guide/developer/best-practices-guide.md` for full rationale.
 ## Packaging and Distribution
 
 {{packaging_and_distribution}}
+
+---
+
+## CI/CD Automation
+
+One-line summary of CI/CD scope (linting/testing on push, coverage reporting, automated registry publishing on tag). `plan_stories` reads this section as the single source of truth for whether to include a Phase G (CI/CD & Automation) in the story plan. If the project explicitly opts out of CI/CD, write "None" here.
+
+{{ci_cd_automation}}
