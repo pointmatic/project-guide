@@ -1724,3 +1724,89 @@ def test_tech_spec_artifact_has_ci_cd_automation_section():
 
 
 # --- End Story O.l ----------------------------------------------------------
+
+
+# --- Story O.m (v2.5.11) ----------------------------------------------------
+# Pin scaffold_project's new Step 1 ("Read the project-specific spec") and
+# the renumbering of subsequent steps. Mirrors the read-the-spec-first
+# tightening done in Story O.f (plan_features) and Story O.l (plan_stories).
+
+
+def test_scaffold_project_mandates_story_a_read_before_defaults():
+    """scaffold_project must mandate reading Story A.a before defaulting.
+
+    Reason: previously, Steps 1-6 walked the LLM through concrete defaults
+    (version 0.1.0, no build backend, generic README/CHANGELOG/.gitignore)
+    and Story A.a was only read at Step 7 to mark it Done. LLMs silently
+    defaulted (e.g., setuptools when A.a prescribed hatchling, version
+    0.1.0 when A.a prescribed 0.0.1) and surfaced the delta at the end as
+    a developer-decision moment instead of implementing A.a's prescriptions
+    in the first place. The new Step 1 makes A.a the upstream input.
+    """
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        result = runner.invoke(main, ['mode', 'scaffold_project'])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    # The new Step 1 heading is present.
+    assert "1. Read the project-specific spec" in content
+    # Story A.a is named as the authoritative source.
+    assert "Story A.a" in content
+    # The fallback framing is present so downstream steps read as
+    # defaults-when-silent, not authoritative.
+    assert "Story A.a wins" in content
+    # The instruction to read Story A.a "in full" before scaffolding work.
+    assert "in full" in content
+    # Build backend explicitly called out as a no-default field.
+    assert "do not default" in content.lower() or "do not silently default" in content.lower()
+
+
+def test_scaffold_project_step_numbers_renumbered():
+    """scaffold_project step numbering must be 1–10, with 9a/9b substeps.
+
+    Reason: inserting the new Step 1 shifts every subsequent step by one.
+    The internal cross-reference in the project-essentials substep
+    previously read "steps 1–3 above" (referring to license/header/manifest);
+    after renumbering it must read "steps 2–4 above". The substep labels
+    `8a`/`8b` become `9a`/`9b`. Stale references would mislead the LLM.
+    """
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        result = runner.invoke(main, ['mode', 'scaffold_project'])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    # Old substep labels are gone.
+    assert "**8a." not in content
+    assert "**8b." not in content
+    # New substep labels are present.
+    assert "**9a." in content
+    assert "**9b." in content
+    # Old internal cross-reference phrasing is gone.
+    assert "steps 1–3 above" not in content
+    assert "from step 1, the copyright holder" not in content
+    # New internal cross-reference phrasing is present.
+    assert "steps 2–4 above" in content
+    assert "from step 2, the copyright holder" in content
+    # Final step is now 10, not 9.
+    assert "### 10. Present for Approval" in content
+
+
+# --- End Story O.m ----------------------------------------------------------

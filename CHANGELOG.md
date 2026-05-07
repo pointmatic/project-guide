@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.11] - 2026-05-06
+
+### Changed
+- **`project_guide/templates/project-guide/templates/modes/scaffold-project-mode.md`** — Inserted a new **Step 1: Read the project-specific spec** that mandates reading Story A.a in `docs/specs/stories.md` and `docs/specs/tech-spec.md` *before* any scaffolding work. Names Story A.a as the authoritative source for build backend, version, dependencies, package layout, console scripts, dev tooling, and any other project-specific prescriptions. Frames the subsequent steps as **generic defaults** that apply only when Story A.a is silent; on conflict, Story A.a wins. Renumbered the existing 9 steps to 2–10. Substep references updated (`8a`/`8b` → `9a`/`9b`; "steps 1–3" → "steps 2–4").
+- **Step 4 (Package Manifest)** — Reframed each concrete default as a fallback. Build backend ("use what Story A.a prescribes; do not pick a default without checking") was previously unspecified and led downstream LLMs to silently default to setuptools when Story A.a prescribed hatchling. Version is now "per Story A.a; default to `0.1.0` only if A.a is silent" — observed downstream defaulting to `0.1.0` against an A.a-prescribed `0.0.1`. Added explicit prompts for runtime deps, optional-dep extras, console scripts, entry-point groups, and dev-tool config (ruff/mypy/pytest) sourced from the spec.
+- **Step 5 (README.md)**, **Step 6 (CHANGELOG.md)**, **Step 7 (.gitignore)** — Added one-liner reminders that Story A.a / `tech-spec.md` may prescribe additional sections / seeded entries / patterns that override the generic recipe.
+- **Step 8 (formerly Step 7, Mark Story A.a Done)** — Renamed to **"Verify Story A.a is Implemented and Mark Done"** and reframed the preamble. Reading Story A.a here is now a **verification gate** — by this point every task should already be implemented (Step 1 mandated full read; Steps 2–7 implemented A.a's prescriptions). If unmet tasks remain, the LLM loops back and implements them rather than mass-marking `[x]` or surfacing a "want to extend now or leave [Planned]?" delta for developer guidance. Same family of bug as plan_features (O.f) and plan_stories (O.l) — read the project-specific spec first, not at the end.
+
 ## [2.5.10] - 2026-05-06
 
 ### Changed

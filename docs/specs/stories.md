@@ -238,6 +238,34 @@ Two related rules ship together as Rules-block hardening + tech-spec defaults:
 
 ---
 
+### Story O.m: v2.5.11 Tighten scaffold_project — read Story A.a first, treat generic defaults as fallbacks [Done]
+
+**Problem:** `scaffold_project` mode template gives concrete defaults (version `0.1.0`, no build backend specified, generic README/CHANGELOG/.gitignore recipes) before mandating a read of the project-specific authoritative source — Story A.a in `docs/specs/stories.md` and `docs/specs/tech-spec.md`. The LLM treats the generic defaults as instructions and treats Story A.a as a checklist to mark off at the end. Observed downstream (datarefinery): the LLM picked setuptools without consulting A.a's hatchling prescription, set version to `0.1.0` against A.a's `0.0.1`, skipped `requirements-dev.txt` / `src/<package>/` skeleton / dev-tool configs / pyve init steps, then surfaced the delta at the mark-done step as "want to extend now or leave [Planned]?" — exactly the wrong shape. Same family of bug as Story O.f (`plan_features` reading `concept.md` before asking) and Story O.l (`plan_stories` deriving CI/CD from spec).
+
+**Tasks:**
+
+- [x] **`templates/modes/scaffold-project-mode.md`** — inserted new **Step 1: Read the project-specific spec** that mandates reading Story A.a in full plus `docs/specs/tech-spec.md` before any scaffolding work. Lists the project-specific fields A.a is authoritative for (build backend, version, deps, package layout, console scripts, dev tooling, etc.) and frames the subsequent steps as generic defaults that apply only when A.a is silent — on conflict, A.a wins. Renumbered existing 9 steps to 2–10.
+- [x] **Step 4 (Package Manifest)** — reframed each concrete default as a fallback. Build backend explicit ("use what Story A.a prescribes; do not pick a default without checking"). Version "per Story A.a; default to `0.1.0` only if A.a is silent". Added explicit prompts for runtime deps, optional-dep extras, console scripts, entry-point groups, and dev-tool config (ruff/mypy/pytest) sourced from the spec. License / authors fields kept as the unconditional "generic fields that apply regardless" subgroup.
+- [x] **Step 5 (README.md)** — added one-liner: if Story A.a or `tech-spec.md` prescribes additional sections beyond the generic ones, include them now rather than deferring.
+- [x] **Step 6 (CHANGELOG.md)** — added one-liner: if Story A.a prescribes a seeded version entry (e.g., `## [0.0.1]`), include it.
+- [x] **Step 7 (.gitignore)** — added one-liner: if Story A.a or `tech-spec.md` prescribes additional patterns (e.g., `data/`, secrets files), include them.
+- [x] **Step 8 (renamed to "Verify Story A.a is Implemented and Mark Done")** — reframed preamble. By this point every A.a task should already be implemented; this step is a verification gate, not a "what's missing?" surfacing. If unmet tasks remain, loop back and implement them rather than mass-marking `[x]` or asking the developer to choose between options.
+- [x] **Step 9 (Project Essentials)** — internal cross-reference updated: "steps 1–3 above" → "steps 2–4 above"; "from step 1" → "from step 2". Substep labels `8a`/`8b` renumbered to `9a`/`9b`.
+- [x] **Tests in `tests/test_render.py`** (2 new tests):
+  - [x] `test_scaffold_project_mandates_story_a_read_before_defaults` — pins the new Step 1 heading, "Story A.a" mention, "Story A.a wins" framing, "in full" instruction, and the no-default rule for build backend / version.
+  - [x] `test_scaffold_project_step_numbers_renumbered` — pins absence of `**8a.` / `**8b.` / "steps 1–3 above", presence of `**9a.` / `**9b.` / "steps 2–4 above" / "from step 2, the copyright holder", and the final-step-is-10 anchor.
+  - [x] All prior render tests still pass; full suite is **432 passed** (430 prior + 2 new).
+- [x] **Re-rendered** dogfood `docs/project-guide/go.md` via `project-guide update`.
+- [x] **Prevention scan** — `plan_phase` Phase A scaffolding section just runs `scaffold_project` (so it inherits this fix automatically); `refactor_plan` is for existing projects with manifests already in place (different shape — failure mode is "ignored an existing manifest", not "ignored A.a's prescription"). No other planning mode carries the "concrete default before reading project-specific source" pattern. No follow-up tasks needed.
+- [x] Updated CHANGELOG and version bump: `project_guide/version.py`, `pyproject.toml`, `CHANGELOG.md` → **v2.5.11**.
+- [x] Verify: ran `pyve test` (**432 passed**) and `pyve testenv run ruff check project_guide tests` (clean); re-rendered `scaffold_project` mode locally and confirmed the new Step 1 plus reframed defaults render correctly.
+
+**Out of scope:**
+- Hard-coding the LLM to fail loudly when Story A.a is missing entirely. Some projects may invoke `scaffold_project` before stories are planned (legitimate edge case for ad-hoc scaffolds); the new Step 1 already says "if no Story A.a exists, the steps below are the full spec." Failing loudly would block those flows.
+- Auto-detecting build backend / version / deps from `pyproject.toml` if it pre-exists. Out of scope for this tightening — the failure mode is "LLM ignored A.a", not "LLM ignored an existing manifest". Address separately if observed.
+
+---
+
 ## Future
 
 ### Code Mode Hierarchy [Deferred]
