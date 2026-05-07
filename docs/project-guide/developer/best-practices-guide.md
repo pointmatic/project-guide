@@ -50,6 +50,8 @@ Recognize and adapt to two distinct development modes:
 
 **Rationale:** Velocity mode maximizes learning and iteration speed when exploring solutions. Production mode maximizes stability and security when users depend on the project. Using the wrong mode at the wrong time either slows progress unnecessarily or creates technical debt.
 
+**How project-guide enforces the switch:** the `plan_production_phase` mode (mandatory for every phase once the package is at v1.0.0+) walks the developer through the **Production-readiness checklist** above as step 2 — branch protection, SECURITY.md, CONTRIBUTING.md, Dependabot, trusted publisher, mandatory CI, bundled-release cadence. The mode does not proceed past unmet items without explicit developer override. `plan_phase` (pre-1.0 only) halts and recommends `plan_production_phase` if the manifest reports `version >= 1.0.0`. End-of-phase, the developer ships via `project-guide bump-version <X.Y.Z>` (the deterministic helper that updates `pyproject.toml` / `<package>/version.py` / `CHANGELOG.md`).
+
 ---
 
 ## Hello World First — Spike Early, Spike Often

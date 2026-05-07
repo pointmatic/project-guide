@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.14] - 2026-05-07
+
+### Added
+- **`plan_production_phase` mode** — derived from `plan_phase` and mandatory for every phase once the package version is at v1.0.0 or beyond (per the cadence rule from O.o). Adds: a Production-readiness checklist walk (branch protection, SECURITY.md, CONTRIBUTING.md, Dependabot, trusted publisher, mandatory CI, bundled-release cadence) sourced from `developer/best-practices-guide.md`'s Velocity-vs-Production section; a breaking-change negotiation step that walks each anticipated breaking change and asks whether it substantively breaks user expectations or is technically-but-trivially breaking (worked example: log-format change when logs aren't a core consumer capability); explicit version-bump target recorded in the phase plan. New file `project_guide/templates/project-guide/templates/modes/plan-production-phase-mode.md` (developer renamed the orphan `production-mode.md` to `plan-production-mode.md`, then again to its final name as part of this story). Registered in `.metadata.yml` and `cli.py:_MODE_CATEGORIES` (under "Post-Release"; will move to "Release Planning" in Story O.q).
+- **`project-guide bump-version <X.Y.Z>` CLI command** — deterministic helper parallel to `archive-stories`. Updates `pyproject.toml`'s `[project] version`, an auto-detected `__version__` source file (tries `<package>/version.py`, `<package>/_version.py`, `<package>/__init__.py`, plus `src/<package>/...` variants), and inserts a fresh `## [X.Y.Z] - YYYY-MM-DD` heading just below `## [Unreleased]` in `CHANGELOG.md`. Idempotent on re-run for the same version (date is refreshed; body preserved). Validates semver format. Honors the `--no-input` contract (missing positional fails loud with exit 2 and the canonical error message); honors `--quiet` (suppresses success-path stdout, errors and warnings still emit on stderr). Used at end-of-phase when shipping a bundled release per the cadence rule.
+
+### Changed
+- **`project_guide/templates/project-guide/templates/modes/plan-phase-mode.md`** — Inserted a new **Step 1: Verify this is the right mode** that halts and recommends `plan_production_phase` if the package version is `>= 1.0.0`. Renumbered subsequent steps to 2–8 and updated internal cross-references ("from step 1" → "from step 2"; "see step 5" → "see step 6"). Updated Prerequisites prose to name `plan_phase` as pre-1.0-only.
+- **`project_guide/templates/project-guide/.metadata.yml`** — Registered `plan_production_phase` mode entry (parallel structure to `plan_phase`). Updated `plan_phase` description to call out it is pre-1.0-only.
+- **`project_guide/cli.py:_MODE_CATEGORIES`** — Registered `plan_production_phase` under "Post-Release" (the section will be renamed to "Release Planning" in Story O.q).
+- **`project_guide/templates/project-guide/developer/best-practices-guide.md`** — Velocity-vs-Production section gains a "How project-guide enforces the switch" paragraph cross-referencing `plan_production_phase` mode (which walks the readiness checklist), `plan_phase`'s pre-1.0-only redirect, and `bump-version` as the end-of-phase release helper.
+
 ## [2.5.13] - 2026-05-07
 
 ### Changed

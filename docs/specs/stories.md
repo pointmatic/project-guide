@@ -340,7 +340,7 @@ Two related rules ship together as Rules-block hardening + tech-spec defaults:
 
 ---
 
-### Story O.p: v2.5.14 plan_production_phase mode + bump-version helper [Planned]
+### Story O.p: v2.5.14 plan_production_phase mode + bump-version helper [Done]
 
 **Problem:** Post-1.0 phases need production-level scrutiny *every time*, not just at the v1.0.0 threshold crossing. Standard `plan_phase` is the right regimen for pre-1.0 rapid iteration but too light once users depend on the package. This story introduces `plan_production_phase` mode — a copy of `plan_phase` plus production readiness prerequisites, an end-of-phase qualification checklist sourced from `developer/best-practices-guide.md`'s Velocity-vs-Production section, a breaking-change negotiation step (since "breaking" is often technically-but-trivially so — e.g., log-format changes when logs aren't a core consumer capability), and a deterministic version bump on developer green-light. Plus a CLI helper `project-guide bump-version <X.Y.Z>` parallel to `archive-stories` that does the mechanical write to `version.py` / `pyproject.toml` / `CHANGELOG.md`.
 
@@ -348,26 +348,38 @@ Two related rules ship together as Rules-block hardening + tech-spec defaults:
 
 **Tasks:**
 
-- [ ] **Audit existing `plan-production-mode.md`** (renamed from `production-mode.md` by the developer prior to this story). Read it; salvage any usable readiness-checklist content; otherwise rewrite from scratch. Rename the file once more to `plan-production-phase-mode.md` to match the final mode name.
-- [ ] **`templates/modes/plan-production-phase-mode.md`** — derive structure from `plan-phase-mode.md`. Add:
-  - **Prerequisites section** that names what should already be true before invoking this mode: package version is at the verge of v1.0.0 (or already past it), CI is green, all planned phases shipped through end-of-phase, etc. Tied to readiness-checklist concerns from `best-practices-guide.md`.
-  - **Step inserted after step 1** (before gathering phase info): walk the **Production-readiness checklist** sourced from `best-practices-guide.md`'s Velocity-vs-Production section — branch protection, SECURITY.md, CONTRIBUTING.md, Dependabot, trusted publisher, mandatory CI, bundled-release cadence. Each item: "is this in place? if no, what's blocking?" The mode does not proceed past unmet items without explicit developer override.
-  - **Breaking-change negotiation step** at end-of-phase: walk through any potentially-breaking changes in the phase and ask the developer per-change whether each substantively breaks user expectations or is technically-but-trivially breaking. Worked example: "Log format change — does this project consider log consumers a core capability?" Mode suggests major vs. minor based on the negotiation; developer makes the final call.
-  - **Version bump (gated):** on developer green-light, bump version per the negotiation result. First invocation crosses the v1.0.0 threshold (mandatory major bump); subsequent invocations bump major or minor per the negotiation.
-- [ ] **`project_guide/cli.py`** — add `bump_version` subcommand: `project-guide bump-version <X.Y.Z>` that writes the new version to `project_guide/version.py` (or equivalent — needs to be configurable per project), `pyproject.toml`, and adds a fresh `## [X.Y.Z] - <today>` entry to `CHANGELOG.md`. Mirrors `archive-stories`'s deterministic-helper pattern. Used by `plan_production_phase` (and optionally by code modes' Bump version step). Includes `--no-input` contract compliance.
-- [ ] **`templates/modes/plan-phase-mode.md`** — add a Pre-conditions check: if `pyproject.toml` reports version >= 1.0.0, halt and recommend the developer use `plan_production_phase` instead. Plain semver-version check.
-- [ ] **`.metadata.yml`** — register `plan_production_phase` mode (next_mode chain, generation_type, etc., parallel to `plan_phase`).
-- [ ] **`project_guide/cli.py` `_MODE_CATEGORIES`** — register `plan_production_phase` under "Release Planning" (set up by Story O.q's section rename; if O.q hasn't shipped yet, register under current "Post-Release" and rely on O.q to rename).
-- [ ] **`developer/best-practices-guide.md`** — cross-reference `plan_production_phase` mode in the Velocity-vs-Production section so readers know how the checklist gets exercised.
-- [ ] **Tests in `tests/test_render.py` and `tests/test_cli.py`**:
-  - [ ] `test_plan_production_phase_renders_successfully` — `project-guide mode plan_production_phase` produces a valid `go.md`.
-  - [ ] `test_plan_production_phase_carries_readiness_checklist` — pins the readiness items.
-  - [ ] `test_plan_production_phase_breaking_change_negotiation` — pins the per-change negotiation step language.
-  - [ ] `test_plan_phase_redirects_post_1_0` — when `pyproject.toml` reports a `>= 1.0.0` version, `plan_phase` halts and recommends `plan_production_phase`.
-  - [ ] `test_bump_version_cli_writes_three_files` — the helper writes the new version to all three files and adds a CHANGELOG entry.
-  - [ ] `test_bump_version_cli_no_input_contract` — `--no-input` failure path for missing version arg fails loud per the `_require_setting()` contract.
-- [ ] **Re-render** dogfood `docs/project-guide/go.md` via `project-guide update`.
-- [ ] Update CHANGELOG and version bump: `project_guide/version.py`, `pyproject.toml`, `CHANGELOG.md` → **v2.5.14**.
+- [x] **Audited the existing `plan-production-mode.md`** (renamed by the developer to `plan-production-phase-mode.md` prior to this story). Salvaged the Production Mode Transition Checklist content (branch protection, CONTRIBUTING.md, SECURITY.md, Dependabot, trusted publisher, PR-based workflow) and folded it into the new mode's Step 2 readiness checklist. Otherwise rewrote the file from scratch, deriving structure from `plan-phase-mode.md` and layering production-specific steps on top.
+- [x] **`templates/modes/plan-production-phase-mode.md`** — full rewrite. Mode template includes:
+  - Lead-in identifying it as the post-1.0 mandatory phase-planning mode (`plan_phase` is pre-1.0 only).
+  - **Prerequisites section** naming required state: spec docs exist, package version at verge-of or past v1.0.0, CI green, previous phase shipped.
+  - **Step 1**: Read existing specs (parallel to `plan_phase`).
+  - **Step 2 (NEW)**: Walk the Production-readiness checklist with the developer — eight items sourced from `best-practices-guide.md`'s Velocity-vs-Production section. Mode does not proceed past unmet items without explicit developer override.
+  - **Step 3**: Gather phase info (parallel to `plan_phase`) plus two production-specific prompts (`anticipated_breaking_changes`, `production_concerns`).
+  - **Step 4**: Generate phase plan with explicit "Anticipated version bump target" line.
+  - **Step 5 (NEW)**: Breaking-change negotiation. For each anticipated breaking change, walk the developer through "substantively breaks user expectations" vs. "technically-but-trivially breaking". Worked example: log-format change when logs aren't a core consumer capability. Mode suggests major-vs-minor per the negotiation; developer makes the final call.
+  - **Step 6**: Present plan; **Step 7**: Add stories (unversioned during work, bundled release at end-of-phase per Version Cadence rule); **Step 8**: Present updated stories; **Step 9**: Append project-essentials new facts (parallel to `plan_phase`).
+  - **Step 10**: Documents that end-of-phase release is via `project-guide bump-version <X.Y.Z>` (separate session).
+- [x] **`project_guide/cli.py`** — added `bump_version` subcommand: `project-guide bump-version <X.Y.Z>` updates `pyproject.toml`'s `[project] version`, an auto-detected `__version__` source file (tries six candidate paths under `<package>/` and `src/<package>/`), and inserts a fresh `## [X.Y.Z] - YYYY-MM-DD` heading just below `## [Unreleased]` in `CHANGELOG.md`. Idempotent on re-run for the same version (date refreshed, body preserved). Validates semver format. Honors `--no-input` (missing positional → exit 2 with canonical error message) and `--quiet` (success-path stdout suppressed; errors and warnings remain on stderr). Three helper functions: `_bump_pyproject_version`, `_find_version_file`, `_bump_version_file`, `_bump_changelog`.
+- [x] **`templates/modes/plan-phase-mode.md`** — inserted a new Step 1 ("Verify this is the right mode") that halts and recommends `plan_production_phase` if `pyproject.toml`'s version is `>= 1.0.0`. Renumbered subsequent steps to 2–8, updated internal cross-references ("from step 1" → "from step 2"; "see step 5" → "see step 6"). Updated Prerequisites prose to call out `plan_phase` as pre-1.0-only.
+- [x] **`.metadata.yml`** — registered `plan_production_phase` mode entry (parallel structure to `plan_phase`); updated `plan_phase` description to call out it is pre-1.0-only.
+- [x] **`project_guide/cli.py` `_MODE_CATEGORIES`** — registered `plan_production_phase` under "Post-Release" (will move to "Release Planning" in Story O.q).
+- [x] **`developer/best-practices-guide.md`** — Velocity-vs-Production section gained a "How project-guide enforces the switch" paragraph cross-referencing `plan_production_phase` mode, `plan_phase`'s pre-1.0-only redirect, and `bump-version` as the end-of-phase release helper.
+- [x] **Tests in `tests/test_render.py`** (5 new tests):
+  - [x] `test_plan_production_phase_renders_successfully` — `project-guide mode plan_production_phase` produces a valid `go.md` with no unrendered Jinja placeholders.
+  - [x] `test_plan_production_phase_carries_readiness_checklist` — pins all 7 load-bearing checklist items (branch protection, SECURITY.md, CONTRIBUTING.md, Dependabot, trusted publisher, mandatory CI).
+  - [x] `test_plan_production_phase_breaking_change_negotiation` — pins the negotiation step name, the discretion principle ("substantively breaks user expectations" vs. "technically-but-trivially breaking"), and the log-format worked example.
+  - [x] `test_plan_phase_redirects_post_1_0` — pins `plan_phase`'s new Step 1 language including `>= 1.0.0` threshold and `plan_production_phase` recommendation.
+  - [x] `test_plan_production_phase_in_mode_listing` — `project-guide mode --no-input` output contains `plan_production_phase` (confirms metadata + `_MODE_CATEGORIES` registration).
+- [x] **Tests in `tests/test_cli.py`** (6 new tests for `bump-version`):
+  - [x] `test_bump_version_writes_three_files` — pins all three writes (pyproject.toml, version.py, CHANGELOG.md ordering: new section above older one).
+  - [x] `test_bump_version_is_idempotent` — re-running with same version updates date, doesn't duplicate sections.
+  - [x] `test_bump_version_rejects_invalid_semver` — non-semver argument fails with exit 2 and a clear message.
+  - [x] `test_bump_version_no_input_contract` — `--no-input` without positional fails loud with exit 2; error message names the canonical fix.
+  - [x] `test_bump_version_quiet_suppresses_success_stdout` — `--quiet` on a successful bump suppresses the success line.
+  - [x] `test_bump_version_warns_when_no_version_file_found` — warns to stderr but pyproject + CHANGELOG still updated.
+  - [x] All 446 prior tests still pass; full suite is **462 passed** (446 + 5 + 6 + 5 — the 5/6/5 split: 5 render, 6 CLI, plus 0 changes elsewhere).
+- [x] **Re-rendered** dogfood `docs/project-guide/go.md` via `project-guide update`.
+- [x] Updated CHANGELOG and version bump: `project_guide/version.py`, `pyproject.toml`, `CHANGELOG.md` → **v2.5.14**.
 
 **Out of scope:**
 - Auto-detecting whether the developer should run `plan_phase` or `plan_production_phase`. The version-comparison check in `plan_phase` halts and recommends; the developer initiates the mode change.

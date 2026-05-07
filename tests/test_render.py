@@ -2119,3 +2119,154 @@ def test_code_modes_bump_step_references_cadence_rule(mode_name):
 
 
 # --- End Story O.o ----------------------------------------------------------
+
+
+# --- Story O.p (v2.5.14) ----------------------------------------------------
+# Pin the new plan_production_phase mode and the version-redirect in
+# plan_phase. The CLI tests (bump-version, --no-input contract, quiet,
+# idempotent) live in tests/test_cli.py.
+
+
+def test_plan_production_phase_renders_successfully():
+    """`project-guide mode plan_production_phase` produces a valid go.md.
+
+    Smoke test: the new mode is registered in metadata, the template
+    exists, and Jinja rendering succeeds with no unrendered placeholders.
+    """
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        result = runner.invoke(main, ['mode', 'plan_production_phase'])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    assert "plan_production_phase" in content
+    # No unrendered Jinja placeholders
+    assert "{{" not in content
+
+
+def test_plan_production_phase_carries_readiness_checklist():
+    """plan_production_phase Step 2 must walk the production-readiness checklist.
+
+    Pins the load-bearing checklist items: branch protection, SECURITY.md,
+    CONTRIBUTING.md, Dependabot, trusted publisher, mandatory CI. The
+    Velocity-vs-Production framing in best-practices-guide.md is the
+    rationale source.
+    """
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        result = runner.invoke(main, ['mode', 'plan_production_phase'])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    assert "Production-readiness checklist" in content
+    assert "Branch protection" in content
+    assert "SECURITY.md" in content
+    assert "CONTRIBUTING.md" in content
+    assert "Dependabot" in content
+    assert "Trusted publisher" in content or "trusted publisher" in content.lower()
+    assert "Mandatory CI" in content or "mandatory CI" in content.lower()
+
+
+def test_plan_production_phase_breaking_change_negotiation():
+    """plan_production_phase must include the breaking-change negotiation step.
+
+    The negotiation pins the discretion principle: a change can be
+    technically breaking but trivially so for a project that does not
+    treat the affected surface as a core consumer capability. The worked
+    example in the template (log-format change) carries the principle.
+    """
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        result = runner.invoke(main, ['mode', 'plan_production_phase'])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    # The negotiation step is named.
+    assert "Breaking-change negotiation" in content
+    # Discretion principle phrased as a question.
+    assert "substantively break user expectations" in content
+    assert "technically-but-trivially breaking" in content
+    # The worked log-format example carries the principle.
+    assert "log-format change" in content.lower() or "log format" in content.lower()
+    # The mode suggests bump magnitude based on negotiation result.
+    assert "major" in content.lower() and "minor" in content.lower()
+
+
+def test_plan_phase_redirects_post_1_0():
+    """plan_phase Step 1 must halt and recommend plan_production_phase post-1.0.
+
+    The version-comparison check in plan_phase is a guardrail: once the
+    package is at v1.0.0+, plan_phase is the wrong mode. This test pins
+    the rendered language; the actual version-read logic is performed by
+    the LLM at runtime against pyproject.toml.
+    """
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        result = runner.invoke(main, ['mode', 'plan_phase'])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    # The redirect step exists.
+    assert "Verify this is the right mode" in content
+    # Names the version threshold and the alternative mode.
+    assert ">= 1.0.0" in content or "1.0.0" in content
+    assert "plan_production_phase" in content
+    # Pre-1.0-only framing is explicit.
+    assert "pre-1.0" in content
+
+
+def test_plan_production_phase_in_mode_listing():
+    """plan_production_phase appears in `project-guide mode --no-input` output.
+
+    Confirms the metadata.yml registration plus the _MODE_CATEGORIES entry
+    are wired up — the mode is discoverable through the CLI's annotated
+    listing.
+    """
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        result = runner.invoke(main, ['mode', '--no-input'])
+        assert result.exit_code == 0
+
+    assert "plan_production_phase" in result.output
+
+
+# --- End Story O.p ----------------------------------------------------------

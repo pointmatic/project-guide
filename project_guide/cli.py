@@ -312,6 +312,7 @@ _MODE_CATEGORIES: dict[str, str] = {
     "plan_stories": "Planning",
     "archive_stories": "Post-Release",
     "plan_phase": "Post-Release",
+    "plan_production_phase": "Post-Release",
     "scaffold_project": "Scaffold",
     "document_brand": "Documentation",
     "document_landing": "Documentation",
@@ -656,6 +657,276 @@ def archive_stories_cmd():
             f"  Next: run `project-guide mode {mode.next_mode}` to plan the next phase.",
             dim=True,
         )
+
+
+_SEMVER_RE = __import__("re").compile(
+    r"^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$"
+)
+
+
+def _bump_pyproject_version(pyproject_path: Path, new_version: str) -> bool:
+    """Update `version = "..."` under `[project]` in pyproject.toml.
+
+    Returns True if the file was changed (or already at the target version).
+    Raises FileNotFoundError if the file is missing, or click.ClickException
+    if the version line cannot be located.
+    """
+    import re
+
+    if not pyproject_path.exists():
+        raise FileNotFoundError(str(pyproject_path))
+    text = pyproject_path.read_text(encoding="utf-8")
+    # Match the [project] section, then the first version = "..." line within it.
+    # We don't try to parse TOML — the regex preserves formatting exactly.
+    pattern = re.compile(
+        r'(?ms)^(\[project\][^\[]*?\bversion\s*=\s*)"[^"]+"',
+    )
+    new_text, n = pattern.subn(rf'\1"{new_version}"', text, count=1)
+    if n == 0:
+        raise click.ClickException(
+            f"Could not locate `version = \"...\"` under `[project]` in {pyproject_path}"
+        )
+    if new_text != text:
+        pyproject_path.write_text(new_text, encoding="utf-8")
+    return True
+
+
+def _find_version_file(project_name: str) -> Path | None:
+    """Auto-detect a `__version__ = "..."` source file.
+
+    Tries common locations in order:
+      <project_name>/version.py
+      <project_name>/_version.py
+      <project_name>/__init__.py
+      src/<project_name>/version.py
+      src/<project_name>/_version.py
+      src/<project_name>/__init__.py
+
+    Project names are normalized (replace `-` with `_`). Returns None if
+    none of the candidates exist or contain `__version__`.
+    """
+    import re
+
+    safe = project_name.replace("-", "_")
+    candidates = [
+        Path(safe) / "version.py",
+        Path(safe) / "_version.py",
+        Path(safe) / "__init__.py",
+        Path("src") / safe / "version.py",
+        Path("src") / safe / "_version.py",
+        Path("src") / safe / "__init__.py",
+    ]
+    for candidate in candidates:
+        if not candidate.exists():
+            continue
+        content = candidate.read_text(encoding="utf-8")
+        if re.search(r'^__version__\s*=\s*["\'][^"\']+["\']', content, re.MULTILINE):
+            return candidate
+    return None
+
+
+def _bump_version_file(version_file: Path, new_version: str) -> bool:
+    """Update `__version__ = "..."` in a Python source file.
+
+    Returns True if the file was changed (or already at the target version).
+    Raises click.ClickException if `__version__` cannot be located.
+    """
+    import re
+
+    text = version_file.read_text(encoding="utf-8")
+    pattern = re.compile(
+        r'^(__version__\s*=\s*)["\'][^"\']+["\']',
+        re.MULTILINE,
+    )
+    new_text, n = pattern.subn(rf'\1"{new_version}"', text, count=1)
+    if n == 0:
+        raise click.ClickException(
+            f"Could not locate `__version__ = \"...\"` in {version_file}"
+        )
+    if new_text != text:
+        version_file.write_text(new_text, encoding="utf-8")
+    return True
+
+
+def _bump_changelog(changelog_path: Path, new_version: str) -> str:
+    """Insert a `## [VERSION] - YYYY-MM-DD` heading below `## [Unreleased]`.
+
+    If a section heading for `[VERSION]` already exists, update its date to
+    today and leave its body untouched (idempotent on repeated runs).
+
+    Returns one of: "inserted", "updated-date", "no-unreleased-section".
+    Raises FileNotFoundError if the file is missing.
+    """
+    import re
+
+    if not changelog_path.exists():
+        raise FileNotFoundError(str(changelog_path))
+    text = changelog_path.read_text(encoding="utf-8")
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    # Idempotent path: section already exists; update its date.
+    existing_pattern = re.compile(
+        rf'^(## \[{re.escape(new_version)}\])\s*-\s*\d{{4}}-\d{{2}}-\d{{2}}',
+        re.MULTILINE,
+    )
+    new_text, n = existing_pattern.subn(rf"\1 - {today}", text, count=1)
+    if n > 0:
+        if new_text != text:
+            changelog_path.write_text(new_text, encoding="utf-8")
+        return "updated-date"
+
+    # Insertion path: place the new section heading below `## [Unreleased]`.
+    insert_pattern = re.compile(r'^(## \[Unreleased\][^\n]*\n)', re.MULTILINE)
+    insert_match = insert_pattern.search(text)
+    if not insert_match:
+        return "no-unreleased-section"
+    new_section = f"\n## [{new_version}] - {today}\n"
+    insertion_idx = insert_match.end()
+    new_text = text[:insertion_idx] + new_section + text[insertion_idx:]
+    changelog_path.write_text(new_text, encoding="utf-8")
+    return "inserted"
+
+
+@main.command(name="bump-version")
+@click.argument("version", required=False)
+@click.option(
+    '--no-input', 'no_input',
+    is_flag=True, default=False,
+    help='Skip interactive prompts; fail loudly if defaults are missing. (Also auto-enabled by CI=1 or non-TTY stdin.)',
+)
+@click.option(
+    '--quiet', 'quiet',
+    is_flag=True, default=False,
+    help='Suppress success-path stdout. Errors and warnings still emit on stderr.',
+)
+def bump_version(version: str | None, no_input: bool, quiet: bool):
+    """Bump the package version in pyproject.toml, version source, and CHANGELOG.md.
+
+    Writes the supplied X.Y.Z to:
+
+    \b
+      - pyproject.toml `[project] version` field
+      - The package's `__version__` source file (auto-detected from
+        `<package>/version.py`, `<package>/_version.py`, `<package>/__init__.py`,
+        and the `src/<package>/...` variants)
+      - A new `## [VERSION] - YYYY-MM-DD` entry in CHANGELOG.md, inserted
+        directly below `## [Unreleased]`. Idempotent if the section already
+        exists (date is updated, body is preserved).
+
+    Use this at end-of-phase when shipping a bundled release per the
+    Version Cadence rule documented in `docs/specs/stories.md` (added in
+    Story O.o, v2.5.13). The version magnitude (patch / minor / major) is
+    determined by the cadence rule and `plan_production_phase`'s
+    breaking-change negotiation; this command is purely the mechanical
+    write.
+    """
+    skip_input = should_skip_input(no_input)
+
+    # Resolve the version arg per the --no-input contract: if missing under
+    # --no-input, fail loud with the canonical error message.
+    if version is None:
+        if skip_input:
+            click.secho(
+                "Error: bump-version requires a VERSION argument when "
+                "--no-input is set (or stdin is non-TTY). "
+                "Pass the target version as a positional, e.g. "
+                "`project-guide bump-version 1.0.0`.",
+                fg='red',
+                err=True,
+            )
+            sys.exit(2)
+        version = click.prompt("Target version (X.Y.Z)", type=str).strip()
+
+    if not _SEMVER_RE.match(version):
+        click.secho(
+            f"Error: '{version}' is not a valid semver string "
+            "(expected X.Y.Z, optionally with -prerelease or +build).",
+            fg='red',
+            err=True,
+        )
+        sys.exit(2)
+
+    # Resolve project name for version-file auto-detection.
+    config_path = Path(".project-guide.yml")
+    project_name: str | None = None
+    if config_path.exists():
+        try:
+            config = Config.load(str(config_path))
+            project_name = config.project_name
+        except ConfigError:
+            pass
+    if project_name is None:
+        project_name = _detect_project_name_from_pyproject() or Path.cwd().name
+
+    pyproject_path = Path("pyproject.toml")
+    changelog_path = Path("CHANGELOG.md")
+
+    # Update pyproject.toml (required).
+    try:
+        _bump_pyproject_version(pyproject_path, version)
+    except FileNotFoundError:
+        click.secho(
+            f"Error: {pyproject_path} not found. bump-version requires a "
+            "Python pyproject.toml in the current directory.",
+            fg='red',
+            err=True,
+        )
+        sys.exit(2)
+    except click.ClickException as e:
+        click.secho(f"Error: {e.message}", fg='red', err=True)
+        sys.exit(2)
+
+    # Update version source file (auto-detected; warn but don't fail if missing).
+    version_file = _find_version_file(project_name)
+    if version_file is not None:
+        try:
+            _bump_version_file(version_file, version)
+        except click.ClickException as e:
+            click.secho(f"Error: {e.message}", fg='red', err=True)
+            sys.exit(2)
+    else:
+        click.secho(
+            f"⚠ No __version__ source file auto-detected for project "
+            f"'{project_name}'. Skipped version-file update; pyproject.toml "
+            "and CHANGELOG.md updated. If your project keeps __version__ in "
+            "a non-standard location, edit it manually.",
+            fg='yellow',
+            err=True,
+        )
+
+    # Update CHANGELOG.md (required).
+    try:
+        result = _bump_changelog(changelog_path, version)
+    except FileNotFoundError:
+        click.secho(
+            f"Error: {changelog_path} not found. bump-version requires a "
+            "CHANGELOG.md in the current directory.",
+            fg='red',
+            err=True,
+        )
+        sys.exit(2)
+
+    if result == "no-unreleased-section":
+        click.secho(
+            f"⚠ {changelog_path} has no `## [Unreleased]` section. "
+            f"pyproject.toml and version source updated, but no changelog "
+            f"entry was added. Add a `## [{version}] - <date>` heading "
+            "manually, or seed `## [Unreleased]` and re-run.",
+            fg='yellow',
+            err=True,
+        )
+
+    # Quiet mode: suppress success-path stdout. Errors and warnings (above)
+    # already emit to stderr regardless.
+    if not quiet:
+        click.secho(f"✓ Bumped version to {version}", fg='green', bold=True)
+        click.echo(f"  pyproject.toml: {pyproject_path}")
+        if version_file is not None:
+            click.echo(f"  __version__:    {version_file}")
+        if result == "inserted":
+            click.echo(f"  CHANGELOG.md:   inserted ## [{version}]")
+        elif result == "updated-date":
+            click.echo(f"  CHANGELOG.md:   updated date on existing ## [{version}]")
 
 
 @main.command()
