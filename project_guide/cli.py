@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import importlib.resources
+import os
 import shutil
 import subprocess
 import sys
@@ -56,7 +57,29 @@ def _migrate_config_if_needed() -> None:
         click.secho(f"Migrated {old_path} → {new_path}", fg='yellow')
 
 
-@click.group()
+# Recursion guard env var: set to "1" while heal is running so any nested
+# `project-guide` subprocess invocations don't re-enter the auto-hook.
+_HEAL_GUARD_ENV = "PROJECT_GUIDE_HEALING"
+
+
+class HealGroup(click.Group):
+    """Top-level group that invokes the auto-heal hook before every command.
+
+    The hook fires for every invocation — including ``--help`` and
+    ``--version`` — by overriding :meth:`Group.main` (which runs before
+    ``make_context``, where eager flags would otherwise short-circuit).
+    The hook is silent in the steady state and only prompts when there is
+    actual drift; declining the prompt does not block the original
+    subcommand. The recursion guard env var prevents nested invocations
+    from re-entering.
+    """
+
+    def main(self, *args, **kwargs):
+        _run_pre_invoke_hook()
+        return super().main(*args, **kwargs)
+
+
+@click.group(cls=HealGroup)
 @click.version_option(version=__version__)
 def main():
     """Manage LLM project guide across repositories."""
@@ -1303,6 +1326,90 @@ def update(files: tuple, dry_run: bool, force: bool, no_input: bool, quiet: bool
         )
 
 
+def _apply_heal(config: Config, config_path: Path) -> None:
+    """Apply pending template syncs and re-render go.md.
+
+    Sets the recursion guard env var before doing any writes so nested
+    subprocess invocations do not re-enter the hook. Raises ``SyncError``
+    on I/O failure; ``MetadataError`` and ``RenderError`` from the re-render
+    step are caught and surfaced as a stderr warning (the heal itself
+    succeeded; only the cosmetic re-render failed).
+    """
+    os.environ[_HEAL_GUARD_ENV] = "1"
+
+    applied_updated, _skipped, _current, applied_missing = sync_files(config)
+
+    if applied_updated or applied_missing:
+        config.installed_version = __version__
+        config.save(str(config_path))
+
+    target_dir_path = Path(config.target_dir)
+    output_path = target_dir_path / "go.md"
+    metadata_path = target_dir_path / config.metadata_file
+    try:
+        metadata = load_metadata(metadata_path)
+        _apply_metadata_overrides(metadata, config.metadata_overrides)
+        mode = metadata.get_mode(config.current_mode)
+        render_go_project_guide(
+            target_dir_path, mode, metadata, output_path,
+            test_first=config.test_first,
+            pyve_installed=config.pyve_version is not None,
+            pyve_version=config.pyve_version,
+        )
+    except (MetadataError, RenderError) as e:
+        click.secho(f"Warning: Could not re-render go.md: {e}", fg='yellow', err=True)
+
+
+def _run_pre_invoke_hook() -> None:
+    """Group-level hook: heal first, then let the requested subcommand run.
+
+    Silent in the steady state. Only prompts when there is actual drift.
+    Declining the prompt is not a blocker — the original subcommand still
+    runs (refusing the heal is the user's choice).
+
+    Skipped entirely when:
+      - The recursion guard env var is set (a parent invocation already healed).
+      - ``.project-guide.yml`` is absent (let ``init`` bootstrap; ``heal``
+        would error otherwise, and that error belongs to the subcommand).
+      - The config fails to load (schema mismatch, parse error) — the
+        subcommand will surface the error with its own guidance.
+      - ``sync_files`` raises ``SyncError`` — same reasoning.
+    """
+    if os.environ.get(_HEAL_GUARD_ENV) == "1":
+        return
+
+    config_path = Path(".project-guide.yml")
+    if not config_path.exists():
+        return
+
+    try:
+        config = Config.load(str(config_path))
+    except (SchemaVersionError, ConfigError):
+        return
+
+    try:
+        updated, _skipped, _current, missing = sync_files(config, dry_run=True)
+    except SyncError:
+        return
+
+    drift_count = len(updated) + len(missing)
+    if drift_count == 0:
+        return  # silent steady state
+
+    click.secho(
+        f"{drift_count} template{'s' if drift_count != 1 else ''} missing or stale.",
+        err=True,
+    )
+
+    if not click.confirm("Update?", default=True):
+        return  # decline does not block the subcommand
+
+    try:
+        _apply_heal(config, config_path)
+    except SyncError as e:
+        click.secho(f"Warning: heal failed: {e}", fg='yellow', err=True)
+
+
 @main.command()
 def heal():
     """Repair the install: create missing templates and refresh stale ones.
@@ -1354,7 +1461,7 @@ def heal():
 
     drift_count = len(updated) + len(missing)
     if drift_count == 0:
-        return  # silent success — required for the auto-hook in P.b
+        return  # silent success — required for the auto-hook
 
     click.secho(
         f"{drift_count} template{'s' if drift_count != 1 else ''} missing or stale.",
@@ -1365,32 +1472,10 @@ def heal():
         sys.exit(1)
 
     try:
-        applied_updated, _skipped, _current, applied_missing = sync_files(config)
+        _apply_heal(config, config_path)
     except SyncError as e:
         click.secho(f"Error: {e}", fg='red', err=True)
         sys.exit(2)
-
-    # Persist installed_version so subsequent runs know we just healed.
-    if applied_updated or applied_missing:
-        config.installed_version = __version__
-        config.save(str(config_path))
-
-    # Re-render go.md for the current mode so the heal leaves a usable guide.
-    target_dir_path = Path(config.target_dir)
-    output_path = target_dir_path / "go.md"
-    metadata_path = target_dir_path / config.metadata_file
-    try:
-        metadata = load_metadata(metadata_path)
-        _apply_metadata_overrides(metadata, config.metadata_overrides)
-        mode = metadata.get_mode(config.current_mode)
-        render_go_project_guide(
-            target_dir_path, mode, metadata, output_path,
-            test_first=config.test_first,
-            pyve_installed=config.pyve_version is not None,
-            pyve_version=config.pyve_version,
-        )
-    except (MetadataError, RenderError) as e:
-        click.secho(f"Warning: Could not re-render go.md: {e}", fg='yellow', err=True)
 
 
 @main.command()

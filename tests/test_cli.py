@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from pathlib import Path
 from unittest.mock import patch
 
@@ -2161,3 +2162,139 @@ def test_heal_newer_schema_propagates_guidance(runner, tmp_path):
 
 
 # --- End Story P.a -----------------------------------------------------------
+
+
+# --- Story P.b: auto-heal hook ----------------------------------------------
+
+
+@pytest.fixture
+def hook_enabled(monkeypatch):
+    """Opt out of the autouse PROJECT_GUIDE_HEALING=1 guard.
+
+    Tests in this section exercise the hook itself, so they must run with
+    the hook active. The autouse fixture in ``conftest.py`` disables it by
+    default for every other test.
+    """
+    monkeypatch.delenv("PROJECT_GUIDE_HEALING", raising=False)
+
+
+def test_hook_invisible_when_no_drift(runner, tmp_path, hook_enabled):
+    """Hook produces no extra output when the install is clean."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_project(runner)
+
+        result = runner.invoke(main, ['status'])
+
+        assert result.exit_code == 0, result.output
+        assert "missing or stale" not in result.output
+
+
+def test_hook_applies_fix_on_yes_then_runs_subcommand(runner, tmp_path, hook_enabled):
+    """Drift + 'y' → hook heals + the requested subcommand still runs."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_project(runner)
+
+        missing_path = Path("docs/project-guide/templates/modes/debug-mode.md")
+        missing_path.unlink()
+
+        result = runner.invoke(main, ['status'], input="y\n")
+
+        assert result.exit_code == 0, result.output
+        assert "missing or stale" in result.output
+        assert missing_path.exists()
+        # Status's own header still rendered, proving the subcommand ran.
+        assert "project-guide v" in result.output
+
+
+def test_hook_decline_continues_subcommand_without_writing(runner, tmp_path, hook_enabled):
+    """Drift + 'n' → no writes, but the subcommand still runs."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_project(runner)
+
+        missing_path = Path("docs/project-guide/templates/modes/debug-mode.md")
+        missing_path.unlink()
+
+        result = runner.invoke(main, ['status'], input="n\n")
+
+        assert result.exit_code == 0, result.output
+        assert "missing or stale" in result.output
+        assert not missing_path.exists()
+        # Subcommand still ran.
+        assert "project-guide v" in result.output
+
+
+def test_hook_skipped_when_config_missing(runner, tmp_path, hook_enabled):
+    """No `.project-guide.yml` → hook silently skips; subcommand handles it."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        # No init — config is absent. Status should produce its own error.
+        result = runner.invoke(main, ['status'])
+
+        assert "missing or stale" not in result.output
+        assert ".project-guide.yml" in result.output
+
+
+def test_hook_skipped_when_recursion_guard_set(runner, tmp_path, hook_enabled, monkeypatch):
+    """PROJECT_GUIDE_HEALING=1 → hook skipped even with drift."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_project(runner)
+
+        missing_path = Path("docs/project-guide/templates/modes/debug-mode.md")
+        missing_path.unlink()
+
+        monkeypatch.setenv("PROJECT_GUIDE_HEALING", "1")
+        result = runner.invoke(main, ['status'])
+
+        assert result.exit_code == 0, result.output
+        assert "missing or stale" not in result.output
+        assert not missing_path.exists()
+
+
+def test_hook_fires_for_help_flag(runner, tmp_path, hook_enabled):
+    """`--help` triggers the hook before the help text prints."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_project(runner)
+
+        missing_path = Path("docs/project-guide/templates/modes/debug-mode.md")
+        missing_path.unlink()
+
+        result = runner.invoke(main, ['--help'], input="y\n")
+
+        assert "missing or stale" in result.output
+        assert missing_path.exists()
+        # Help text still rendered.
+        assert "Usage:" in result.output
+
+
+def test_hook_fires_for_version_flag(runner, tmp_path, hook_enabled):
+    """`--version` triggers the hook before the version prints."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_project(runner)
+
+        missing_path = Path("docs/project-guide/templates/modes/debug-mode.md")
+        missing_path.unlink()
+
+        result = runner.invoke(main, ['--version'], input="y\n")
+
+        assert "missing or stale" in result.output
+        assert missing_path.exists()
+        # Version still printed.
+        assert __version__ in result.output
+
+
+def test_heal_command_sets_recursion_guard_env_var(runner, tmp_path, hook_enabled, monkeypatch):
+    """Direct `heal` invocation sets PROJECT_GUIDE_HEALING=1 (subprocess guard)."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_project(runner)
+
+        missing_path = Path("docs/project-guide/templates/modes/debug-mode.md")
+        missing_path.unlink()
+
+        # Explicitly clear before invocation.
+        monkeypatch.delenv("PROJECT_GUIDE_HEALING", raising=False)
+        result = runner.invoke(main, ['heal'], input="y\n")
+
+        assert result.exit_code == 0, result.output
+        assert os.environ.get("PROJECT_GUIDE_HEALING") == "1"
+
+
+# --- End Story P.b -----------------------------------------------------------

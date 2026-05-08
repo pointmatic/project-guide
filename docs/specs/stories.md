@@ -58,23 +58,23 @@ Add a new top-level `project-guide heal` command that detects drift between the 
   - [x] `SchemaVersionError` (older/newer) → unchanged guidance preserved
 - [x] In `tests/test_sync.py`: add tests for create-missing semantics
 
-### Story P.b: Auto-hook with recursion guard [Planned]
+### Story P.b: Auto-hook with recursion guard [Done]
 
 Wire a Click group-level callback so every `project-guide` invocation (including `--help` and `--version`) runs `heal` first via the hook. The hook is silent in the steady state; only fires the prompt when there's actual drift. A `PROJECT_GUIDE_HEALING=1` env var prevents the hook from re-entering when `heal` runs as part of its own dispatch.
 
-- [ ] In `project_guide/cli.py`: add a Click group `result_callback` or pre-invoke hook on the `main` group
-  - [ ] Skip the hook when `PROJECT_GUIDE_HEALING=1` is set in the environment
-  - [ ] Skip the hook when `.project-guide.yml` is absent (let `init` bootstrap the project; `heal` would error otherwise)
-  - [ ] Otherwise call into the same drift-detection + prompt path as `heal`
-  - [ ] Set `PROJECT_GUIDE_HEALING=1` in `os.environ` when `heal` runs (whether via the hook or invoked directly) so any nested `project-guide` calls don't re-enter
-  - [ ] If user declines the prompt, continue with the original subcommand (do not block — refusing the heal is the user's choice)
-- [ ] In `tests/test_cli.py`: add hook integration tests
-  - [ ] Clean state → hook is invisible, original subcommand runs as before
-  - [ ] Drift detected → hook prompts, applies fix on yes, runs original subcommand
-  - [ ] Drift detected → hook prompts, on no continues to original subcommand without applying fix
-  - [ ] Missing `.project-guide.yml` → hook is skipped, original subcommand handles missing-config
-  - [ ] `PROJECT_GUIDE_HEALING=1` set → hook is skipped (recursion guard test)
-  - [ ] `--help` and `--version` → hook still fires (this is the "any command heals" goal)
+- [x] In `project_guide/cli.py`: add a Click group `result_callback` or pre-invoke hook on the `main` group *(implemented as a custom `HealGroup(click.Group)` overriding `main()` so the hook fires before eager-flag short-circuit, satisfying the `--help` / `--version` requirement)*
+  - [x] Skip the hook when `PROJECT_GUIDE_HEALING=1` is set in the environment
+  - [x] Skip the hook when `.project-guide.yml` is absent (let `init` bootstrap the project; `heal` would error otherwise)
+  - [x] Otherwise call into the same drift-detection + prompt path as `heal`
+  - [x] Set `PROJECT_GUIDE_HEALING=1` in `os.environ` when `heal` runs (whether via the hook or invoked directly) so any nested `project-guide` calls don't re-enter
+  - [x] If user declines the prompt, continue with the original subcommand (do not block — refusing the heal is the user's choice)
+- [x] In `tests/test_cli.py`: add hook integration tests
+  - [x] Clean state → hook is invisible, original subcommand runs as before
+  - [x] Drift detected → hook prompts, applies fix on yes, runs original subcommand
+  - [x] Drift detected → hook prompts, on no continues to original subcommand without applying fix
+  - [x] Missing `.project-guide.yml` → hook is skipped, original subcommand handles missing-config
+  - [x] `PROJECT_GUIDE_HEALING=1` set → hook is skipped (recursion guard test)
+  - [x] `--help` and `--version` → hook still fires (this is the "any command heals" goal)
 
 ### Story P.c: --no-input auto-yes for heal with stderr notice [Planned]
 
