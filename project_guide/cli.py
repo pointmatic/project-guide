@@ -1304,6 +1304,96 @@ def update(files: tuple, dry_run: bool, force: bool, no_input: bool, quiet: bool
 
 
 @main.command()
+def heal():
+    """Repair the install: create missing templates and refresh stale ones.
+
+    Detects drift between the installed template tree and the bundled package
+    templates. Silent when there is nothing to do (exit 0, no stdout). When
+    drift is detected, prints a one-line summary to stderr and prompts to
+    apply the fix; declining exits 1 without writing.
+
+    Missing `.project-guide.yml` is a hard error — `heal` cannot bootstrap a
+    project that has never been initialized; run `project-guide init` first.
+    """
+    config_path = Path(".project-guide.yml")
+
+    if not config_path.exists():
+        click.secho(
+            "Missing .project-guide.yml — run 'project-guide init' to bootstrap the project.",
+            fg='red',
+            err=True,
+        )
+        sys.exit(1)
+
+    # Mirror update's SchemaVersionError handling so the recovery guidance is
+    # identical regardless of which entry point hit the mismatch.
+    try:
+        config = Config.load(str(config_path))
+    except SchemaVersionError as e:
+        if e.direction == "older":
+            click.secho(f"Schema mismatch: {e}", fg='red', err=True)
+            click.secho(
+                "Run 'project-guide init --force' to refresh "
+                "(your existing .project-guide.yml will be backed up).",
+                fg='yellow',
+                err=True,
+            )
+        else:
+            click.secho(f"Error: {e}", fg='red', err=True)
+        sys.exit(1)
+    except ConfigError as e:
+        click.secho(f"Error: {e}", fg='red', err=True)
+        sys.exit(3)
+
+    # Drift detection via dry-run sync; overrides are intentionally not drift.
+    try:
+        updated, _skipped, _current, missing = sync_files(config, dry_run=True)
+    except SyncError as e:
+        click.secho(f"Error: {e}", fg='red', err=True)
+        sys.exit(2)
+
+    drift_count = len(updated) + len(missing)
+    if drift_count == 0:
+        return  # silent success — required for the auto-hook in P.b
+
+    click.secho(
+        f"{drift_count} template{'s' if drift_count != 1 else ''} missing or stale.",
+        err=True,
+    )
+
+    if not click.confirm("Update?", default=True):
+        sys.exit(1)
+
+    try:
+        applied_updated, _skipped, _current, applied_missing = sync_files(config)
+    except SyncError as e:
+        click.secho(f"Error: {e}", fg='red', err=True)
+        sys.exit(2)
+
+    # Persist installed_version so subsequent runs know we just healed.
+    if applied_updated or applied_missing:
+        config.installed_version = __version__
+        config.save(str(config_path))
+
+    # Re-render go.md for the current mode so the heal leaves a usable guide.
+    target_dir_path = Path(config.target_dir)
+    output_path = target_dir_path / "go.md"
+    metadata_path = target_dir_path / config.metadata_file
+    try:
+        metadata = load_metadata(metadata_path)
+        _apply_metadata_overrides(metadata, config.metadata_overrides)
+        mode = metadata.get_mode(config.current_mode)
+        render_go_project_guide(
+            target_dir_path, mode, metadata, output_path,
+            test_first=config.test_first,
+            pyve_installed=config.pyve_version is not None,
+            pyve_version=config.pyve_version,
+        )
+    except (MetadataError, RenderError) as e:
+        click.secho(f"Warning: Could not re-render go.md: {e}", fg='yellow', err=True)
+
+
+@main.command()
 @click.argument('file_name')
 @click.argument('reason')
 def override(file_name: str, reason: str):

@@ -408,3 +408,63 @@ def test_file_matches_template_with_nonexistent_file(tmp_path):
 
     nonexistent = tmp_path / "nonexistent.md"
     assert not file_matches_template(nonexistent, "README.md")
+
+
+# --- Story P.a: heal create-missing semantics --------------------------------
+
+
+def test_sync_files_full_run_creates_every_missing_template(tmp_path):
+    """Default sync (no files=) creates the entire bundled tree against an empty target.
+
+    This is the heal-from-scratch use case: a consumer repo where every
+    template under target_dir is gitignored and absent on a fresh clone.
+    """
+    target_dir = tmp_path / "project-guide"
+    target_dir.mkdir()
+    config = Config(installed_version=__version__, target_dir=str(target_dir))
+
+    updated, skipped, current, missing = sync_files(config)
+
+    assert updated == []
+    assert current == []
+    assert skipped == []
+    assert set(missing) == set(get_all_file_names())
+    for file_name in missing:
+        assert (target_dir / file_name).exists()
+
+
+def test_sync_files_mixed_missing_and_stale_in_single_call(tmp_path):
+    """Heal-style call resolves missing-and-stale drift in one pass."""
+    target_dir = tmp_path / "project-guide"
+    config = Config(installed_version=__version__, target_dir=str(target_dir))
+
+    # README.md is stale (modified locally); debug-mode template is missing.
+    copy_file("README.md", target_dir)
+    (target_dir / "README.md").write_text("locally modified")
+    # Don't create templates/modes/debug-mode.md.
+
+    updated, skipped, current, missing = sync_files(
+        config,
+        files=["README.md", "templates/modes/debug-mode.md"],
+    )
+
+    assert updated == ["README.md"]
+    assert missing == ["templates/modes/debug-mode.md"]
+    assert current == []
+    assert skipped == []
+    assert (target_dir / "templates/modes/debug-mode.md").exists()
+
+
+def test_sync_files_dry_run_does_not_create_missing(tmp_path):
+    """Dry-run reports missing files without creating them — heal uses this for drift detection."""
+    target_dir = tmp_path / "project-guide"
+    config = Config(installed_version=__version__, target_dir=str(target_dir))
+
+    updated, skipped, current, missing = sync_files(
+        config,
+        files=["README.md"],
+        dry_run=True,
+    )
+
+    assert missing == ["README.md"]
+    assert not (target_dir / "README.md").exists()

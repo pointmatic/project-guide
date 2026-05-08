@@ -2023,3 +2023,141 @@ def test_plan_production_phase_registered_in_release_planning(runner, tmp_path):
 
 
 # --- End Story O.q -----------------------------------------------------------
+
+
+# --- Story P.a: heal command ------------------------------------------------
+
+
+def test_heal_clean_state_is_silent_and_writes_nothing(runner, tmp_path):
+    """heal exits 0 with no stdout and no writes when there is no drift."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_project(runner)
+
+        # Snapshot file mtimes so we can prove no writes happened.
+        target = Path("docs/project-guide")
+        before = {p: p.stat().st_mtime_ns for p in target.rglob("*") if p.is_file()}
+
+        result = runner.invoke(main, ['heal'])
+
+        assert result.exit_code == 0, result.output
+        assert result.stdout == "", f"Expected silent stdout, got: {result.stdout!r}"
+
+        after = {p: p.stat().st_mtime_ns for p in target.rglob("*") if p.is_file()}
+        assert before == after, "heal must not write when there is no drift"
+
+
+def test_heal_creates_missing_files_on_default_yes(runner, tmp_path):
+    """heal prompts on missing files and creates them when the user accepts default (Enter)."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_project(runner)
+
+        missing_path = Path("docs/project-guide/templates/modes/debug-mode.md")
+        missing_path.unlink()
+        assert not missing_path.exists()
+
+        result = runner.invoke(main, ['heal'], input="\n")
+
+        assert result.exit_code == 0, result.output
+        assert "missing or stale" in result.output
+        assert missing_path.exists()
+
+
+def test_heal_creates_missing_files_on_explicit_yes(runner, tmp_path):
+    """heal accepts an explicit `y` response."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_project(runner)
+
+        missing_path = Path("docs/project-guide/templates/modes/debug-mode.md")
+        missing_path.unlink()
+
+        result = runner.invoke(main, ['heal'], input="y\n")
+
+        assert result.exit_code == 0, result.output
+        assert missing_path.exists()
+
+
+def test_heal_creates_missing_files_on_capital_yes(runner, tmp_path):
+    """heal accepts an explicit `Y` response."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_project(runner)
+
+        missing_path = Path("docs/project-guide/templates/modes/debug-mode.md")
+        missing_path.unlink()
+
+        result = runner.invoke(main, ['heal'], input="Y\n")
+
+        assert result.exit_code == 0, result.output
+        assert missing_path.exists()
+
+
+def test_heal_repairs_stale_files_with_backup(runner, tmp_path):
+    """heal backs up and overwrites files whose content drifted from the template."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_project(runner)
+
+        stale_path = Path("docs/project-guide/templates/modes/debug-mode.md")
+        original = stale_path.read_text()
+        stale_path.write_text("Locally modified — not the template")
+
+        result = runner.invoke(main, ['heal'], input="y\n")
+
+        assert result.exit_code == 0, result.output
+        assert "missing or stale" in result.output
+        assert stale_path.read_text() == original
+
+        backups = list(stale_path.parent.glob("debug-mode.md.bak.*"))
+        assert len(backups) == 1
+
+
+def test_heal_decline_exits_one_and_writes_nothing(runner, tmp_path):
+    """Declining the prompt exits 1 and does not modify any files."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_project(runner)
+
+        missing_path = Path("docs/project-guide/templates/modes/debug-mode.md")
+        missing_path.unlink()
+
+        result = runner.invoke(main, ['heal'], input="n\n")
+
+        assert result.exit_code == 1
+        assert not missing_path.exists()
+
+
+def test_heal_without_config_exits_one_with_exact_message(runner, tmp_path):
+    """heal in an uninitialized project exits 1 with the canonical error."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(main, ['heal'])
+
+        assert result.exit_code == 1
+        assert (
+            "Missing .project-guide.yml — run 'project-guide init' to bootstrap the project."
+            in result.output
+        )
+
+
+def test_heal_older_schema_propagates_guidance(runner, tmp_path):
+    """heal preserves update's older-schema guidance (point at init --force)."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_project(runner)
+        _rewrite_config_version("1.0")
+
+        result = runner.invoke(main, ['heal'])
+
+        assert result.exit_code == 1
+        assert "Schema mismatch" in result.output
+        assert "init --force" in result.output
+
+
+def test_heal_newer_schema_propagates_guidance(runner, tmp_path):
+    """heal preserves update's newer-schema guidance."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_project(runner)
+        _rewrite_config_version("99.0")
+
+        result = runner.invoke(main, ['heal'])
+
+        assert result.exit_code == 1
+        assert "Upgrade project-guide" in result.output
+
+
+# --- End Story P.a -----------------------------------------------------------
