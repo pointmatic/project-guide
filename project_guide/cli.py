@@ -1367,6 +1367,12 @@ def _run_pre_invoke_hook() -> None:
     Declining the prompt is not a blocker — the original subcommand still
     runs (refusing the heal is the user's choice).
 
+    Inherits the ``--no-input`` contract via :func:`should_skip_input`: under
+    skip-input mode (``PROJECT_GUIDE_NO_INPUT``, ``CI=1``, or non-TTY stdin)
+    the prompt is replaced with auto-yes plus a one-line stderr notice. The
+    hook cannot see a per-subcommand ``--no-input`` flag (subcommand args
+    have not been parsed yet), so it relies on the env / TTY signals.
+
     Skipped entirely when:
       - The recursion guard env var is set (a parent invocation already healed).
       - ``.project-guide.yml`` is absent (let ``init`` bootstrap; ``heal``
@@ -1396,13 +1402,20 @@ def _run_pre_invoke_hook() -> None:
     if drift_count == 0:
         return  # silent steady state
 
-    click.secho(
-        f"{drift_count} template{'s' if drift_count != 1 else ''} missing or stale.",
-        err=True,
-    )
+    plural = "s" if drift_count != 1 else ""
 
-    if not click.confirm("Update?", default=True):
-        return  # decline does not block the subcommand
+    if should_skip_input():
+        click.secho(
+            f"Auto-healing {drift_count} template{plural} under --no-input.",
+            err=True,
+        )
+    else:
+        click.secho(
+            f"{drift_count} template{plural} missing or stale.",
+            err=True,
+        )
+        if not click.confirm("Update?", default=True):
+            return  # decline does not block the subcommand
 
     try:
         _apply_heal(config, config_path)
@@ -1411,7 +1424,18 @@ def _run_pre_invoke_hook() -> None:
 
 
 @main.command()
-def heal():
+@click.option(
+    '--no-input',
+    'no_input',
+    is_flag=True,
+    default=False,
+    help=(
+        'Do not read from stdin; replace the [Y/n] prompt with auto-yes when '
+        'drift is detected, and emit a one-line stderr notice. '
+        '(Also auto-enabled by PROJECT_GUIDE_NO_INPUT, CI=1, or non-TTY stdin.)'
+    ),
+)
+def heal(no_input: bool):
     """Repair the install: create missing templates and refresh stale ones.
 
     Detects drift between the installed template tree and the bundled package
@@ -1419,9 +1443,15 @@ def heal():
     drift is detected, prints a one-line summary to stderr and prompts to
     apply the fix; declining exits 1 without writing.
 
+    Under --no-input (or PROJECT_GUIDE_NO_INPUT / CI=1 / non-TTY stdin) the
+    prompt is replaced with auto-yes and the summary becomes a non-suppressible
+    stderr notice (`Auto-healing N templates under --no-input.`) so CI logs
+    and embedding callers have a visible signal of the writes.
+
     Missing `.project-guide.yml` is a hard error — `heal` cannot bootstrap a
     project that has never been initialized; run `project-guide init` first.
     """
+    skip_input = should_skip_input(no_input)
     config_path = Path(".project-guide.yml")
 
     if not config_path.exists():
@@ -1463,13 +1493,20 @@ def heal():
     if drift_count == 0:
         return  # silent success — required for the auto-hook
 
-    click.secho(
-        f"{drift_count} template{'s' if drift_count != 1 else ''} missing or stale.",
-        err=True,
-    )
+    plural = "s" if drift_count != 1 else ""
 
-    if not click.confirm("Update?", default=True):
-        sys.exit(1)
+    if skip_input:
+        click.secho(
+            f"Auto-healing {drift_count} template{plural} under --no-input.",
+            err=True,
+        )
+    else:
+        click.secho(
+            f"{drift_count} template{plural} missing or stale.",
+            err=True,
+        )
+        if not click.confirm("Update?", default=True):
+            sys.exit(1)
 
     try:
         _apply_heal(config, config_path)

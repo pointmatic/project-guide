@@ -2029,6 +2029,19 @@ def test_plan_production_phase_registered_in_release_planning(runner, tmp_path):
 # --- Story P.a: heal command ------------------------------------------------
 
 
+@pytest.fixture
+def prompt_tty(monkeypatch):
+    """Force the [Y/n] prompt path by simulating an interactive TTY.
+
+    CliRunner's stdin is non-TTY, which makes ``should_skip_input()`` return
+    True and trigger the auto-yes / stderr-notice path added in Story P.c.
+    Tests that specifically exercise the prompt path patch this signal off.
+    """
+    import project_guide.cli as cli_module
+
+    monkeypatch.setattr(cli_module, 'should_skip_input', lambda *a, **kw: False)
+
+
 def test_heal_clean_state_is_silent_and_writes_nothing(runner, tmp_path):
     """heal exits 0 with no stdout and no writes when there is no drift."""
     with runner.isolated_filesystem(temp_dir=tmp_path):
@@ -2047,7 +2060,7 @@ def test_heal_clean_state_is_silent_and_writes_nothing(runner, tmp_path):
         assert before == after, "heal must not write when there is no drift"
 
 
-def test_heal_creates_missing_files_on_default_yes(runner, tmp_path):
+def test_heal_creates_missing_files_on_default_yes(runner, tmp_path, prompt_tty):
     """heal prompts on missing files and creates them when the user accepts default (Enter)."""
     with runner.isolated_filesystem(temp_dir=tmp_path):
         _init_project(runner)
@@ -2063,7 +2076,7 @@ def test_heal_creates_missing_files_on_default_yes(runner, tmp_path):
         assert missing_path.exists()
 
 
-def test_heal_creates_missing_files_on_explicit_yes(runner, tmp_path):
+def test_heal_creates_missing_files_on_explicit_yes(runner, tmp_path, prompt_tty):
     """heal accepts an explicit `y` response."""
     with runner.isolated_filesystem(temp_dir=tmp_path):
         _init_project(runner)
@@ -2077,7 +2090,7 @@ def test_heal_creates_missing_files_on_explicit_yes(runner, tmp_path):
         assert missing_path.exists()
 
 
-def test_heal_creates_missing_files_on_capital_yes(runner, tmp_path):
+def test_heal_creates_missing_files_on_capital_yes(runner, tmp_path, prompt_tty):
     """heal accepts an explicit `Y` response."""
     with runner.isolated_filesystem(temp_dir=tmp_path):
         _init_project(runner)
@@ -2091,7 +2104,7 @@ def test_heal_creates_missing_files_on_capital_yes(runner, tmp_path):
         assert missing_path.exists()
 
 
-def test_heal_repairs_stale_files_with_backup(runner, tmp_path):
+def test_heal_repairs_stale_files_with_backup(runner, tmp_path, prompt_tty):
     """heal backs up and overwrites files whose content drifted from the template."""
     with runner.isolated_filesystem(temp_dir=tmp_path):
         _init_project(runner)
@@ -2110,7 +2123,7 @@ def test_heal_repairs_stale_files_with_backup(runner, tmp_path):
         assert len(backups) == 1
 
 
-def test_heal_decline_exits_one_and_writes_nothing(runner, tmp_path):
+def test_heal_decline_exits_one_and_writes_nothing(runner, tmp_path, prompt_tty):
     """Declining the prompt exits 1 and does not modify any files."""
     with runner.isolated_filesystem(temp_dir=tmp_path):
         _init_project(runner)
@@ -2189,7 +2202,7 @@ def test_hook_invisible_when_no_drift(runner, tmp_path, hook_enabled):
         assert "missing or stale" not in result.output
 
 
-def test_hook_applies_fix_on_yes_then_runs_subcommand(runner, tmp_path, hook_enabled):
+def test_hook_applies_fix_on_yes_then_runs_subcommand(runner, tmp_path, hook_enabled, prompt_tty):
     """Drift + 'y' → hook heals + the requested subcommand still runs."""
     with runner.isolated_filesystem(temp_dir=tmp_path):
         _init_project(runner)
@@ -2206,7 +2219,7 @@ def test_hook_applies_fix_on_yes_then_runs_subcommand(runner, tmp_path, hook_ena
         assert "project-guide v" in result.output
 
 
-def test_hook_decline_continues_subcommand_without_writing(runner, tmp_path, hook_enabled):
+def test_hook_decline_continues_subcommand_without_writing(runner, tmp_path, hook_enabled, prompt_tty):
     """Drift + 'n' → no writes, but the subcommand still runs."""
     with runner.isolated_filesystem(temp_dir=tmp_path):
         _init_project(runner)
@@ -2249,7 +2262,7 @@ def test_hook_skipped_when_recursion_guard_set(runner, tmp_path, hook_enabled, m
         assert not missing_path.exists()
 
 
-def test_hook_fires_for_help_flag(runner, tmp_path, hook_enabled):
+def test_hook_fires_for_help_flag(runner, tmp_path, hook_enabled, prompt_tty):
     """`--help` triggers the hook before the help text prints."""
     with runner.isolated_filesystem(temp_dir=tmp_path):
         _init_project(runner)
@@ -2265,7 +2278,7 @@ def test_hook_fires_for_help_flag(runner, tmp_path, hook_enabled):
         assert "Usage:" in result.output
 
 
-def test_hook_fires_for_version_flag(runner, tmp_path, hook_enabled):
+def test_hook_fires_for_version_flag(runner, tmp_path, hook_enabled, prompt_tty):
     """`--version` triggers the hook before the version prints."""
     with runner.isolated_filesystem(temp_dir=tmp_path):
         _init_project(runner)
@@ -2281,7 +2294,7 @@ def test_hook_fires_for_version_flag(runner, tmp_path, hook_enabled):
         assert __version__ in result.output
 
 
-def test_heal_command_sets_recursion_guard_env_var(runner, tmp_path, hook_enabled, monkeypatch):
+def test_heal_command_sets_recursion_guard_env_var(runner, tmp_path, hook_enabled, prompt_tty, monkeypatch):
     """Direct `heal` invocation sets PROJECT_GUIDE_HEALING=1 (subprocess guard)."""
     with runner.isolated_filesystem(temp_dir=tmp_path):
         _init_project(runner)
@@ -2298,3 +2311,91 @@ def test_heal_command_sets_recursion_guard_env_var(runner, tmp_path, hook_enable
 
 
 # --- End Story P.b -----------------------------------------------------------
+
+
+# --- Story P.c: --no-input auto-yes for heal --------------------------------
+
+
+def test_heal_no_input_flag_auto_yes_writes_and_emits_notice(runner, tmp_path):
+    """--no-input + drift → no prompt, stderr notice, files written, exit 0."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_project(runner)
+
+        missing_path = Path("docs/project-guide/templates/modes/debug-mode.md")
+        missing_path.unlink()
+
+        # No piped input — would hang under the prompt path; --no-input bypasses.
+        result = runner.invoke(main, ['heal', '--no-input'])
+
+        assert result.exit_code == 0, result.output
+        assert "Auto-healing" in result.output
+        assert "--no-input" in result.output
+        assert "missing or stale" not in result.output  # the prompt path's summary
+        assert missing_path.exists()
+
+
+def test_heal_ci_env_triggers_auto_yes(runner, tmp_path, monkeypatch):
+    """CI=1 + drift → auto-yes path (no flag needed)."""
+    monkeypatch.setenv("CI", "1")
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_project(runner)
+
+        missing_path = Path("docs/project-guide/templates/modes/debug-mode.md")
+        missing_path.unlink()
+
+        result = runner.invoke(main, ['heal'])
+
+        assert result.exit_code == 0, result.output
+        assert "Auto-healing" in result.output
+        assert missing_path.exists()
+
+
+def test_heal_non_tty_stdin_triggers_auto_yes(runner, tmp_path):
+    """Non-TTY stdin + drift → auto-yes path (CliRunner stdin is non-TTY)."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_project(runner)
+
+        missing_path = Path("docs/project-guide/templates/modes/debug-mode.md")
+        missing_path.unlink()
+
+        # No --no-input flag, no CI env — should_skip_input returns True purely
+        # via the non-TTY signal that CliRunner produces by default.
+        result = runner.invoke(main, ['heal'])
+
+        assert result.exit_code == 0, result.output
+        assert "Auto-healing" in result.output
+        assert missing_path.exists()
+
+
+def test_heal_no_input_clean_state_remains_silent(runner, tmp_path):
+    """--no-input with no drift → still silent; the notice is auto-healing-specific."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_project(runner)
+
+        result = runner.invoke(main, ['heal', '--no-input'])
+
+        assert result.exit_code == 0, result.output
+        assert result.stdout == "", f"Expected silent stdout, got: {result.stdout!r}"
+        assert "Auto-healing" not in result.output
+
+
+def test_hook_under_skip_input_heals_silently_with_notice(runner, tmp_path, hook_enabled):
+    """Auto-hook under non-TTY parent invocation → auto-yes + notice + subcommand runs."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_project(runner)
+
+        missing_path = Path("docs/project-guide/templates/modes/debug-mode.md")
+        missing_path.unlink()
+
+        # No piped input. CliRunner's non-TTY stdin should trigger the hook's
+        # auto-yes path (Story P.c) — the parent command is just `status`.
+        result = runner.invoke(main, ['status'])
+
+        assert result.exit_code == 0, result.output
+        assert "Auto-healing" in result.output
+        assert missing_path.exists()
+        # Subcommand still ran.
+        assert "project-guide v" in result.output
+
+
+# --- End Story P.c -----------------------------------------------------------

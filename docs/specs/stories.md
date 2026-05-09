@@ -76,21 +76,21 @@ Wire a Click group-level callback so every `project-guide` invocation (including
   - [x] `PROJECT_GUIDE_HEALING=1` set → hook is skipped (recursion guard test)
   - [x] `--help` and `--version` → hook still fires (this is the "any command heals" goal)
 
-### Story P.c: --no-input auto-yes for heal with stderr notice [Planned]
+### Story P.c: --no-input auto-yes for heal with stderr notice [Done]
 
 Apply the existing `--no-input` contract (`should_skip_input()` from `runtime.py`) to `heal`: under `--no-input`, the `[Y/n]` prompt is replaced with auto-yes, and a one-line stderr notice signals that file writes occurred. The notice is non-suppressible so CI logs and embedding callers (pyve scaffolding, etc.) have a visible signal.
 
-- [ ] In `project_guide/cli.py:heal`:
-  - [ ] Use `should_skip_input(no_input)` from `runtime.py` to detect `--no-input` mode (flag, env, `CI=1`, non-TTY stdin)
-  - [ ] Under skip-input: emit stderr `Auto-healing <N> templates under --no-input.` then proceed with auto-yes (apply updates, re-render `go.md`)
-  - [ ] Under interactive mode: behavior unchanged from P.a (prompt fires)
-- [ ] The auto-hook from P.b inherits this — when the hook fires inside a parent invocation that has `--no-input` (or any equivalent trigger), the hook's heal call also auto-yes's
-- [ ] In `tests/test_cli.py`: add `--no-input` tests for `heal`
-  - [ ] `--no-input` flag with drift → no prompt, stderr notice present, files written, exit 0
-  - [ ] `CI=1` env with drift → same behavior
-  - [ ] Non-TTY stdin (piped) with drift → same behavior
-  - [ ] `--no-input` with no drift → still silent (no stderr notice; the notice is "auto-healing" specifically)
-  - [ ] Auto-hook under `--no-input` parent command → heals silently+stderr-notice, parent command proceeds
+- [x] In `project_guide/cli.py:heal`:
+  - [x] Use `should_skip_input(no_input)` from `runtime.py` to detect `--no-input` mode (flag, env, `CI=1`, non-TTY stdin)
+  - [x] Under skip-input: emit stderr `Auto-healing <N> templates under --no-input.` then proceed with auto-yes (apply updates, re-render `go.md`)
+  - [x] Under interactive mode: behavior unchanged from P.a (prompt fires)
+- [x] The auto-hook from P.b inherits this — when the hook fires inside a parent invocation that has `--no-input` (or any equivalent trigger), the hook's heal call also auto-yes's
+- [x] In `tests/test_cli.py`: add `--no-input` tests for `heal`
+  - [x] `--no-input` flag with drift → no prompt, stderr notice present, files written, exit 0
+  - [x] `CI=1` env with drift → same behavior
+  - [x] Non-TTY stdin (piped) with drift → same behavior
+  - [x] `--no-input` with no drift → still silent (no stderr notice; the notice is "auto-healing" specifically)
+  - [x] Auto-hook under `--no-input` parent command → heals silently+stderr-notice, parent command proceeds
 
 ### Story P.d: Invert .gitignore template — track only go.md [Planned]
 
