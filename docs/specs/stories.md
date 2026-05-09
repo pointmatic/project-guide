@@ -123,19 +123,19 @@ Add a top-level `SECURITY.md` documenting the vulnerability reporting channel an
   - [x] Response expectations — acknowledge within ~7 days; no hard SLA on fix time given solo-dev status
   - [x] Statement that the package contains no secrets and operates entirely offline (low attack surface) *(folded into a "Threat model" section that also enumerates the narrow attack surface)*
 
-### Story P.f: CONTRIBUTING.md [Planned]
+### Story P.f: CONTRIBUTING.md [Done]
 
 Add a top-level `CONTRIBUTING.md` documenting dev environment setup, code style, test requirements, PR process, and release process. Replaces (or supersedes) the brief Contributing/Development sections in README.md.
 
-- [ ] Create `CONTRIBUTING.md` at repo root with:
-  - [ ] Apache-2.0 / Pointmatic file header comment block
-  - [ ] **Dev environment**: pyve two-environment pattern (cite `pyve-essentials.md`); editable install via `pyve run pip install -e .` and testenv via `pyve testenv init && pyve testenv install -r requirements-dev.txt`
-  - [ ] **Code style**: `ruff check` + `ruff format`; mypy clean
-  - [ ] **Tests**: `pyve test`; minimum 85% coverage; parametrized mode-render regression test
-  - [ ] **PR process**: fork → branch → PR → CI must be green → maintainer review (note: branch protection not yet enabled, but PR workflow is the expected path for outside contributors)
-  - [ ] **Release process**: `plan_production_phase` for new phases, `bump-version <X.Y.Z>` at end-of-phase, GitHub Release triggers `publish.yml`
-  - [ ] **Substantive contributions** suggestion: use `code_direct` or `code_test_first` to scope changes via stories before sending a PR
-- [ ] Update `README.md` Contributing/Development sections to point at `CONTRIBUTING.md` as canonical (do not delete the README sections — they remain as quick-reference summaries)
+- [x] Create `CONTRIBUTING.md` at repo root with:
+  - [x] Apache-2.0 / Pointmatic file header comment block
+  - [x] **Dev environment**: pyve two-environment pattern (cite `pyve-essentials.md`); editable install via `pyve run pip install -e .` and testenv via `pyve testenv init && pyve testenv install -r requirements-dev.txt`
+  - [x] **Code style**: `ruff check` + `ruff format`; mypy clean
+  - [x] **Tests**: `pyve test`; minimum 85% coverage; parametrized mode-render regression test
+  - [x] **PR process**: fork → branch → PR → CI must be green → maintainer review (note: branch protection not yet enabled, but PR workflow is the expected path for outside contributors)
+  - [x] **Release process**: `plan_production_phase` for new phases, `bump-version <X.Y.Z>` at end-of-phase, GitHub Release triggers `publish.yml`
+  - [x] **Substantive contributions** suggestion: use `code_direct` or `code_test_first` to scope changes via stories before sending a PR
+- [x] Update `README.md` Contributing/Development sections to point at `CONTRIBUTING.md` as canonical (do not delete the README sections — they remain as quick-reference summaries) *(also corrected stale `pip install -e ".[dev]"` / `pytest` quick-reference to the pyve canonical commands; added cross-reference to `SECURITY.md`)*
 
 ### Story P.g: .github/dependabot.yml [Planned]
 

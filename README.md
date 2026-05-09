@@ -525,41 +525,38 @@ project-guide update --force
 
 ## Development
 
+Quick reference. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full
+guide (PR process, release process, code-style commands, coverage
+expectations).
+
 ### Setup
 
 ```bash
-# Clone repository
 git clone https://github.com/pointmatic/project-guide.git
 cd project-guide
 
-# Install in editable mode with dev dependencies
-pip install -e ".[dev]"
+# Main environment: editable install.
+pyve run pip install -e .
+
+# Dev testenv: pytest, ruff, mypy.
+pyve testenv init
+pyve testenv install -r requirements-dev.txt
 ```
 
 ### Running Tests
 
 ```bash
-# Run all tests
-pytest tests/
-
-# Run with coverage
-pytest tests/ --cov=project_guide --cov-report=term-missing
-
-# Run specific test file
-pytest tests/test_cli.py -v
+pyve test                                      # all tests
+pyve test tests/test_cli.py                    # one file
+pyve test --cov=project_guide --cov-report=term-missing
 ```
 
 ### Code Quality
 
 ```bash
-# Linting
-ruff check project_guide/ tests/
-
-# Type checking
-mypy project_guide/
-
-# Format code
-ruff format project_guide/ tests/
+pyve testenv run ruff check project_guide tests
+pyve testenv run ruff format project_guide tests
+pyve testenv run mypy project_guide
 ```
 
 ### Documentation Development
@@ -589,30 +586,20 @@ mkdocs build --strict
 
 ## Contributing
 
-Contributions are welcome! Please follow these guidelines:
+Contributions are welcome! See [`CONTRIBUTING.md`](CONTRIBUTING.md) for
+the full PR process. Quick summary:
 
-1. **Fork the repository** and create a feature branch
-2. **Write tests** for new functionality
-3. **Ensure all tests pass** and maintain coverage above 80%
-4. **Run linting and type checks** before submitting
-5. **Write clear commit messages** referencing issues when applicable
-6. **Submit a pull request** with a description of changes
+1. **Fork** and branch off `main`.
+2. **Test** locally: `pyve test` and `pyve testenv run ruff check project_guide tests` must pass.
+3. **PR** against `pointmatic/project-guide:main` with a description that explains the *why*.
+4. **CI** must be green; a maintainer will review.
 
-### Development Workflow
+For non-trivial changes, scope the work via a story in
+`docs/specs/stories.md` before opening the PR — see `CONTRIBUTING.md` for
+the recommended workflow.
 
-```bash
-# Create feature branch
-git switch -c feature/your-feature-name
-
-# Make changes and test
-pytest tests/
-ruff check .
-mypy project_guide/
-
-# Commit and push
-git commit -m "Add feature: description"
-git push origin feature/your-feature-name
-```
+For security issues, **do not file a public issue**. See
+[`SECURITY.md`](SECURITY.md) for the private reporting channel.
 
 ## License
 
