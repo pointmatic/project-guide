@@ -2399,3 +2399,95 @@ def test_hook_under_skip_input_heals_silently_with_notice(runner, tmp_path, hook
 
 
 # --- End Story P.c -----------------------------------------------------------
+
+
+# --- Story P.d: gitignore block inversion -----------------------------------
+
+
+_EXPECTED_GITIGNORE_BLOCK = (
+    "# project-guide\n"
+    "docs/project-guide/**\n"
+    "!docs/project-guide/go.md\n"
+    "docs/project-guide/**/*.bak.*\n"
+)
+
+
+def test_init_fresh_writes_inverted_gitignore_block(runner, tmp_path):
+    """Fresh `init` writes the canonical 4-line track-only-go.md block."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(main, ['init'])
+
+        assert result.exit_code == 0, result.output
+        gitignore = Path(".gitignore").read_text()
+        assert _EXPECTED_GITIGNORE_BLOCK in gitignore
+
+
+def test_init_force_rewrites_old_recognized_block_cleanly(runner, tmp_path):
+    """`init --force` replaces a recognized prior block in-place."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        # Seed a prior .gitignore with the legacy block (the .bak.*-only form
+        # that this repo has been using up through Story P.c).
+        Path(".gitignore").write_text(
+            "*.pyc\n"
+            "\n"
+            "# project-guide\n"
+            "docs/project-guide/**/*.bak.*\n"
+        )
+
+        result = runner.invoke(main, ['init', '--force'])
+
+        assert result.exit_code == 0, result.output
+        gitignore = Path(".gitignore").read_text()
+        # Old block lines that are not in the canonical form must be gone.
+        assert gitignore.count("# project-guide") == 1, gitignore
+        assert _EXPECTED_GITIGNORE_BLOCK in gitignore
+        # Surrounding content preserved.
+        assert "*.pyc\n" in gitignore
+
+
+def test_init_with_existing_canonical_block_is_idempotent(runner, tmp_path):
+    """Running `init` over a project whose .gitignore is already canonical does not rewrite."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        Path(".gitignore").write_text("foo\n\n" + _EXPECTED_GITIGNORE_BLOCK)
+        before = Path(".gitignore").read_text()
+
+        result = runner.invoke(main, ['init'])
+
+        assert result.exit_code == 0, result.output
+        after = Path(".gitignore").read_text()
+        assert after == before
+
+
+def test_init_warns_on_foreign_project_guide_block_and_leaves_it_untouched(runner, tmp_path):
+    """A `# project-guide` block with hand-customized lines is left alone with a warning."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        foreign_block = (
+            "# project-guide\n"
+            "docs/project-guide/**/*.bak.*\n"
+            "docs/project-guide/local-only.md\n"  # foreign line
+        )
+        Path(".gitignore").write_text(foreign_block)
+
+        result = runner.invoke(main, ['init'])
+
+        assert result.exit_code == 0, result.output
+        # Warning emitted, no rewrite.
+        assert "unrecognized entries" in result.output
+        assert Path(".gitignore").read_text() == foreign_block
+
+
+def test_init_appends_block_when_no_prior_project_guide_section(runner, tmp_path):
+    """An existing .gitignore without a `# project-guide` header gets one appended."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        Path(".gitignore").write_text("*.pyc\n.venv/\n")
+
+        result = runner.invoke(main, ['init'])
+
+        assert result.exit_code == 0, result.output
+        gitignore = Path(".gitignore").read_text()
+        assert "*.pyc\n" in gitignore
+        assert ".venv/\n" in gitignore
+        assert _EXPECTED_GITIGNORE_BLOCK in gitignore
+
+
+# --- End Story P.d -----------------------------------------------------------

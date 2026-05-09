@@ -92,11 +92,11 @@ Apply the existing `--no-input` contract (`should_skip_input()` from `runtime.py
   - [x] `--no-input` with no drift → still silent (no stderr notice; the notice is "auto-healing" specifically)
   - [x] Auto-hook under `--no-input` parent command → heals silently+stderr-notice, parent command proceeds
 
-### Story P.d: Invert .gitignore template — track only go.md [Planned]
+### Story P.d: Invert .gitignore template — track only go.md [Done]
 
 Change `init`'s gitignore writer so that everything under `target_dir` is ignored except `go.md` (plus the existing `*.bak.*` rule). The rationale: only `go.md` needs to be visible to IDE-integrated LLMs (which typically hide gitignored files from the LLM's view) — every other file is static bundled data that `heal` repopulates on first invocation. This eliminates the ~35-file install footprint from consumer repo `git status` / PR reviews.
 
-- [ ] In `project_guide/cli.py:_ensure_gitignore_entry()`: rewrite the `# project-guide` block to:
+- [x] In `project_guide/cli.py:_ensure_gitignore_entry()`: rewrite the `# project-guide` block to:
   ```
   # project-guide
   docs/project-guide/**
@@ -104,13 +104,13 @@ Change `init`'s gitignore writer so that everything under `target_dir` is ignore
   docs/project-guide/**/*.bak.*
   ```
   (substitute the actual `target_dir` value at write time)
-- [ ] Existing-block detection: if a previous `# project-guide` block exists with the old `docs/project-guide/go.md` line (which incorrectly gitignored `go.md` — confirm or correct based on the actual current code), replace it cleanly without leaving the old content; for any other unrecognized block, leave alone and emit a stderr warning so the developer can resolve manually
-- [ ] **Migration path** for existing consumer repos: documented as `project-guide init --force`. No automatic detection of "tracked-but-now-ignored" files; the developer uses `git rm --cached` if they want to clean history-going-forward
-- [ ] In `tests/test_cli.py`: update `init` gitignore tests
-  - [ ] Fresh `init` → new block written, exact text match
-  - [ ] `init --force` over existing project with old block → block rewritten cleanly
-  - [ ] `init` with foreign `# project-guide` block (non-recognized content) → warn, do not overwrite
-- [ ] In the bundled package: confirm there is no other place that hardcodes `go.md` as gitignored (check `templates/`, `tests/`, docs); update or test-verify
+- [x] Existing-block detection: if a previous `# project-guide` block exists with the old `docs/project-guide/go.md` line (which incorrectly gitignored `go.md` — confirm or correct based on the actual current code), replace it cleanly without leaving the old content; for any other unrecognized block, leave alone and emit a stderr warning so the developer can resolve manually *(also recognizes the current `.bak.*`-only legacy block this repo has been using)*
+- [x] **Migration path** for existing consumer repos: documented as `project-guide init --force`. No automatic detection of "tracked-but-now-ignored" files; the developer uses `git rm --cached` if they want to clean history-going-forward
+- [x] In `tests/test_cli.py`: update `init` gitignore tests
+  - [x] Fresh `init` → new block written, exact text match
+  - [x] `init --force` over existing project with old block → block rewritten cleanly
+  - [x] `init` with foreign `# project-guide` block (non-recognized content) → warn, do not overwrite
+- [x] In the bundled package: confirm there is no other place that hardcodes `go.md` as gitignored (check `templates/`, `tests/`, docs); update or test-verify *(grep verified — no other place hardcodes the gitignore policy)*
 
 ### Story P.e: SECURITY.md [Planned]
 

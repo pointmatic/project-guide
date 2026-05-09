@@ -302,29 +302,108 @@ def init(
         )
 
 
-def _ensure_gitignore_entry(target_dir: str) -> None:
-    """Add project-guide entries to .gitignore if not already present."""
-    gitignore_path = Path(".gitignore")
-    entries = [
-        f"{target_dir}/**/*.bak.*",
-    ]
+_GITIGNORE_HEADER = "# project-guide"
 
-    if gitignore_path.exists():
-        content = gitignore_path.read_text()
-        missing = [e for e in entries if e not in content]
-        if not missing:
-            return
-        if not content.endswith("\n"):
-            content += "\n"
-        content += "\n# project-guide\n"
-        for entry in missing:
-            content += f"{entry}\n"
-        gitignore_path.write_text(content)
-    else:
-        lines = "# project-guide\n"
-        for entry in entries:
-            lines += f"{entry}\n"
-        gitignore_path.write_text(lines)
+
+def _build_project_guide_block(target_dir: str) -> str:
+    """Build the canonical project-guide gitignore block.
+
+    Policy (Story P.d): everything under ``target_dir`` is gitignored except
+    ``go.md`` (which the LLM reads, and IDE-integrated LLMs typically hide
+    gitignored files from the LLM's view) and ``.bak.*`` backup files
+    produced by sync/heal. The remaining template tree is bundled static
+    data that ``heal`` repopulates on first invocation, so it does not need
+    to be tracked in the consumer repo.
+    """
+    return (
+        f"{_GITIGNORE_HEADER}\n"
+        f"{target_dir}/**\n"
+        f"!{target_dir}/go.md\n"
+        f"{target_dir}/**/*.bak.*\n"
+    )
+
+
+def _recognized_block_lines(target_dir: str) -> set[str]:
+    """Lines that mark an existing block as one we wrote (safe to replace).
+
+    Any block whose every non-empty line is in this set can be safely
+    rewritten to the canonical form. A block containing anything outside
+    this set has been hand-customized; we warn and leave it alone.
+    """
+    return {
+        # New canonical lines (Story P.d).
+        f"{target_dir}/**",
+        f"!{target_dir}/go.md",
+        f"{target_dir}/**/*.bak.*",
+        # Legacy / pre-P.d variants we know about.
+        f"{target_dir}/go.md",  # incorrectly gitignored go.md, if it ever appeared
+    }
+
+
+def _ensure_gitignore_entry(target_dir: str) -> None:
+    """Add or refresh the project-guide block in .gitignore.
+
+    Idempotent: only rewrites the file when the current block differs from
+    the canonical form. Foreign content under a ``# project-guide`` header
+    is left alone with a stderr warning so the developer can resolve manually.
+    """
+    gitignore_path = Path(".gitignore")
+    canonical = _build_project_guide_block(target_dir)
+
+    if not gitignore_path.exists():
+        gitignore_path.write_text(canonical)
+        return
+
+    content = gitignore_path.read_text()
+    lines = content.splitlines()
+
+    try:
+        header_idx = lines.index(_GITIGNORE_HEADER)
+    except ValueError:
+        # No prior block — append, separated by a blank line.
+        prefix = content
+        if prefix and not prefix.endswith("\n"):
+            prefix += "\n"
+        if prefix and not prefix.endswith("\n\n"):
+            prefix += "\n"
+        gitignore_path.write_text(prefix + canonical)
+        return
+
+    # Extract the block body: lines after the header until a blank line or
+    # another comment header. This matches how humans usually delimit
+    # gitignore sections.
+    block_end = header_idx + 1
+    while block_end < len(lines):
+        line_stripped = lines[block_end].strip()
+        if not line_stripped or line_stripped.startswith("#"):
+            break
+        block_end += 1
+
+    block_body = [lines[i].strip() for i in range(header_idx + 1, block_end)]
+    recognized = _recognized_block_lines(target_dir)
+    foreign = [bl for bl in block_body if bl and bl not in recognized]
+
+    if foreign:
+        click.secho(
+            f"⚠ Existing `{_GITIGNORE_HEADER}` block in .gitignore contains "
+            "unrecognized entries; leaving it untouched. Edit manually to "
+            "adopt the new track-only-go.md policy.",
+            fg='yellow',
+            err=True,
+        )
+        return
+
+    # All-recognized block: replace cleanly with the canonical form.
+    new_block_lines = canonical.rstrip("\n").split("\n")
+    new_lines = lines[:header_idx] + new_block_lines + lines[block_end:]
+    new_content = "\n".join(new_lines)
+    if not new_content.endswith("\n"):
+        new_content += "\n"
+
+    if new_content == content:
+        return  # already canonical
+
+    gitignore_path.write_text(new_content)
 
 
 _MODE_CATEGORIES: dict[str, str] = {
