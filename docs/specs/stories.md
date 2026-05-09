@@ -137,15 +137,15 @@ Add a top-level `CONTRIBUTING.md` documenting dev environment setup, code style,
   - [x] **Substantive contributions** suggestion: use `code_direct` or `code_test_first` to scope changes via stories before sending a PR
 - [x] Update `README.md` Contributing/Development sections to point at `CONTRIBUTING.md` as canonical (do not delete the README sections — they remain as quick-reference summaries) *(also corrected stale `pip install -e ".[dev]"` / `pytest` quick-reference to the pyve canonical commands; added cross-reference to `SECURITY.md`)*
 
-### Story P.g: .github/dependabot.yml [Planned]
+### Story P.g: .github/dependabot.yml [Done]
 
 Configure Dependabot to keep runtime, dev, and CI dependencies current with weekly updates. Group minor + patch updates per ecosystem to limit PR noise; majors land separately.
 
-- [ ] Create `.github/dependabot.yml` with:
-  - [ ] `pip` ecosystem (root) — weekly schedule, group minor + patch into one PR per week, label `dependencies`
-  - [ ] `github-actions` ecosystem (`.github/workflows/`) — weekly schedule, group minor + patch into one PR per week, label `dependencies` + `ci`
-  - [ ] Reasonable PR title prefixes (`chore(deps)`, `chore(ci)`)
-- [ ] Verify the file passes GitHub's Dependabot config validation (no schema errors in the Insights → Dependency graph view after pushing)
+- [x] Create `.github/dependabot.yml` with: *(updated the existing file rather than creating it from scratch — the prior version had weekly schedules but no grouping, no PR-title prefixes, and used different labels)*
+  - [x] `pip` ecosystem (root) — weekly schedule, group minor + patch into one PR per week, label `dependencies`
+  - [x] `github-actions` ecosystem (`.github/workflows/`) — weekly schedule, group minor + patch into one PR per week, label `dependencies` + `ci`
+  - [x] Reasonable PR title prefixes (`chore(deps)`, `chore(ci)`)
+- [ ] Verify the file passes GitHub's Dependabot config validation (no schema errors in the Insights → Dependency graph view after pushing) *(deferred to post-push verification — cannot be checked locally; YAML parses cleanly and matches the documented Dependabot v2 schema)*
 
 ### Story P.h: CI workflow PR-readiness [Planned]
 
