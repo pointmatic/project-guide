@@ -112,16 +112,16 @@ Change `init`'s gitignore writer so that everything under `target_dir` is ignore
   - [x] `init` with foreign `# project-guide` block (non-recognized content) → warn, do not overwrite
 - [x] In the bundled package: confirm there is no other place that hardcodes `go.md` as gitignored (check `templates/`, `tests/`, docs); update or test-verify *(grep verified — no other place hardcodes the gitignore policy)*
 
-### Story P.e: SECURITY.md [Planned]
+### Story P.e: SECURITY.md [Done]
 
 Add a top-level `SECURITY.md` documenting the vulnerability reporting channel and supported-versions policy.
 
-- [ ] Create `SECURITY.md` at repo root with:
-  - [ ] Apache-2.0 / Pointmatic file header comment block
-  - [ ] **Supported versions** table — latest minor only (e.g., v2.6.x)
-  - [ ] **Reporting a vulnerability** section: GitHub Security Advisories (preferred) link to `https://github.com/pointmatic/project-guide/security/advisories/new`; fallback contact email if appropriate
-  - [ ] Response expectations — acknowledge within ~7 days; no hard SLA on fix time given solo-dev status
-  - [ ] Statement that the package contains no secrets and operates entirely offline (low attack surface)
+- [x] Create `SECURITY.md` at repo root with:
+  - [x] Apache-2.0 / Pointmatic file header comment block
+  - [x] **Supported versions** table — latest minor only (e.g., v2.6.x)
+  - [x] **Reporting a vulnerability** section: GitHub Security Advisories (preferred) link to `https://github.com/pointmatic/project-guide/security/advisories/new`; fallback contact email if appropriate *(no real maintainer email exists in `pyproject.toml` — placeholder only — so the section points solely at GitHub Security Advisories rather than a fake fallback)*
+  - [x] Response expectations — acknowledge within ~7 days; no hard SLA on fix time given solo-dev status
+  - [x] Statement that the package contains no secrets and operates entirely offline (low attack surface) *(folded into a "Threat model" section that also enumerates the narrow attack surface)*
 
 ### Story P.f: CONTRIBUTING.md [Planned]
 
