@@ -116,17 +116,23 @@ project-guide/
 |---------|-------------|
 | `init` | Copy template tree, render `go.md`, create config, update `.gitignore` |
 | `mode [name]` | Switch mode and re-render `go.md`, or list available modes |
+| `archive-stories` | Archive `stories.md` to `.archive/stories-vX.Y.Z.md` and re-render a fresh one |
+| `bump-version <X.Y.Z>` | Update `pyproject.toml`, `<package>/version.py`, and seed a `CHANGELOG.md` heading |
 | `status` | Grouped status: Mode, Guide, Files (with `--verbose`) |
 | `update` | Hash-based sync with prompt/force/dry-run |
+| `heal` | Silent-when-clean drift repair with create-missing semantics; fires automatically before every other command via the group-level auto-hook |
 | `override` | Lock a file from updates |
 | `unoverride` | Remove a file lock |
 | `overrides` | List all locked files |
 | `purge` | Remove all project-guide files with confirmation |
 
 **Key functions:**
-- `_ensure_gitignore_entry(target_dir)` — adds `go.md` and `*.bak.*` patterns
+- `_ensure_gitignore_entry(target_dir)` — writes the canonical `# project-guide` block: ignore everything under `target_dir` except `go.md` and `*.bak.*`. Idempotent. Recognized prior blocks (legacy `.bak.*`-only form, legacy `<target>/go.md` line) are rewritten cleanly; foreign hand-customized content under a `# project-guide` header is left alone with a stderr warning.
 - `_copy_template_tree(src, dest, force)` — recursive copy preserving structure
 - `_migrate_config_if_needed()` — renames legacy `.project-guides.yml`
+- `_apply_heal(config, config_path)` — apply pending template syncs and re-render `go.md`. Sets `PROJECT_GUIDE_HEALING=1` in `os.environ` before doing any writes so nested subprocess invocations don't re-enter the auto-hook.
+- `_run_pre_invoke_hook()` — group-level auto-heal hook (Story P.b/c). Calls `should_skip_input()` to honor the `--no-input` contract via env / TTY signals; silent when no drift; prompts on drift in interactive mode; auto-yes + `Auto-healing N templates under --no-input.` stderr notice in skip-input mode.
+- `HealGroup(click.Group)` — custom Click group whose overridden `main()` runs `_run_pre_invoke_hook()` before `super().main()`, so `--help` and `--version` (eager flags that would otherwise short-circuit during arg parsing) still trigger the hook.
 
 ### Module: `config.py` (138 lines)
 
@@ -260,11 +266,17 @@ class ModeDefinition:
 
 ### `.gitignore` Management
 
-`init` adds under a `# project-guide` comment:
+`init` writes a canonical 4-line block under a `# project-guide` comment header (Story P.d):
 ```
-docs/project-guide/go.md
+# project-guide
+docs/project-guide/**
+!docs/project-guide/go.md
 docs/project-guide/**/*.bak.*
 ```
+
+**Why this shape:** every file under `target_dir` except `go.md` is bundled static data that `heal` (FR-14) repopulates on first invocation, so tracking the full template tree in the consumer repo would just add ~35 files of noise to `git status` and PR reviews. `go.md` itself **must remain tracked** because IDE-integrated LLMs (Cursor, Claude Code, etc.) typically hide gitignored files from the LLM's view, and the LLM's instruction to `Read docs/project-guide/go.md` requires the file to be visible. The repo-history value of `go.md` is incidental — the file churns on every mode switch — and that churn is the acceptable cost for LLM visibility.
+
+**Existing-block detection:** `_ensure_gitignore_entry()` is idempotent. A recognized prior block (either the new canonical form or the legacy `.bak.*`-only form) is rewritten cleanly. A foreign hand-customized block under a `# project-guide` header is left untouched with a stderr warning. A `.gitignore` with no `# project-guide` header gets the canonical block appended (separated by a blank line). Migration for pre-Phase-P consumer repos: `project-guide init --force` rewrites the block; `git rm --cached` is the manual cleanup for already-tracked files.
 
 ---
 
@@ -324,6 +336,18 @@ Fail fast with actionable messages:
 
 - `.project-guides.yml` → `.project-guide.yml` (automatic rename on any CLI command)
 - v1.x config detection → migration notice in `status` output
+
+### Auto-Heal Group Hook (Phase P)
+
+Every `project-guide` invocation runs the heal drift-detection + prompt path before dispatching the requested subcommand. This is implemented as a custom `HealGroup(click.Group)` whose overridden `main()` calls `_run_pre_invoke_hook()` before delegating to `super().main()`. Running before `super().main()` is deliberate: it places the hook **ahead of `make_context` / arg parsing**, which is what makes the hook fire even for `--help` and `--version` (eager flags that would otherwise short-circuit before any subcommand or group body runs).
+
+**Recursion guard.** `_apply_heal()` sets `PROJECT_GUIDE_HEALING=1` in `os.environ` before any write. The hook reads this env var first and returns silently when set, so a `project-guide` subprocess spawned by another `project-guide` invocation does not re-enter and re-prompt.
+
+**Skip conditions:** the hook returns silently when `PROJECT_GUIDE_HEALING=1` is set, when `.project-guide.yml` is absent, when the config fails to load (schema mismatch, parse error), or when `sync_files()` raises `SyncError`. In all these cases the original subcommand is responsible for surfacing whatever guidance is appropriate; the hook does not duplicate it.
+
+**Decline does not block.** When the user answers `n` to the prompt, the hook returns and the original subcommand still runs. Refusing the heal is the user's choice; it is not an error condition.
+
+**Skip-input contract.** The hook calls `should_skip_input()` (no flag, since the hook runs before per-subcommand args are parsed) so it honors `PROJECT_GUIDE_NO_INPUT`, `CI=1`, and non-TTY stdin. Under skip-input mode the prompt is replaced with the `Auto-healing N templates under --no-input.` stderr notice and auto-yes — see FR-8.
 
 ---
 

@@ -160,37 +160,37 @@ Tighten `.github/workflows/ci.yml` and `.github/workflows/test.yml` to fully gat
   - [x] All matrix legs are required (no `continue-on-error` shortcuts) *(3 OSes × 3 Python versions = 9 mandatory legs; `fail-fast: false` is set so legs run independently but each is still required)*
 - [x] Document the green-CI expectation in `CONTRIBUTING.md` (cross-reference from P.f) — informal until branch protection is enabled *(already in `CONTRIBUTING.md` line 107: "All checks must be green before review", added in P.f)*
 
-### Story P.i: v2.6.0 Doc updates and release bundling [Planned]
+### Story P.i: v2.6.0 Doc updates and release bundling [Done]
 
 Doc-only release bundling story for Phase P. Updates the spec artifacts, README, and `project-essentials.md` to reflect the new auto-heal flow, the inverted gitignore policy, the IDE-LLM-visibility constraint that forces `go.md` to remain tracked, and the new production-hardening files. Bumps the package to **v2.6.0** and seeds a `## [2.6.0]` CHANGELOG entry. **This story owns the single Phase P version bump per the phase-bundling rule in Version Cadence.**
 
-- [ ] Update `docs/specs/features.md`:
-  - [ ] Add a new functional requirement section for `heal` (FR-14 or next available)
-  - [ ] Update `## Inputs / Command Line` to add `project-guide heal` with its options (`--no-input`)
-  - [ ] Update `## Outputs / File Structure` to reflect that only `go.md` is tracked in consumer repos
-  - [ ] Update FR-8 (`--no-input` / CI Mode) to add `heal` to the list of commands that respect the contract
-  - [ ] Update Acceptance Criteria — add criteria for auto-heal silent-when-clean and auto-yes-with-stderr-notice
-- [ ] Update `docs/specs/tech-spec.md`:
-  - [ ] Add `heal` to the CLI Design / Commands table
-  - [ ] Add the auto-hook + recursion-guard mechanism under Cross-Cutting Concerns
-  - [ ] Update `## .gitignore Management` block to the new policy (single `!docs/project-guide/go.md` exception)
-  - [ ] Update the "Nine intuitive commands" / "console script" verbiage if it appears
-- [ ] Update `README.md`:
-  - [ ] Line 39 — update CLI Interface count from "Nine" to "Ten" (or rephrase to drop the count)
-  - [ ] Line 91 — replace `The rendered go.md and .bak.*  backup files are gitignored.` with the corrected statement: `Everything under docs/project-guide/ is gitignored except go.md (which the LLM reads) and .bak.* backup files.`
-  - [ ] Add a `### heal` section to Command Reference (between `update` and `override`, or wherever fits the alphabetical/logical order)
-  - [ ] Update Quick Start step 1 "This creates" footnote to reflect the new tracked-vs-ignored policy
-  - [ ] Cross-reference `CONTRIBUTING.md` from the Contributing/Development sections
-  - [ ] Cross-reference `SECURITY.md` from a new "Security" section (or under the existing badge area)
-- [ ] Append to `docs/specs/project-essentials.md` (do not rewrite or reorder existing content):
-  - [ ] **Auto-heal hook contract** — every `project-guide` invocation calls `heal` first via a Click group-level callback; recursion guarded by `PROJECT_GUIDE_HEALING=1` env var; silent in steady state; missing `.project-guide.yml` is a hard error (not a heal opportunity)
-  - [ ] **Inverted gitignore policy** — only `go.md` is tracked under `target_dir`; everything else is bundled static data that `heal` repopulates on first post-clone invocation
-  - [ ] **IDE-LLM visibility constraint** — `go.md` must remain non-gitignored because IDE-integrated LLMs (Cursor, Claude Code, etc.) typically hide gitignored files from the LLM's view; the LLM's instruction to `Read docs/project-guide/go.md` requires the file to be visible. Repo-history value of `go.md` is incidental and the file churns on every mode switch — that churn is acceptable cost for LLM visibility
-  - [ ] **`heal` vs. `update` vs. `init`** — `init` is one-time bootstrap (writes `.project-guide.yml`), `update` refreshes files that exist on disk, `heal` is `update` plus create-missing and is the right command for fresh-clone-with-templates-gitignored
-  - [ ] **`--no-input` auto-yes for `heal`** — file writes under `--no-input` emit a one-line stderr notice (`Auto-healing N templates under --no-input.`) so CI logs and embedding callers have a visible signal
-- [ ] Bump `project_guide/version.py`: `__version__ = "2.6.0"`
-- [ ] Bump `pyproject.toml`: `version = "2.6.0"`
-- [ ] Add `## [2.6.0] - <date>` entry to `CHANGELOG.md` summarizing all of Phase P's user-visible changes (heal command, auto-hook, gitignore inversion, SECURITY.md, CONTRIBUTING.md, dependabot, CI tightening)
+- [x] Update `docs/specs/features.md`:
+  - [x] Add a new functional requirement section for `heal` (FR-14 or next available) *(added FR-14: Auto-Heal & Self-Repair Install — covers the heal command, auto-hook, recursion guard, inverted gitignore, IDE-LLM-visibility constraint)*
+  - [x] Update `## Inputs / Command Line` to add `project-guide heal` with its options (`--no-input`)
+  - [x] Update `## Outputs / File Structure` to reflect that only `go.md` is tracked in consumer repos
+  - [x] Update FR-8 (`--no-input` / CI Mode) to add `heal` to the list of commands that respect the contract
+  - [x] Update Acceptance Criteria — add criteria for auto-heal silent-when-clean and auto-yes-with-stderr-notice *(added items 15 and 16)*
+- [x] Update `docs/specs/tech-spec.md`:
+  - [x] Add `heal` to the CLI Design / Commands table *(also added `archive-stories` and `bump-version` which were missing)*
+  - [x] Add the auto-hook + recursion-guard mechanism under Cross-Cutting Concerns
+  - [x] Update `## .gitignore Management` block to the new policy (single `!docs/project-guide/go.md` exception) *(plus rationale for the IDE-LLM-visibility constraint and the existing-block detection contract)*
+  - [x] Update the "Nine intuitive commands" / "console script" verbiage if it appears *(grep-verified: only README had this phrasing; tech-spec.md never did)*
+- [x] Update `README.md`:
+  - [x] Line 39 — update CLI Interface count from "Nine" to "Ten" (or rephrase to drop the count) *(rephrased to drop the count entirely — current count is 11, future-proofed)*
+  - [x] Line 91 — replace `The rendered go.md and .bak.*  backup files are gitignored.` with the corrected statement: `Everything under docs/project-guide/ is gitignored except go.md (which the LLM reads) and .bak.* backup files.`
+  - [x] Add a `### heal` section to Command Reference (between `update` and `override`, or wherever fits the alphabetical/logical order)
+  - [x] Update Quick Start step 1 "This creates" footnote to reflect the new tracked-vs-ignored policy
+  - [x] Cross-reference `CONTRIBUTING.md` from the Contributing/Development sections *(done in P.f; verified)*
+  - [x] Cross-reference `SECURITY.md` from a new "Security" section (or under the existing badge area) *(promoted from a single line under "Contributing" to a dedicated `## Security` section)*
+- [x] Append to `docs/specs/project-essentials.md` (do not rewrite or reorder existing content):
+  - [x] **Auto-heal hook contract** — every `project-guide` invocation calls `heal` first via a Click group-level callback; recursion guarded by `PROJECT_GUIDE_HEALING=1` env var; silent in steady state; missing `.project-guide.yml` is a hard error (not a heal opportunity)
+  - [x] **Inverted gitignore policy** — only `go.md` is tracked under `target_dir`; everything else is bundled static data that `heal` repopulates on first post-clone invocation
+  - [x] **IDE-LLM visibility constraint** — `go.md` must remain non-gitignored because IDE-integrated LLMs (Cursor, Claude Code, etc.) typically hide gitignored files from the LLM's view; the LLM's instruction to `Read docs/project-guide/go.md` requires the file to be visible. Repo-history value of `go.md` is incidental and the file churns on every mode switch — that churn is acceptable cost for LLM visibility
+  - [x] **`heal` vs. `update` vs. `init`** — `init` is one-time bootstrap (writes `.project-guide.yml`), `update` refreshes files that exist on disk, `heal` is `update` plus create-missing and is the right command for fresh-clone-with-templates-gitignored
+  - [x] **`--no-input` auto-yes for `heal`** — file writes under `--no-input` emit a one-line stderr notice (`Auto-healing N templates under --no-input.`) so CI logs and embedding callers have a visible signal
+- [x] Bump `project_guide/version.py`: `__version__ = "2.6.0"`
+- [x] Bump `pyproject.toml`: `version = "2.6.0"`
+- [x] Add `## [2.6.0] - <date>` entry to `CHANGELOG.md` summarizing all of Phase P's user-visible changes (heal command, auto-hook, gitignore inversion, SECURITY.md, CONTRIBUTING.md, dependabot, CI tightening)
 
 ---
 

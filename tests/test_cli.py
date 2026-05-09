@@ -2110,14 +2110,17 @@ def test_heal_repairs_stale_files_with_backup(runner, tmp_path, prompt_tty):
         _init_project(runner)
 
         stale_path = Path("docs/project-guide/templates/modes/debug-mode.md")
-        original = stale_path.read_text()
-        stale_path.write_text("Locally modified — not the template")
+        # The bundled template is UTF-8; on Windows, Path.read_text() defaults
+        # to the locale (cp1252) and fails on multi-byte sequences — pin to
+        # utf-8 explicitly here and on every comparison read below.
+        original = stale_path.read_text(encoding='utf-8')
+        stale_path.write_text("Locally modified — not the template", encoding='utf-8')
 
         result = runner.invoke(main, ['heal'], input="y\n")
 
         assert result.exit_code == 0, result.output
         assert "missing or stale" in result.output
-        assert stale_path.read_text() == original
+        assert stale_path.read_text(encoding='utf-8') == original
 
         backups = list(stale_path.parent.glob("debug-mode.md.bak.*"))
         assert len(backups) == 1

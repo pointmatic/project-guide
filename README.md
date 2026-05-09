@@ -36,7 +36,8 @@ When you customize a file for your project, mark it as overridden so future pack
 - **Content-Hash Sync** - SHA-256 hash comparison detects changes without relying on version numbers
 - **Custom File Lock** - Lock customized files to prevent update overwrites
 - **Gentle Force Updates** - Automatic `.bak` files created if you `--force` update a custom file
-- **CLI Interface** - Nine intuitive commands for all operations
+- **CLI Interface** - Intuitive commands for every step of the workflow (init, mode, status, update, heal, override, purge, …)
+- **Auto-Heal** - Every command silently repairs the install if drift is detected; prompts only when there's actual work to do, so a fresh clone is one `project-guide <anything>` away from being usable
 - **Shell Completion** - Tab completion for commands, flags, and mode names (bash, zsh, fish)
 - **Well Tested** - Comprehensive test coverage across CLI, rendering, and action modules
 - **Zero Configuration** - Works with sensible defaults out of the box
@@ -84,11 +85,11 @@ project-guide init
 ```
 
 This creates:
-- `.project-guide.yml` - Configuration file
-- `docs/project-guide/` - Mode templates, artifact templates, and metadata
-- `docs/project-guide/go.md` - Rendered LLM instructions (default mode)
+- `.project-guide.yml` - Configuration file (tracked)
+- `docs/project-guide/go.md` - Rendered LLM instructions (tracked — must be visible to IDE-integrated LLMs)
+- `docs/project-guide/` - Mode templates, artifact templates, and metadata (gitignored bundled data)
 
-The rendered `go.md` and `.bak.*` backup files are gitignored.
+Everything under `docs/project-guide/` is gitignored **except** `go.md` (which the LLM reads) and `.bak.*` backup files. The gitignored template tree is bundled static data — `project-guide heal` repopulates it on first invocation in a fresh clone, and the auto-hook makes that healing run silently before any other command.
 
 ### 2. Tell your LLM to read the guide
 
@@ -308,6 +309,33 @@ project-guide update --force
 
 # Preview changes
 project-guide update --dry-run
+```
+
+### `heal`
+
+Repair the install: create missing template files and refresh stale ones to match the bundled package. Silent when there's nothing to do; prompts to apply when drift is detected.
+
+```bash
+project-guide heal [OPTIONS]
+```
+
+**Options:**
+- `--no-input` - Auto-yes the `[Y/n]` prompt and emit a one-line stderr notice when writes occur (also auto-enabled by `CI=1`, `PROJECT_GUIDE_NO_INPUT=1`, or non-TTY stdin)
+
+**When to use it:**
+- After cloning a repo that has `project-guide init`'d output but the template tree is gitignored — heal repopulates it.
+- After accidentally editing or deleting a bundled template file and wanting to restore the canonical version.
+- Whenever you're not sure whether the install is up-to-date with the package version.
+
+**Auto-hook:** every `project-guide` invocation (including `--help` and `--version`) calls heal first via a group-level hook, so the fresh-clone case usually resolves itself silently the first time you run *any* command. The hook is silent in the steady state and prompts only when there's actual drift.
+
+**Examples:**
+```bash
+# Interactive: prompts on drift
+project-guide heal
+
+# Unattended (CI, scripts, embedding callers)
+project-guide heal --no-input
 ```
 
 ### `override`
@@ -598,8 +626,12 @@ For non-trivial changes, scope the work via a story in
 `docs/specs/stories.md` before opening the PR — see `CONTRIBUTING.md` for
 the recommended workflow.
 
-For security issues, **do not file a public issue**. See
-[`SECURITY.md`](SECURITY.md) for the private reporting channel.
+## Security
+
+To report a vulnerability, **do not file a public GitHub issue**. Use
+[GitHub Security Advisories](https://github.com/pointmatic/project-guide/security/advisories/new)
+for a private report — see [`SECURITY.md`](SECURITY.md) for the supported-
+versions policy, response expectations, and the threat model.
 
 ## License
 

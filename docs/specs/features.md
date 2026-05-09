@@ -78,6 +78,9 @@ For a high-level concept (why), see [`concept.md`](concept.md). For implementati
 - Optional: `--no-input` (non-interactive; reserved for future prompts)
 - Optional: `--quiet` / `-q` (machine mode: **no stdout on success**; errors/warnings on stderr — see FR-9)
 
+**`project-guide heal`**
+- Optional: `--no-input` (auto-yes the `[Y/n]` prompt; emit a one-line stderr notice when writes occur — auto-enabled by `CI=1`, `PROJECT_GUIDE_NO_INPUT=1`, or non-TTY stdin)
+
 **`project-guide override FILE_NAME REASON`**
 - Required: file name (template-relative path)
 - Required: reason for override
@@ -118,14 +121,17 @@ current_mode: default
 ### File Structure
 
 **After `project-guide init`:**
+
+Only `.project-guide.yml` (config) and `docs/project-guide/go.md` (rendered LLM entry point) are **tracked** in the consumer repo. Everything else under `docs/project-guide/` is gitignored static bundled data — re-populated by `heal` on first invocation in a fresh clone (Phase P, FR-14). The `go.md` file must remain visible to IDE-integrated LLMs (Cursor, Claude Code, etc.) which typically hide gitignored files from the LLM's view; that is the constraint that forces `go.md` to stay tracked even though it churns on every mode switch.
+
 ```
 project-root/
-├── .project-guide.yml              # Configuration
-├── .gitignore                      # Updated with .bak entries
+├── .project-guide.yml              # Configuration (tracked)
+├── .gitignore                      # `# project-guide` block: ignore everything under target_dir except go.md and *.bak.*
 └── docs/
     └── project-guide/
-        ├── go.md                   # Rendered entry point (tracked in git)
-        ├── .metadata.yml           # Mode definitions (hidden)
+        ├── go.md                   # Rendered entry point (tracked in git — required for IDE LLM visibility)
+        ├── .metadata.yml           # Mode definitions (hidden, gitignored — heal repopulates)
         ├── README.md               # Directory overview
         ├── developer/              # Developer reference docs
         │   ├── best-practices-guide.md
@@ -300,12 +306,13 @@ The system renders a single entry-point document (`go.md`) from Jinja2 templates
 
 ### FR-8: Non-Interactive / CI Mode
 
-`--no-input`, `CI=1`, `PROJECT_GUIDE_NO_INPUT=1`, and non-TTY stdin all suppress interactive prompts on `init`, `update`, and `purge`. The first matching trigger wins (priority order: explicit flag → env var → CI env → non-TTY).
+`--no-input`, `CI=1`, `PROJECT_GUIDE_NO_INPUT=1`, and non-TTY stdin all suppress interactive prompts on `init`, `update`, `purge`, and `heal`. The first matching trigger wins (priority order: explicit flag → env var → CI env → non-TTY).
 
 **Behavior:**
 - `purge`: skips the "Are you sure?" confirmation prompt when any trigger fires. Combines with `--force` (the latter signals intent; the former signals environment).
 - `update`: flag is present for future-prompt parity; `update` currently has no interactive prompts.
 - `init`: flag is present; no prompts exist today but the plumbing is in place.
+- `heal`: replaces the `[Y/n]` drift prompt with auto-yes; emits a one-line stderr notice (`Auto-healing N templates under --no-input.`) so CI logs and embedding callers have a visible signal. The auto-hook (FR-14) inherits the same contract via env / TTY signals.
 
 ### FR-9: Quiet Mode (machine / embedding)
 
@@ -344,6 +351,28 @@ The `pyve_installed` boolean (derived from `pyve_version`) is passed as a Jinja2
 This is a package-versioned auto-render rather than a one-shot merge: improvements to `pyve-essentials.md` flow to every project on the next `project-guide mode <name>` invocation without any scaffold-time copy step.
 
 The bundled `templates/artifacts/pyve-essentials.md` artifact covers: two-environment pattern, canonical invocation forms, LLM-internal vs. developer-facing invocation rule, `python` vs `python3` asdf-shim rule, `requirements-dev.txt` story-writing convention, and editable install / testenv dependency management.
+
+### FR-14: Auto-Heal & Self-Repair Install
+
+`project-guide heal` repairs the install in place: detects drift between the bundled package templates and the on-disk template tree under `target_dir`, then creates missing files and refreshes stale (hash-divergent) ones. Unlike `update`, `heal` also creates missing files — so it is the right command after a fresh clone in a repo that gitignores everything under `target_dir` except `go.md`.
+
+**Inputs:** `--no-input` (auto-yes the prompt; emit stderr notice — see FR-8).
+
+**Behavior:**
+- **Silent when clean.** Zero drift → exit 0 with no stdout. This silence is required so the auto-hook below can fire on every invocation without polluting steady-state output.
+- **Prompts when drift is detected.** Interactive: print one-line stderr summary (`N templates missing or stale.`), then `Update? [Y/n]` (default Y on bare Enter). Decline → exit 1 without writing.
+- **Auto-yes under skip-input mode** (FR-8): replace the prompt with the stderr notice `Auto-healing N templates under --no-input.` then apply.
+- **Hard error on missing config.** Missing `.project-guide.yml` → exit 1 with `Missing .project-guide.yml — run 'project-guide init' to bootstrap the project.` `heal` does not bootstrap.
+- **Schema mismatch handling** mirrors `update`: older-schema → point at `init --force`; newer-schema → instruct to upgrade the package.
+
+**Auto-hook (recursion-guarded):** every `project-guide` invocation, **including `--help` and `--version`**, runs the heal drift-detection + prompt path *before* dispatching the subcommand. The hook is implemented as a custom Click `Group` subclass that overrides `main()` so eager flags (`--help`, `--version`) do not short-circuit before the hook runs. The hook is silent in the steady state and prompts only on actual drift; declining the prompt does not block the original subcommand. Recursion across nested `project-guide` subprocess invocations is prevented by setting `PROJECT_GUIDE_HEALING=1` in `os.environ` whenever `heal` runs (whether via the hook or invoked directly).
+
+**Skip conditions for the hook:**
+- `PROJECT_GUIDE_HEALING=1` is set (recursion guard).
+- `.project-guide.yml` is absent (let `init` bootstrap; the hook does not error).
+- The config fails to load (schema mismatch, parse error) — the subcommand surfaces the error with its own guidance.
+
+**Inverted gitignore policy.** `init`'s gitignore writer ignores everything under `target_dir` except `go.md` and `.bak.*` backups. The remaining template tree is bundled static data that `heal` repopulates on first invocation. This eliminates the ~35-file install footprint from consumer-repo `git status` and PR reviews. Consumers migrating from a pre-Phase-P install run `project-guide init --force` to refresh the gitignore block; `git rm --cached` is the manual cleanup for previously tracked files.
 
 ### FR-7: Shell Completion
 
@@ -462,10 +491,12 @@ modes:
 5. `project-guide update` syncs files using content-hash comparison, not version numbers
 6. `project-guide override/unoverride` manages file locks correctly
 7. `project-guide purge` cleanly removes all project-guide files; respects `--no-input` / `CI=1`
-8. `--no-input` and `--quiet` on `init`, `update`, and `purge`: prompts suppressed via FR-8; FR-9 guarantees **silent stdout on success** and diagnostics on stderr
+8. `--no-input` and `--quiet` on `init`, `update`, `purge`, and `heal`: prompts suppressed via FR-8; FR-9 guarantees **silent stdout on success** and diagnostics on stderr; under skip-input `heal` emits the `Auto-healing N templates under --no-input.` stderr notice when writes occur
 9. `metadata_overrides` in `.project-guide.yml` patches mode fields without editing bundled metadata
 10. All 15 modes render without errors (parametrized test)
 11. Shell completion (Tab) works for commands, flags, and mode names in bash/zsh/fish after one-line setup
 12. Works on macOS, Linux, and Windows
 13. Test coverage is ≥85%
 14. Package is published to PyPI as `project-guide`
+15. `project-guide heal` (FR-14) is **silent on no drift** and applies fixes after the `[Y/n]` prompt on drift; under `--no-input` / `CI=1` / non-TTY the prompt is replaced with auto-yes plus the `Auto-healing N templates under --no-input.` stderr notice
+16. The auto-hook fires for every CLI invocation including `--help` and `--version`, is silent in the steady state, recursion-guarded by `PROJECT_GUIDE_HEALING=1`, and never blocks the original subcommand on prompt decline

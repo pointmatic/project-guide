@@ -54,3 +54,43 @@ At approval gates, present the completed work and wait. **Do not prompt for, off
 **Why:** in the `code_direct` cycle, the template lists "direct commits to main" and "commit messages reference story IDs" as conventions — those are *developer-lane* conventions describing what the developer does on their own schedule. They are not instructions for the LLM to offer or bundle commits. The `_header-common.md` **Rules** block makes this universal at read time. The `code_direct` and `code_test_first` "Present" steps reinforce it with explicit "Do not propose commits, pushes, or bundling options. Do not offer 'want me to also...?' follow-ups" language.
 
 **How to apply:** when presenting a completed story, end with a concise status + suggested next story. Do not offer "commit first or continue?" options. Do not mention bundling commits. The developer decides; the LLM presents and waits.
+
+### Auto-heal hook contract (added v2.6.0)
+
+Every `project-guide` invocation — including `--help` and `--version` — calls the heal drift-detection + prompt path *before* dispatching the requested subcommand. The hook is implemented as a custom `HealGroup(click.Group)` whose overridden `main()` runs `_run_pre_invoke_hook()` before `super().main()`, which places it ahead of `make_context` / arg parsing so eager flags do not short-circuit before the hook fires.
+
+The hook is silent in the steady state (no drift → no output). It is recursion-guarded by the `PROJECT_GUIDE_HEALING=1` env var, which `_apply_heal()` sets before any write so a `project-guide` subprocess spawned by another `project-guide` invocation does not re-enter and re-prompt.
+
+**Skip conditions:** the hook returns silently when `PROJECT_GUIDE_HEALING=1` is set, when `.project-guide.yml` is absent (let `init` bootstrap; `heal` would error otherwise), or when config load / drift detection fails. Missing `.project-guide.yml` is a hard error from the **`heal` subcommand itself** but a silent skip from the **hook** — the original subcommand surfaces the missing-config error with its own guidance.
+
+### Inverted gitignore policy (added v2.6.0)
+
+`init`'s gitignore writer ignores everything under `target_dir` except `go.md` and `.bak.*` backups (Story P.d). The remaining template tree is bundled static data that `heal` repopulates on first invocation in a fresh clone, so tracking it in the consumer repo would just add ~35 files of noise to `git status` and PR reviews.
+
+**Idempotent rewrite:** `_ensure_gitignore_entry()` recognizes the new canonical block plus the legacy `.bak.*`-only form (and the legacy `<target>/go.md` line) and rewrites them cleanly. A foreign hand-customized block under a `# project-guide` header is left untouched with a stderr warning; migrate manually or run `init --force`.
+
+### IDE-LLM visibility constraint (added v2.6.0)
+
+`go.md` **must remain non-gitignored** because IDE-integrated LLMs (Cursor, Claude Code, etc.) typically hide gitignored files from the LLM's view, and the LLM's instruction to `Read docs/project-guide/go.md` requires the file to be visible. The repo-history value of `go.md` is incidental — the file churns on every mode switch — and that churn is the acceptable cost for LLM visibility.
+
+This is the constraint that forces the **inverted** gitignore policy rather than the simpler "ignore the entire `target_dir`" approach. Future refactors of the gitignore logic must preserve the `!<target>/go.md` exception.
+
+### `heal` vs. `update` vs. `init` (added v2.6.0)
+
+These three commands form a deliberate division of labor — getting them confused leads to recommending the wrong one for the user's situation:
+
+- **`init`** is a one-time bootstrap. It writes `.project-guide.yml`, copies the template tree, and renders the initial `go.md`. It refuses to run a second time without `--force`.
+- **`update`** refreshes files **that exist on disk** when their content has drifted from the bundled template. It does **not** create files that are absent — that is `heal`'s job.
+- **`heal`** is `update` plus create-missing semantics, packaged with silent-when-clean behavior and the auto-hook. It is the right command for the fresh-clone-with-templates-gitignored case introduced by Story P.d.
+
+The auto-hook (P.b) makes `heal` invisible most of the time: any `project-guide` invocation in a clean install is silent about heal; any invocation in a drifted install prompts to repair before the requested subcommand runs.
+
+### `--no-input` auto-yes for `heal` (added v2.6.0)
+
+Under `--no-input` (or `PROJECT_GUIDE_NO_INPUT=1`, `CI=1`, non-TTY stdin) the `heal` `[Y/n]` prompt is replaced with auto-yes plus a one-line stderr notice:
+
+```
+Auto-healing N templates under --no-input.
+```
+
+The notice is **non-suppressible** (always emitted even with `--quiet`) so CI logs and embedding callers (pyve scaffolding, etc.) have a visible signal that file writes occurred. This is the heal-specific application of the `--no-input` contract documented earlier in this file.
