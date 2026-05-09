@@ -147,18 +147,18 @@ Configure Dependabot to keep runtime, dev, and CI dependencies current with week
   - [x] Reasonable PR title prefixes (`chore(deps)`, `chore(ci)`)
 - [ ] Verify the file passes GitHub's Dependabot config validation (no schema errors in the Insights → Dependency graph view after pushing) *(deferred to post-push verification — cannot be checked locally; YAML parses cleanly and matches the documented Dependabot v2 schema)*
 
-### Story P.h: CI workflow PR-readiness [Planned]
+### Story P.h: CI workflow PR-readiness [Done]
 
 Tighten `.github/workflows/ci.yml` and `.github/workflows/test.yml` to fully gate on lint + test results so they are PR-ready. Branch protection is not enabled (deferred per developer override), but workflows must be correct so the switch is one settings flip when contributors join.
 
-- [ ] Audit `ci.yml`:
-  - [ ] Triggers include `pull_request` (in addition to whatever push-based trigger exists today)
-  - [ ] Exit codes propagate: no `continue-on-error: true` on lint or test steps
-  - [ ] Both lint (`ruff check`) and tests (`pyve test` or equivalent) are mandatory
-- [ ] Audit `test.yml` (multi-platform matrix):
-  - [ ] Triggers include `pull_request`
-  - [ ] All matrix legs are required (no `continue-on-error` shortcuts)
-- [ ] Document the green-CI expectation in `CONTRIBUTING.md` (cross-reference from P.f) — informal until branch protection is enabled
+- [x] Audit `ci.yml`: *(already PR-ready — no changes needed)*
+  - [x] Triggers include `pull_request` (in addition to whatever push-based trigger exists today) *(already triggers on `push: [main, develop]` + `pull_request: [main]`)*
+  - [x] Exit codes propagate: no `continue-on-error: true` on lint or test steps *(grep-verified: zero `continue-on-error` lines in any workflow file)*
+  - [x] Both lint (`ruff check`) and tests (`pyve test` or equivalent) are mandatory *(both `ruff check`, `mypy`, and `pytest` run as separate hard-failing steps; the only soft step is `codecov-action` with `fail_ci_if_error: false`, which is intentional — codecov outages shouldn't fail PR CI)*
+- [x] Audit `test.yml` (multi-platform matrix): *(already PR-ready — no changes needed)*
+  - [x] Triggers include `pull_request` *(already triggers on `push: [main, develop]` + `pull_request: [main]` + weekly cron)*
+  - [x] All matrix legs are required (no `continue-on-error` shortcuts) *(3 OSes × 3 Python versions = 9 mandatory legs; `fail-fast: false` is set so legs run independently but each is still required)*
+- [x] Document the green-CI expectation in `CONTRIBUTING.md` (cross-reference from P.f) — informal until branch protection is enabled *(already in `CONTRIBUTING.md` line 107: "All checks must be green before review", added in P.f)*
 
 ### Story P.i: v2.6.0 Doc updates and release bundling [Planned]
 
