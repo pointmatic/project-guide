@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.7.0] - 2026-05-11
+
+New top-level `project-guide git-push` command — a thin wrapper over [gitbetter](https://github.com/pointmatic/gitbetter)'s `git-push` that auto-derives the commit subject from the most-recently-completed-and-not-yet-committed story in `docs/specs/stories.md`. Developer-lane convenience only; the LLM still does not initiate commits.
+
+### Added
+- **`project-guide git-push [BRANCH_NAME]` command** (`project_guide/cli.py`) — parses `docs/specs/stories.md` for the last `[Done]` story heading, derives a normalized commit subject (strip `### Story ` prefix and ` [Done]` suffix, convert backticks and double quotes to single quotes, preserve the colon after the story ID), and shells out to gitbetter's `git-push` via `shutil.which` discovery + `subprocess.run(check=False)` with no captured output (gitbetter inherits stdin/stdout/stderr and stays fully interactive). Child exit code propagates unchanged.
+- **Hard-error semantics** for ambiguous states: no `[Done]` story → exit 1; last `[Done]` already committed (per `git log --pretty=%s` subject-prefix match) → exit 1 with `Use 'git-push' directly for any follow-up commit.`; multiple uncommitted `[Done]` stories → exit 1 listing the IDs; `git-push` not on PATH → exit 1 with `brew install pointmatic/tap/gitbetter` hint. The wrapper deliberately refuses to second-guess the developer in ambiguous cases — raw `git-push` remains the escape hatch.
+- **`project_guide/stories.py`** — `StoryHeading` dataclass, `_read_done_stories()`, and `derive_commit_message()` as reusable helpers (the message transformer is exposed as a public name because the heading rules are part of the wrapper's documented contract).
+- **External CLI dependency pattern** documented in `docs/specs/tech-spec.md` under Cross-Cutting Concerns — `git-push` is the first project-guide subcommand depending on an external binary; future workflow-integration commands should follow the same shape (`shutil.which` discover, `subprocess.run(check=False)` invoke, propagate exit code).
+
+### Docs
+- `docs/specs/features.md` — new FR-15 (Story-Aware `git-push` Wrapper), added Inputs / Command Line entry, added Acceptance Criteria item 17.
+- `docs/specs/tech-spec.md` — added `git-push` to the Commands table, Key Functions documents the new helpers, new Cross-Cutting Concerns section "External CLI Dependencies (Story P.k pattern)".
+- `docs/specs/project-essentials.md` — new sub-section reinforcing the LLM-vs-developer-lane rule for this command and documenting the heading-derivation rules.
+- `README.md` — new `### git-push` section in Command Reference between `heal` and `override`, with the optional-dependency callout for gitbetter.
+
 ## [2.6.1] - 2026-05-11
 
 Post-v2.6.0 follow-up: tighten the canonical `# project-guide` gitignore block from four lines to three. Behavior unchanged; the dropped line was functionally redundant.

@@ -47,6 +47,57 @@ class StoriesSummary:
     phases: list[PhaseSummary] = field(default_factory=list)
 
 
+@dataclass(frozen=True)
+class StoryHeading:
+    """A ``[Done]`` story heading parsed from stories.md.
+
+    ``story_id`` is the bracketed phase-letter form (``"G.a"``, ``"P.k"``);
+    ``title`` is the heading text between ``: `` and `` [Done]`` verbatim.
+    The :func:`derive_commit_message` helper produces the gitbetter-ready
+    commit subject from these two fields.
+    """
+    story_id: str
+    title: str
+
+
+def _read_done_stories(spec_artifacts_path: str) -> list[StoryHeading] | None:
+    """Return all ``[Done]`` story headings from stories.md in file order.
+
+    Returns ``None`` when the file is absent or unreadable. Returns an empty
+    list when the file exists but contains no ``[Done]`` headings (callers
+    distinguish the two cases when reporting errors).
+    """
+    stories_path = Path(spec_artifacts_path) / "stories.md"
+    if not stories_path.exists():
+        return None
+    try:
+        text = stories_path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+
+    return [
+        StoryHeading(story_id=sid, title=title)
+        for sid, title, status in _STORY_RE.findall(text)
+        if status == "Done"
+    ]
+
+
+def derive_commit_message(heading: StoryHeading) -> str:
+    r"""Transform a story heading into a gitbetter-ready commit subject.
+
+    Rules (Story P.k):
+      - Output is ``"<id>: <title>"`` (preserve the colon — it's the
+        anchor the already-committed check searches for in ``git log %s``).
+      - Backticks in the title become single quotes (``\`foo\``` → ``'foo'``).
+      - Double quotes in the title become single quotes (``"Hello"`` → ``'Hello'``).
+      - Single quotes in the title pass through unchanged (the wrapper
+        invokes gitbetter via ``subprocess.run([...], shell=False)``, so
+        no shell quoting concern).
+    """
+    cleaned_title = heading.title.replace("`", "'").replace('"', "'")
+    return f"{heading.story_id}: {cleaned_title}"
+
+
 def _read_stories_summary(spec_artifacts_path: str) -> "StoriesSummary | None":
     """Parse stories.md and return a summary.
 

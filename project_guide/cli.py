@@ -39,7 +39,11 @@ from project_guide.runtime import (
     _resolve_setting,
     should_skip_input,
 )
-from project_guide.stories import _read_stories_summary
+from project_guide.stories import (
+    _read_done_stories,
+    _read_stories_summary,
+    derive_commit_message,
+)
 from project_guide.sync import (
     file_matches_template,
     get_all_file_names,
@@ -1596,6 +1600,163 @@ def heal(no_input: bool):
     except SyncError as e:
         click.secho(f"Error: {e}", fg='red', err=True)
         sys.exit(2)
+
+
+# Regex matching the story-ID prefix of a commit-subject line — used to detect
+# which stories have already been committed (Story P.k). Mirrors the
+# `[A-Z]\.[a-z]+` shape of `_STORY_RE` in `stories.py`.
+_COMMIT_SUBJECT_STORY_ID_RE = __import__("re").compile(r"^([A-Z]\.[a-z]+):\s")
+
+
+def _get_committed_story_ids() -> set[str]:
+    """Return the set of story IDs already present as commit-subject prefixes.
+
+    Runs ``git log --pretty=%s`` and scans each subject line for the
+    ``<id>: `` prefix (e.g., ``"G.a: "``). Returns an empty set when git is
+    unavailable, the cwd is not a git repository, or the repo has no
+    commits — the wrapper treats all of those as "nothing committed yet"
+    rather than erroring on its own, leaving the eventual gitbetter
+    invocation to surface any real git failure.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "log", "--pretty=%s"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except (FileNotFoundError, OSError):
+        return set()
+
+    if result.returncode != 0:
+        return set()
+
+    committed: set[str] = set()
+    for line in result.stdout.splitlines():
+        m = _COMMIT_SUBJECT_STORY_ID_RE.match(line)
+        if m:
+            committed.add(m.group(1))
+    return committed
+
+
+def _resolve_spec_artifacts_path() -> str:
+    """Resolve the spec artifacts directory (where stories.md lives).
+
+    Prefers the project-guide metadata's ``common.spec_artifacts_path`` when
+    config + metadata both load cleanly; falls back to the conventional
+    ``docs/specs`` so the wrapper still works in projects that have not yet
+    run ``project-guide init`` (or in this project itself before metadata
+    is rendered).
+    """
+    default = "docs/specs"
+    config_path = Path(".project-guide.yml")
+    if not config_path.exists():
+        return default
+    try:
+        config = Config.load(str(config_path))
+        metadata_path = Path(config.target_dir) / config.metadata_file
+        metadata = load_metadata(metadata_path)
+        _apply_metadata_overrides(metadata, config.metadata_overrides)
+        return metadata.common.get("spec_artifacts_path", default)
+    except (ConfigError, SchemaVersionError, MetadataError, FileNotFoundError):
+        return default
+
+
+@main.command(name="git-push")
+@click.argument("branch_name", required=False)
+def git_push(branch_name: str | None):
+    """Wrap gitbetter's `git-push` with the most-recently-completed story ID.
+
+    \b
+    Derives the commit message from the last `[Done]` story heading in
+    `docs/specs/stories.md`, verifies the story has not already been
+    committed, then shells out to gitbetter's `git-push` to perform the
+    actual push. Optional `BRANCH_NAME` passes through to gitbetter for
+    branch-aware push flows.
+
+    \b
+    Hard errors (exit 1):
+      - No `[Done]` story in stories.md
+      - The last `[Done]` story is already committed (per git-log subject prefix)
+      - Multiple `[Done]` stories are uncommitted — resolve manually with raw `git-push`
+      - `git-push` not on PATH (install gitbetter:
+        `brew install pointmatic/tap/gitbetter`)
+
+    \b
+    Heading-to-message transformation:
+      Input:  ### Story G.a: v1.2.3 New command `foo` with "Hello" [Done]
+      Output: G.a: v1.2.3 New command 'foo' with 'Hello'
+    Backticks and double quotes become single quotes; single quotes pass
+    through; the colon after the story ID is preserved.
+
+    This is a developer-lane convenience command. The LLM still does not
+    initiate commits — the approval-gate discipline rule remains in force.
+    """
+    spec_artifacts_path = _resolve_spec_artifacts_path()
+    done_stories = _read_done_stories(spec_artifacts_path)
+    stories_md_display = f"{spec_artifacts_path}/stories.md"
+
+    if done_stories is None:
+        click.secho(
+            f"Error: {stories_md_display} not found.",
+            fg='red',
+            err=True,
+        )
+        sys.exit(1)
+
+    if not done_stories:
+        click.secho(
+            f"No completed story found in {stories_md_display}.",
+            fg='red',
+            err=True,
+        )
+        sys.exit(1)
+
+    committed = _get_committed_story_ids()
+    uncommitted = [s for s in done_stories if s.story_id not in committed]
+
+    if not uncommitted:
+        last = done_stories[-1]
+        click.secho(
+            f"Story {last.story_id} is already committed. "
+            f"Use 'git-push' directly for any follow-up commit.",
+            fg='red',
+            err=True,
+        )
+        sys.exit(1)
+
+    if len(uncommitted) > 1:
+        ids = ", ".join(s.story_id for s in uncommitted)
+        click.secho(
+            f"Multiple uncommitted [Done] stories: {ids}. "
+            f"Use 'git-push' directly to commit them one at a time with explicit messages.",
+            fg='red',
+            err=True,
+        )
+        sys.exit(1)
+
+    target = uncommitted[0]
+    message = derive_commit_message(target)
+
+    git_push_path = shutil.which("git-push")
+    if git_push_path is None:
+        click.secho(
+            "git-push not found on PATH. "
+            "Install gitbetter: brew install pointmatic/tap/gitbetter",
+            fg='red',
+            err=True,
+        )
+        sys.exit(1)
+
+    argv = [git_push_path, message]
+    if branch_name:
+        argv.append(branch_name)
+
+    # No capture_output: gitbetter is fully interactive — let it inherit
+    # stdin/stdout/stderr. Propagate its exit code unchanged so the reject
+    # / recovery menu's real semantics reach the developer.
+    result = subprocess.run(argv, check=False)
+    sys.exit(result.returncode)
 
 
 @main.command()

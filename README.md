@@ -338,6 +338,45 @@ project-guide heal
 project-guide heal --no-input
 ```
 
+### `git-push`
+
+Wrap [gitbetter](https://github.com/pointmatic/gitbetter)'s `git-push` with a commit message auto-derived from the most-recently-completed-and-not-yet-committed story in `docs/specs/stories.md`. Optional: requires gitbetter on PATH.
+
+```bash
+project-guide git-push [BRANCH_NAME]
+```
+
+**Arguments:**
+- `BRANCH_NAME` (optional) - Passed through to gitbetter for branch-aware push flows (e.g. switching to a feature branch and offering cleanup after merge)
+
+**Heading-to-message transformation:**
+```
+### Story G.a: v1.2.3 New command `foo` with "Hello" [Done]
+                                ↓
+       G.a: v1.2.3 New command 'foo' with 'Hello'
+```
+Backticks and double quotes become single quotes; single quotes pass through; the colon after the story ID is preserved (it's the anchor for the already-committed check).
+
+**Hard errors (exit 1):**
+- No `[Done]` story in `stories.md`
+- The last `[Done]` story is already committed — the wrapper does not second-guess; resolve manually with raw `git-push`
+- Multiple `[Done]` stories are uncommitted — commit them one at a time with explicit messages via raw `git-push`
+- `git-push` not on PATH — install gitbetter: `brew install pointmatic/tap/gitbetter`
+
+**Examples:**
+```bash
+# Most common: ready to commit the just-completed story to the current branch
+project-guide git-push
+
+# Feature-branch push (gitbetter switches to the branch first, offers cleanup after merge)
+project-guide git-push feature/heal-command
+```
+
+**Optional dependency.** gitbetter is not required for any other `project-guide` command. Install it only if you want this wrapper:
+```bash
+brew install pointmatic/tap/gitbetter
+```
+
 ### `override`
 
 Mark a file as customized to prevent automatic updates.

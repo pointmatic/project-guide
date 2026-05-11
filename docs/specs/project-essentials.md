@@ -94,3 +94,20 @@ Auto-healing N templates under --no-input.
 ```
 
 The notice is **non-suppressible** (always emitted even with `--quiet`) so CI logs and embedding callers (pyve scaffolding, etc.) have a visible signal that file writes occurred. This is the heal-specific application of the `--no-input` contract documented earlier in this file.
+
+### `project-guide git-push` is developer-lane (added v2.7.0)
+
+`project-guide git-push` is a thin wrapper over [gitbetter](https://github.com/pointmatic/gitbetter)'s `git-push` that auto-derives the commit message from the most-recently-completed-and-not-yet-committed `[Done]` story heading. It is a **developer-lane convenience command** — the LLM **must not** initiate it. The approval-gate discipline rule earlier in this file ("do not propose commits, pushes, or bundling options ... do not offer 'want me to also …?' follow-ups") remains in force, and applies to this wrapper just as it does to raw `git`. The wrapper exists to shorten the developer's typing at commit time, not to give the LLM a new excuse to volunteer commits.
+
+**Heading-to-message rules:**
+- Output is `"<id>: <title>"`. The colon after the story ID is preserved — it is the anchor the already-committed check searches for in `git log --pretty=%s` via the regex `^([A-Z]\.[a-z]+):\s`.
+- Backticks (`` ` ``) in the title become single quotes.
+- Double quotes (`"`) in the title become single quotes.
+- Single quotes pass through unchanged. The wrapper invokes gitbetter via `subprocess.run([...], shell=False)`, so there is no shell-quoting concern.
+
+**Branch logic:**
+- 0 uncommitted `[Done]` stories → exit 1 "Story <last id> is already committed."
+- 1 uncommitted `[Done]` story → derive message, invoke `git-push`.
+- 2+ uncommitted `[Done]` stories → exit 1 listing the IDs; developer commits them one at a time with raw `git-push`.
+
+**External CLI dependency pattern.** `git-push` is the first `project-guide` subcommand that depends on an external binary being on PATH. See `tech-spec.md` § "External CLI Dependencies" for the canonical pattern (discover via `shutil.which`, invoke via `subprocess.run(..., check=False)` with no captured output, propagate exit code). Future workflow-integration commands should follow the same shape.

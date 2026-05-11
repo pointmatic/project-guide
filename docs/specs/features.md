@@ -81,6 +81,10 @@ For a high-level concept (why), see [`concept.md`](concept.md). For implementati
 **`project-guide heal`**
 - Optional: `--no-input` (auto-yes the `[Y/n]` prompt; emit a one-line stderr notice when writes occur — auto-enabled by `CI=1`, `PROJECT_GUIDE_NO_INPUT=1`, or non-TTY stdin)
 
+**`project-guide git-push [BRANCH_NAME]`**
+- Optional positional `BRANCH_NAME` — passed through to gitbetter's `git-push` for branch-aware push flows
+- No other flags — the wrapped command is fully interactive (preview, confirm, branch cleanup, reject/recovery menu), so `--no-input` / `--quiet` would be no-ops; for those, route through raw `git-push` instead
+
 **`project-guide override FILE_NAME REASON`**
 - Required: file name (template-relative path)
 - Required: reason for override
@@ -374,6 +378,28 @@ The bundled `templates/artifacts/pyve-essentials.md` artifact covers: two-enviro
 
 **Inverted gitignore policy.** `init`'s gitignore writer produces a canonical 3-line block under a `# project-guide` header: ignore everything under `target_dir` *except* `go.md` (tightened from the original 4-line v2.6.0 form in v2.6.1 — the explicit `.bak.*` line was redundant with the broader `**` rule). The remaining template tree is bundled static data that `heal` repopulates on first invocation. This eliminates the ~35-file install footprint from consumer-repo `git status` and PR reviews. Consumers migrating from a pre-Phase-P install run `project-guide init --force` to refresh the gitignore block; `git rm --cached` is the manual cleanup for previously tracked files. v2.6.0 installs heal to the v2.6.1 3-line form on the next `init --force`.
 
+### FR-15: Story-Aware `git-push` Wrapper (gitbetter integration)
+
+`project-guide git-push [BRANCH_NAME]` wraps [gitbetter](https://github.com/pointmatic/gitbetter)'s `git-push` with story metadata: it derives the commit message from the most-recently-completed-and-not-yet-committed story in `docs/specs/stories.md` and shells out to gitbetter to perform the actual push. The wrapper collapses the developer's per-story commit step from "find the story ID, format the message, type the command" to a single command, while delegating every real git operation (preview, confirm, branch cleanup, reject/recovery menu) to gitbetter.
+
+**Heading-to-message transformation:**
+- Input: `### Story G.a: v1.2.3 New command \`foo\` with "Hello" [Done]`
+- Output: `G.a: v1.2.3 New command 'foo' with 'Hello'`
+- Rules: strip `### Story ` prefix and ` [Done]` suffix; replace backticks and double quotes with single quotes; preserve single quotes and the colon after the story ID. The colon is the anchor the already-committed check searches for in `git log --pretty=%s`.
+
+**Hard errors (exit 1):**
+- `docs/specs/stories.md` is absent.
+- No `[Done]` story in `stories.md`.
+- The last `[Done]` story is already committed (per `git log` subject prefix match) — the wrapper does not second-guess; the developer resolves manually with raw `git-push`.
+- Multiple `[Done]` stories are uncommitted — same reasoning. The wrapper is for the common "one story done, ready to push" case; multi-story batches are explicit-is-better-than-implicit.
+- `git-push` is not on PATH — the wrapper prints the install hint (`brew install pointmatic/tap/gitbetter`) and exits.
+
+**Child-process semantics.** The wrapper invokes `git-push` via `subprocess.run(argv, check=False)` with no captured output, so gitbetter inherits the parent's stdin/stdout/stderr and stays fully interactive. The child's exit code is propagated to `sys.exit` unchanged so gitbetter's reject/recovery menu surfaces with real semantics.
+
+**LLM-vs-developer-lane.** This is a developer-lane convenience command. The LLM **does not** initiate it — the approval-gate discipline (do not propose commits, pushes, or follow-ups at story-end) remains in force. The wrapper is invoked by the developer after the LLM presents a completed story.
+
+**`spec_artifacts_path` resolution.** The wrapper reads `spec_artifacts_path` from project-guide metadata when available; otherwise falls back to `docs/specs`. This lets the wrapper work in projects that haven't yet run `project-guide init`, including this project itself before metadata renders.
+
 ### FR-7: Shell Completion
 
 Tab completion for `project-guide` commands, flags, and mode names in bash, zsh, and fish.
@@ -500,3 +526,4 @@ modes:
 14. Package is published to PyPI as `project-guide`
 15. `project-guide heal` (FR-14) is **silent on no drift** and applies fixes after the `[Y/n]` prompt on drift; under `--no-input` / `CI=1` / non-TTY the prompt is replaced with auto-yes plus the `Auto-healing N templates under --no-input.` stderr notice
 16. The auto-hook fires for every CLI invocation including `--help` and `--version`, is silent in the steady state, recursion-guarded by `PROJECT_GUIDE_HEALING=1`, and never blocks the original subcommand on prompt decline
+17. `project-guide git-push [BRANCH_NAME]` (FR-15) derives the commit message from the last `[Done]` story, hard-errors on already-committed or multi-uncommitted-Done states or missing gitbetter, and propagates gitbetter's child exit code unchanged

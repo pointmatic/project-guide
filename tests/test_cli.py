@@ -2520,3 +2520,260 @@ def test_init_appends_block_when_no_prior_project_guide_section(runner, tmp_path
 
 
 # --- End Story P.d / P.j ----------------------------------------------------
+
+
+# --- Story P.k: project-guide git-push wrapper ------------------------------
+
+
+_STORIES_HEADER = """\
+# stories.md -- testproject (python)
+
+## Phase A: Initial
+
+"""
+
+
+def _write_stories_md(*headings: str) -> None:
+    """Write `docs/specs/stories.md` with the provided story headings.
+
+    Each entry must be a complete `### Story X.y: ... [Status]` line.
+    """
+    stories_dir = Path("docs/specs")
+    stories_dir.mkdir(parents=True, exist_ok=True)
+    body = _STORIES_HEADER + "\n\n".join(headings) + "\n"
+    (stories_dir / "stories.md").write_text(body, encoding="utf-8")
+
+
+def _mock_git_log_subjects(monkeypatch, subjects: list[str], git_push_argv_capture: list | None = None):
+    """Patch subprocess.run so `git log` returns the given subjects and
+    `git-push` invocations capture their argv into the given list."""
+    import project_guide.cli as cli_module
+
+    class _FakeCompleted:
+        def __init__(self, returncode: int, stdout: str = "", stderr: str = ""):
+            self.returncode = returncode
+            self.stdout = stdout
+            self.stderr = stderr
+
+    def fake_run(argv, **kwargs):
+        if argv and argv[:2] == ["git", "log"]:
+            return _FakeCompleted(0, stdout="\n".join(subjects) + ("\n" if subjects else ""))
+        # Anything else is a git-push invocation in these tests.
+        if git_push_argv_capture is not None:
+            git_push_argv_capture.append(list(argv))
+        return _FakeCompleted(0)
+
+    monkeypatch.setattr(cli_module.subprocess, "run", fake_run)
+
+
+def _mock_git_push_on_path(monkeypatch, path: str | None = "/usr/local/bin/git-push"):
+    """Patch `shutil.which("git-push")` to return the given path (or None)."""
+    import project_guide.cli as cli_module
+
+    def fake_which(name):
+        if name == "git-push":
+            return path
+        return None  # other lookups don't matter for these tests
+
+    monkeypatch.setattr(cli_module.shutil, "which", fake_which)
+
+
+def test_git_push_happy_path_invokes_gitbetter_with_derived_message(runner, tmp_path, monkeypatch):
+    """Last [Done] story, not yet committed → git-push called with derived message."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 Hello World [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(monkeypatch, subjects=[], git_push_argv_capture=captured)
+
+        result = runner.invoke(main, ['git-push'])
+
+        assert result.exit_code == 0, result.output
+        assert len(captured) == 1, captured
+        argv = captured[0]
+        assert argv[0] == "/usr/local/bin/git-push"
+        assert argv[1] == "A.a: v0.1.0 Hello World"
+
+
+def test_git_push_passes_branch_name_through(runner, tmp_path, monkeypatch):
+    """BRANCH_NAME positional appears as second argument to git-push."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 Hello World [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(monkeypatch, subjects=[], git_push_argv_capture=captured)
+
+        result = runner.invoke(main, ['git-push', 'feature/xyz'])
+
+        assert result.exit_code == 0, result.output
+        argv = captured[0]
+        assert argv == ["/usr/local/bin/git-push", "A.a: v0.1.0 Hello World", "feature/xyz"]
+
+
+def test_git_push_transforms_backticks_and_double_quotes_to_single_quotes(runner, tmp_path, monkeypatch):
+    """`foo` and \"Hello\" → 'foo' and 'Hello' in the derived message."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            '### Story G.a: v1.2.3 New command `foo` with "Hello" [Done]',
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(monkeypatch, subjects=[], git_push_argv_capture=captured)
+
+        result = runner.invoke(main, ['git-push'])
+
+        assert result.exit_code == 0, result.output
+        assert captured[0][1] == "G.a: v1.2.3 New command 'foo' with 'Hello'"
+
+
+def test_git_push_passes_single_quotes_through_unchanged(runner, tmp_path, monkeypatch):
+    """Single quotes in the title pass through (no shell quoting concern)."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story B.c: Handle the developer's input correctly [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(monkeypatch, subjects=[], git_push_argv_capture=captured)
+
+        result = runner.invoke(main, ['git-push'])
+
+        assert result.exit_code == 0, result.output
+        assert captured[0][1] == "B.c: Handle the developer's input correctly"
+
+
+def test_git_push_handles_doc_only_story_without_version_prefix(runner, tmp_path, monkeypatch):
+    """Doc-only stories have no `vX.Y.Z` in the title — message reflects that."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story M.c: align specs with FR-9 [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(monkeypatch, subjects=[], git_push_argv_capture=captured)
+
+        result = runner.invoke(main, ['git-push'])
+
+        assert result.exit_code == 0, result.output
+        assert captured[0][1] == "M.c: align specs with FR-9"
+
+
+def test_git_push_errors_when_last_done_story_is_already_committed(runner, tmp_path, monkeypatch):
+    """Already-committed → exit 1 with the canonical stderr; git-push not invoked."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 Hello World [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(
+            monkeypatch,
+            subjects=["A.a: v0.1.0 Hello World"],
+            git_push_argv_capture=captured,
+        )
+
+        result = runner.invoke(main, ['git-push'])
+
+        assert result.exit_code == 1
+        assert "Story A.a is already committed" in result.output
+        assert "git-push' directly" in result.output
+        assert captured == [], "git-push must not be invoked when the story is already committed"
+
+
+def test_git_push_errors_on_multiple_uncommitted_done_stories(runner, tmp_path, monkeypatch):
+    """Multi-uncommitted → exit 1 listing the IDs; git-push not invoked."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 Hello World [Done]",
+            "### Story A.b: v0.2.0 Second story [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(monkeypatch, subjects=[], git_push_argv_capture=captured)
+
+        result = runner.invoke(main, ['git-push'])
+
+        assert result.exit_code == 1
+        assert "Multiple uncommitted [Done] stories" in result.output
+        assert "A.a" in result.output
+        assert "A.b" in result.output
+        assert captured == []
+
+
+def test_git_push_errors_when_no_done_story_exists(runner, tmp_path, monkeypatch):
+    """No [Done] heading in stories.md → exit 1 with no-completed-story message."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 Hello World [Planned]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+
+        result = runner.invoke(main, ['git-push'])
+
+        assert result.exit_code == 1
+        assert "No completed story found" in result.output
+        assert "docs/specs/stories.md" in result.output
+
+
+def test_git_push_errors_when_stories_md_is_missing(runner, tmp_path, monkeypatch):
+    """stories.md absent → exit 1 with a stories-md-not-found message."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        # Deliberately do NOT call _write_stories_md.
+        _mock_git_push_on_path(monkeypatch)
+
+        result = runner.invoke(main, ['git-push'])
+
+        assert result.exit_code == 1
+        assert "docs/specs/stories.md not found" in result.output
+
+
+def test_git_push_errors_when_gitbetter_not_on_path(runner, tmp_path, monkeypatch):
+    """`git-push` missing on PATH → exit 1 with install hint."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 Hello World [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch, path=None)
+        _mock_git_log_subjects(monkeypatch, subjects=[])
+
+        result = runner.invoke(main, ['git-push'])
+
+        assert result.exit_code == 1
+        assert "git-push not found on PATH" in result.output
+        assert "brew install pointmatic/tap/gitbetter" in result.output
+
+
+def test_git_push_propagates_child_exit_code(runner, tmp_path, monkeypatch):
+    """Non-zero exit from gitbetter's `git-push` propagates unchanged."""
+    import project_guide.cli as cli_module
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 Hello World [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+
+        class _FakeCompleted:
+            def __init__(self, returncode):
+                self.returncode = returncode
+                self.stdout = ""
+                self.stderr = ""
+
+        def fake_run(argv, **kwargs):
+            if argv and argv[:2] == ["git", "log"]:
+                return _FakeCompleted(0)
+            # git-push invocation: return non-zero
+            return _FakeCompleted(7)
+
+        monkeypatch.setattr(cli_module.subprocess, "run", fake_run)
+
+        result = runner.invoke(main, ['git-push'])
+
+        assert result.exit_code == 7, result.output
+
+
+# --- End Story P.k ----------------------------------------------------------

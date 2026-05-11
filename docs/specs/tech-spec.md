@@ -121,6 +121,7 @@ project-guide/
 | `status` | Grouped status: Mode, Guide, Files (with `--verbose`) |
 | `update` | Hash-based sync with prompt/force/dry-run |
 | `heal` | Silent-when-clean drift repair with create-missing semantics; fires automatically before every other command via the group-level auto-hook |
+| `git-push [BRANCH_NAME]` | Wrap gitbetter's `git-push` with a commit message derived from the last `[Done]` story heading; shells out via `shutil.which` + `subprocess.run`, propagates child exit code |
 | `override` | Lock a file from updates |
 | `unoverride` | Remove a file lock |
 | `overrides` | List all locked files |
@@ -133,6 +134,9 @@ project-guide/
 - `_apply_heal(config, config_path)` — apply pending template syncs and re-render `go.md`. Sets `PROJECT_GUIDE_HEALING=1` in `os.environ` before doing any writes so nested subprocess invocations don't re-enter the auto-hook.
 - `_run_pre_invoke_hook()` — group-level auto-heal hook (Story P.b/c). Calls `should_skip_input()` to honor the `--no-input` contract via env / TTY signals; silent when no drift; prompts on drift in interactive mode; auto-yes + `Auto-healing N templates under --no-input.` stderr notice in skip-input mode.
 - `HealGroup(click.Group)` — custom Click group whose overridden `main()` runs `_run_pre_invoke_hook()` before `super().main()`, so `--help` and `--version` (eager flags that would otherwise short-circuit during arg parsing) still trigger the hook.
+- `_get_committed_story_ids()` — parses `git log --pretty=%s` and extracts story IDs from any subject line whose prefix matches `<id>: ` (regex `^([A-Z]\.[a-z]+):\s`). Returns an empty set on `git`-not-found, non-git cwd, or empty history. Used by the `git-push` wrapper to decide which `[Done]` stories are uncommitted.
+- `_resolve_spec_artifacts_path()` — best-effort resolver for the `spec_artifacts_path` metadata value used by `git-push` to locate `stories.md`. Falls back to `docs/specs` when config / metadata are unavailable so the wrapper works in projects that haven't yet run `init`.
+- `project_guide/stories.py:_read_done_stories()` / `derive_commit_message()` — pure helpers used by `git-push`. `_read_done_stories` returns all `[Done]` headings as `StoryHeading(story_id, title)` tuples in file order; `derive_commit_message` produces the gitbetter-ready subject `"<id>: <transformed title>"` (backticks → single quotes, double quotes → single quotes, single quotes pass through, colon preserved).
 
 ### Module: `config.py` (138 lines)
 
@@ -337,6 +341,17 @@ Fail fast with actionable messages:
 
 - `.project-guides.yml` → `.project-guide.yml` (automatic rename on any CLI command)
 - v1.x config detection → migration notice in `status` output
+
+### External CLI Dependencies (Story P.k pattern)
+
+`git-push` is the first `project-guide` subcommand that **depends on an external CLI being on PATH** (gitbetter's `git-push` binary). Future workflow-integration commands (potential `git-tag`, `git-rebase`, etc.) should follow the same pattern:
+
+1. **Discover** via `shutil.which(name)`. If `None`, exit 1 with stderr that names the missing tool and the canonical install command. Never silently fall back to a degraded behavior.
+2. **Invoke** via `subprocess.run(argv, check=False)` with **no captured output** so the external tool inherits the parent's stdin/stdout/stderr (interactive flows like prompts and progress reporting must reach the developer unaltered).
+3. **Propagate** the child's exit code with `sys.exit(result.returncode)`. The wrapper's own exit semantics are a passthrough — the external tool's reject/recovery semantics are the source of truth, not the wrapper's.
+4. **Tests** mock both `shutil.which` (to control discovery) and `subprocess.run` (to control the child's behavior and capture argv). See `tests/test_cli.py::test_git_push_*` for the reference test shape.
+
+This deliberately keeps each wrapper a thin convenience layer rather than a parallel implementation. The tested invariants are: discovery error message, argv shape (including positional passthrough), and exit-code propagation. Nothing else.
 
 ### Auto-Heal Group Hook (Phase P)
 
