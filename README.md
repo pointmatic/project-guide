@@ -89,7 +89,7 @@ This creates:
 - `docs/project-guide/go.md` - Rendered LLM instructions (tracked — must be visible to IDE-integrated LLMs)
 - `docs/project-guide/` - Mode templates, artifact templates, and metadata (gitignored bundled data)
 
-Everything under `docs/project-guide/` is gitignored **except** `go.md` (which the LLM reads) and `.bak.*` backup files. The gitignored template tree is bundled static data — `project-guide heal` repopulates it on first invocation in a fresh clone, and the auto-hook makes that healing run silently before any other command.
+Everything under `docs/project-guide/` is gitignored **except** `go.md` (which the LLM reads). The gitignored template tree is bundled static data — `project-guide heal` repopulates it on first invocation in a fresh clone, and the auto-hook makes that healing run silently before any other command.
 
 ### 2. Tell your LLM to read the guide
 

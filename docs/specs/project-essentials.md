@@ -63,11 +63,11 @@ The hook is silent in the steady state (no drift → no output). It is recursion
 
 **Skip conditions:** the hook returns silently when `PROJECT_GUIDE_HEALING=1` is set, when `.project-guide.yml` is absent (let `init` bootstrap; `heal` would error otherwise), or when config load / drift detection fails. Missing `.project-guide.yml` is a hard error from the **`heal` subcommand itself** but a silent skip from the **hook** — the original subcommand surfaces the missing-config error with its own guidance.
 
-### Inverted gitignore policy (added v2.6.0)
+### Inverted gitignore policy (added v2.6.0, tightened v2.6.1)
 
-`init`'s gitignore writer ignores everything under `target_dir` except `go.md` and `.bak.*` backups (Story P.d). The remaining template tree is bundled static data that `heal` repopulates on first invocation in a fresh clone, so tracking it in the consumer repo would just add ~35 files of noise to `git status` and PR reviews.
+`init`'s gitignore writer produces a canonical 3-line block: ignore everything under `target_dir` *except* `go.md` (Story P.d wrote the inversion; Story P.j / v2.6.1 dropped a redundant `.bak.*` line that the original block carried over from the pre-P.d shape). The remaining template tree is bundled static data that `heal` repopulates on first invocation in a fresh clone, so tracking it in the consumer repo would just add ~35 files of noise to `git status` and PR reviews.
 
-**Idempotent rewrite:** `_ensure_gitignore_entry()` recognizes the new canonical block plus the legacy `.bak.*`-only form (and the legacy `<target>/go.md` line) and rewrites them cleanly. A foreign hand-customized block under a `# project-guide` header is left untouched with a stderr warning; migrate manually or run `init --force`.
+**Idempotent rewrite:** `_ensure_gitignore_entry()` recognizes the v2.6.1 canonical block plus prior forms (the v2.6.0 4-line block, the pre-P.d `.bak.*`-only block, and the legacy `<target>/go.md` line) and rewrites all of them cleanly to the v2.6.1 3-line form. A foreign hand-customized block under a `# project-guide` header is left untouched with a stderr warning; migrate manually or run `init --force`.
 
 ### IDE-LLM visibility constraint (added v2.6.0)
 

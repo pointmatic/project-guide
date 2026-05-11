@@ -127,7 +127,7 @@ project-guide/
 | `purge` | Remove all project-guide files with confirmation |
 
 **Key functions:**
-- `_ensure_gitignore_entry(target_dir)` — writes the canonical `# project-guide` block: ignore everything under `target_dir` except `go.md` and `*.bak.*`. Idempotent. Recognized prior blocks (legacy `.bak.*`-only form, legacy `<target>/go.md` line) are rewritten cleanly; foreign hand-customized content under a `# project-guide` header is left alone with a stderr warning.
+- `_ensure_gitignore_entry(target_dir)` — writes the canonical `# project-guide` block: ignore everything under `target_dir` except `go.md` (3-line form as of P.j / v2.6.1). Idempotent. Recognized prior blocks (pre-P.d `.bak.*`-only form, v2.6.0 4-line form with the redundant `.bak.*` line, legacy `<target>/go.md` line) are rewritten cleanly to the v2.6.1 3-line form; foreign hand-customized content under a `# project-guide` header is left alone with a stderr warning.
 - `_copy_template_tree(src, dest, force)` — recursive copy preserving structure
 - `_migrate_config_if_needed()` — renames legacy `.project-guides.yml`
 - `_apply_heal(config, config_path)` — apply pending template syncs and re-render `go.md`. Sets `PROJECT_GUIDE_HEALING=1` in `os.environ` before doing any writes so nested subprocess invocations don't re-enter the auto-hook.
@@ -266,17 +266,18 @@ class ModeDefinition:
 
 ### `.gitignore` Management
 
-`init` writes a canonical 4-line block under a `# project-guide` comment header (Story P.d):
+`init` writes a canonical 3-line block under a `# project-guide` comment header (Story P.d, tightened in P.j / v2.6.1):
 ```
 # project-guide
 docs/project-guide/**
 !docs/project-guide/go.md
-docs/project-guide/**/*.bak.*
 ```
 
 **Why this shape:** every file under `target_dir` except `go.md` is bundled static data that `heal` (FR-14) repopulates on first invocation, so tracking the full template tree in the consumer repo would just add ~35 files of noise to `git status` and PR reviews. `go.md` itself **must remain tracked** because IDE-integrated LLMs (Cursor, Claude Code, etc.) typically hide gitignored files from the LLM's view, and the LLM's instruction to `Read docs/project-guide/go.md` requires the file to be visible. The repo-history value of `go.md` is incidental — the file churns on every mode switch — and that churn is the acceptable cost for LLM visibility.
 
-**Existing-block detection:** `_ensure_gitignore_entry()` is idempotent. A recognized prior block (either the new canonical form or the legacy `.bak.*`-only form) is rewritten cleanly. A foreign hand-customized block under a `# project-guide` header is left untouched with a stderr warning. A `.gitignore` with no `# project-guide` header gets the canonical block appended (separated by a blank line). Migration for pre-Phase-P consumer repos: `project-guide init --force` rewrites the block; `git rm --cached` is the manual cleanup for already-tracked files.
+**Why not the explicit `.bak.*` line that v2.6.0 shipped?** It was carried over from the pre-P.d block during the policy inversion but is functionally redundant: the `<target>/**` rule already ignores backups produced by sync/heal under that subtree. P.j dropped the line; existing v2.6.0 installs heal cleanly to the 3-line form on `init --force` because `_recognized_block_lines()` still lists the v2.6.0 entry.
+
+**Existing-block detection:** `_ensure_gitignore_entry()` is idempotent. A recognized prior block (the v2.6.1 canonical form, the v2.6.0 4-line form, or the pre-P.d `.bak.*`-only form) is rewritten cleanly to the v2.6.1 3-line form. A foreign hand-customized block under a `# project-guide` header is left untouched with a stderr warning. A `.gitignore` with no `# project-guide` header gets the canonical block appended (separated by a blank line). Migration for pre-Phase-P consumer repos: `project-guide init --force` rewrites the block; `git rm --cached` is the manual cleanup for already-tracked files.
 
 ---
 

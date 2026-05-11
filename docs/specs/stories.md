@@ -34,7 +34,7 @@ Collapse the `docs/project-guide/` install footprint in consumer repos to a sing
 
 **Implementation order:** `heal` core (P.a) → auto-hook (P.b) → `--no-input` semantics (P.c) → gitignore template flip (P.d). Production hardening items (P.e–P.h) are independent and can ship in any order. P.i is the doc-only story that bundles the v2.6.0 release.
 
-**Version cadence:** phase-bundled — stories within Phase P run unversioned; **P.i owns the single `v2.6.0` bump** at end-of-phase (per the bundled-release option in the Version Cadence rule).
+**Version cadence:** phase-bundled — stories P.a–P.i ran unversioned and shipped together as **v2.6.0** (P.i owned the single bundled bump). **Stories P.j and P.k were added post-bundle** and follow standard per-story cadence: **P.j → v2.6.1** (patch — gitignore-block tightening, a fix-up to P.d), **P.k → v2.7.0** (minor — new `git-push` wrapper command). Phases can be extended after their bundled release, but new stories then follow the standard per-story cadence rather than rejoining the (already-shipped) bundle.
 
 ### Story P.a: Heal command with drift detection and create-missing semantics [Done]
 
@@ -191,6 +191,85 @@ Doc-only release bundling story for Phase P. Updates the spec artifacts, README,
 - [x] Bump `project_guide/version.py`: `__version__ = "2.6.0"`
 - [x] Bump `pyproject.toml`: `version = "2.6.0"`
 - [x] Add `## [2.6.0] - <date>` entry to `CHANGELOG.md` summarizing all of Phase P's user-visible changes (heal command, auto-hook, gitignore inversion, SECURITY.md, CONTRIBUTING.md, dependabot, CI tightening)
+
+### Story P.j: v2.6.1 Drop redundant `.bak.*` line from canonical gitignore block [Done]
+
+Tighten the canonical `# project-guide` gitignore block from four lines to three by removing the `<target>/**/*.bak.*` line — it is already covered by the broader `<target>/**` rule introduced in P.d. The fourth line was carried over from the pre-P.d block during the policy inversion and is functionally redundant under the new shape. **Existing installs are not at risk:** `_recognized_block_lines()` continues to recognize the old line, so `init --force` cleanly rewrites a v2.6.0-style 4-line block to the v2.6.1 3-line form.
+
+- [x] In `project_guide/cli.py:_build_project_guide_block()`: remove the trailing `f"{target_dir}/**/*.bak.*\n"` line. New canonical form:
+  ```
+  # project-guide
+  <target>/**
+  !<target>/go.md
+  ```
+- [x] In `project_guide/cli.py:_recognized_block_lines()`: **keep** the `f"{target_dir}/**/*.bak.*"` entry in the recognized set so a v2.6.0-shipped 4-line block is treated as "ours" and rewritten on `init --force` rather than warned about as foreign.
+- [x] In `tests/test_cli.py`:
+  - [x] Update `_EXPECTED_GITIGNORE_BLOCK` to the 3-line form
+  - [x] Update `test_init_force_rewrites_old_recognized_block_cleanly` to verify the test case where the prior block is the v2.6.0 4-line form (recognized → rewritten to 3-line) in addition to the existing legacy-`.bak.*`-only case *(split into two tests: `test_init_force_rewrites_legacy_bak_only_block_cleanly` for the pre-P.d shape and `test_init_force_rewrites_v260_four_line_block_to_three_lines` for the v2.6.0→v2.6.1 cleanup)*
+  - [x] Update `test_init_with_existing_canonical_block_is_idempotent` so the seed block is the new 3-line form *(picked up via the `_EXPECTED_GITIGNORE_BLOCK` rebind)*
+  - [x] All assertions that the `.bak.*` line is present should be removed
+- [x] Doc updates (bundled in this story):
+  - [x] `docs/specs/features.md`: update the Outputs / File Structure prose that currently lists `.bak.*` as a separate exception — the only tracked file under `target_dir` is `go.md`; `.bak.*` is just one of the many things subsumed by the broad `**` rule
+  - [x] `docs/specs/tech-spec.md`: update the `## .gitignore Management` code block from 4 lines to 3, and refresh the surrounding prose
+  - [x] `docs/specs/project-essentials.md`: amend the "Inverted gitignore policy" sub-section added in P.i to note the v2.6.1 simplification (the `.bak.*` line was redundant and was removed; existing v2.6.0 blocks heal on `init --force`)
+  - [x] `README.md`: update the Quick Start step-1 footnote to drop the "and `.bak.*` backup files" callout — `.bak.*` is no longer a separate exception, just one of the things ignored by `<target>/**`
+- [x] Bump `project_guide/version.py`: `__version__ = "2.6.1"`
+- [x] Bump `pyproject.toml`: `version = "2.6.1"`
+- [x] Add `## [2.6.1] - <date>` entry to `CHANGELOG.md` (this is a follow-up tightening of P.d; the v2.6.0 entry stays as historical record of what actually shipped, including the redundant line)
+
+**Migration:** none required. Consumer repos running v2.6.0 see identical *behavior* under v2.6.1 (the gitignore semantics don't change — the redundant line was a no-op). Running `init --force` on a v2.6.0 install simply produces a tidier 3-line block. Consumers who never run `init --force` keep the 4-line block forever without issue.
+
+### Story P.k: v2.7.0 `project-guide git-push` wrapper for gitbetter [Planned]
+
+Add a new `project-guide git-push [BRANCH_NAME]` command that auto-derives the commit message from the most-recently-completed-and-not-yet-committed story heading in `docs/specs/stories.md` and shells out to [gitbetter](https://github.com/pointmatic/gitbetter)'s `git-push` to perform the actual push. Collapses the developer's per-story commit step from "find the story ID, format the message correctly, type the command" to a single command, while delegating every actual git operation (preview, confirm, branch cleanup, reject/recovery menu) to gitbetter.
+
+This is a developer-lane convenience command. **The LLM still does not initiate it** — the approval-gate discipline rule in `project-essentials.md` remains in force, and this story's doc updates reinforce that explicitly so future LLMs don't start offering `project-guide git-push` as a follow-up.
+
+- [ ] Story detection (`project_guide/stories.py` or a small new helper):
+  - [ ] Parse `docs/specs/stories.md` for the **last** `### Story <ID>: ... [Done]` heading in file order
+  - [ ] When no `[Done]` story exists, exit 1 with stderr `No completed story found in <stories.md>.`
+  - [ ] When `stories.md` is absent, exit 1 with stderr matching the existing `_read_stories_summary` no-stories behavior
+- [ ] Commit-message derivation:
+  - [ ] Input form: `### Story G.a: v1.2.3 New command \`foo\` with "Hello" [Done]`
+  - [ ] Output form: `G.a: v1.2.3 New command 'foo' with 'Hello'`
+  - [ ] Transformations: strip `### Story ` prefix, strip ` [Done]` suffix, replace each backtick with a single quote, replace each double quote with a single quote. Single quotes in the original heading pass through unchanged (no shell quoting concerns because the wrapper invokes gitbetter via `subprocess.run([...], shell=False)`)
+  - [ ] Preserve the colon after the story ID (matches the project's commit-message convention and is the anchor the already-committed check searches for)
+- [ ] Already-committed detection (Q5 → hard error):
+  - [ ] Run `git log --pretty=%s` and scan for a subject line whose prefix matches `<story_id>: ` (e.g., `G.a: `)
+  - [ ] If found, exit 1 with stderr `Story <ID> is already committed. Use 'git-push' directly for any follow-up commit.` — the developer resolves manually rather than the wrapper second-guessing
+- [ ] Multi-uncommitted-story detection (Q3 → hard error):
+  - [ ] If more than one `[Done]` story in the file has no matching `git log` subject, exit 1 with stderr listing the IDs and pointing the developer at raw `git-push` to commit them one at a time with explicit messages
+  - [ ] Rationale: the wrapper is for the common "one story done, ready to push" case; multi-story batches are rare enough and ambiguous enough that explicit-is-better-than-implicit wins
+- [ ] gitbetter invocation:
+  - [ ] Detect `git-push` on PATH via `shutil.which("git-push")`; on miss, exit 1 with stderr `git-push not found on PATH. Install gitbetter: brew install pointmatic/tap/gitbetter`
+  - [ ] Build argv: `["git-push", message]` plus `[branch_name]` when provided
+  - [ ] `subprocess.run(argv, check=False)`; propagate the child's exit code unchanged so gitbetter's reject/recovery menu surfaces to the developer with its real exit semantics
+- [ ] CLI surface (`project_guide/cli.py`):
+  - [ ] New `@main.command(name="git-push")` with optional `BRANCH_NAME` positional
+  - [ ] No `--quiet` / `--no-input` plumbing — the wrapped command is fully interactive, so the flags would be no-ops
+  - [ ] Help text cites gitbetter, the brew install command, and the auto-message-derivation rules
+- [ ] Tests in `tests/test_cli.py`:
+  - [ ] Happy path: last-Done story, no prior commit → mock `subprocess.run`, assert argv contains the expected derived message
+  - [ ] Branch-name passthrough: argv contains `[message, branch_name]`
+  - [ ] Header-transform cases: plain header, backticks-only, double-quotes-only, both, header containing a real single quote (passes through), header with no version-prefix (doc-only story format)
+  - [ ] Already-committed → exit 1 with the expected stderr; `subprocess.run` not called
+  - [ ] Multiple uncommitted Done stories → exit 1 with the expected stderr; `subprocess.run` not called
+  - [ ] No `[Done]` story → exit 1 with expected stderr
+  - [ ] `git-push` missing on PATH (mock `shutil.which` → `None`) → exit 1 with install hint
+  - [ ] Child exit code propagation: when `subprocess.run` returns non-zero, the wrapper exits with that same code
+- [ ] Doc updates (bundled in this story per the version-bumping rule — code story owns its own doc churn):
+  - [ ] `docs/specs/features.md`: new functional requirement (FR-15 or next) for the wrapper; add to Inputs / Command Line; add an Acceptance Criteria item
+  - [ ] `docs/specs/tech-spec.md`: add `git-push` to the CLI Design / Commands table; document the `shutil.which` discovery + `subprocess.run` exit-code-propagation pattern under Cross-Cutting Concerns (this is the first project-guide command that depends on an external CLI being on PATH — set the pattern carefully because future workflow-integration commands will follow it)
+  - [ ] `README.md`: new `### git-push` section in Command Reference between `update` (or `heal`) and `override`; make the gitbetter dependency clearly optional and link the install command
+  - [ ] `docs/specs/project-essentials.md`: append a sub-section covering (a) the message-derivation rules, (b) the **LLM-vs-developer-lane reminder** — `project-guide git-push` is invoked by the developer after the LLM presents a completed story; the LLM still does not initiate commits per the approval-gate discipline
+- [ ] Bump `project_guide/version.py`: `__version__ = "2.7.0"`
+- [ ] Bump `pyproject.toml`: `version = "2.7.0"`
+- [ ] Add `## [2.7.0] - <date>` CHANGELOG entry summarizing the new command and gitbetter integration
+
+**Out of scope (revisit if demand):**
+- Passthrough of gitbetter's other flags (`--amend`, `--keep`, `--force-with-lease`). The wrapper accepts only `BRANCH_NAME`; everything else routes through raw `git-push`.
+- A parallel `project-guide git-tag` wrapper. gitbetter has one but the project's release process already uses `bump-version` + raw `git tag`, so the value is lower.
+- Pre-flight `pyve test` / `ruff check` gates before invoking gitbetter. The developer runs those during the story's normal cycle before marking `[Done]`, so re-running them at push time is redundant.
 
 ---
 

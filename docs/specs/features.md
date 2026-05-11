@@ -127,7 +127,7 @@ Only `.project-guide.yml` (config) and `docs/project-guide/go.md` (rendered LLM 
 ```
 project-root/
 ├── .project-guide.yml              # Configuration (tracked)
-├── .gitignore                      # `# project-guide` block: ignore everything under target_dir except go.md and *.bak.*
+├── .gitignore                      # `# project-guide` block: ignore everything under target_dir except go.md
 └── docs/
     └── project-guide/
         ├── go.md                   # Rendered entry point (tracked in git — required for IDE LLM visibility)
@@ -242,7 +242,7 @@ The system renders a single entry-point document (`go.md`) from Jinja2 templates
 1. Copy template tree from package to target directory (default: `docs/project-guide`)
 2. Render `go.md` in `default` mode
 3. Create `.project-guide.yml` with current version, target directory, metadata file path, and `default` mode
-4. Add `*.bak.*` entries to `.gitignore` under a `# project-guide` comment (the rendered `go.md` is tracked in git so the LLM can read it)
+4. Write the canonical `# project-guide` block to `.gitignore` (3 lines: ignore everything under `target_dir` except `go.md` — the LLM reads it and IDE-integrated LLMs hide gitignored files from the LLM's view; see FR-14)
 5. Report number of files installed
 
 **Edge Cases:**
@@ -372,7 +372,7 @@ The bundled `templates/artifacts/pyve-essentials.md` artifact covers: two-enviro
 - `.project-guide.yml` is absent (let `init` bootstrap; the hook does not error).
 - The config fails to load (schema mismatch, parse error) — the subcommand surfaces the error with its own guidance.
 
-**Inverted gitignore policy.** `init`'s gitignore writer ignores everything under `target_dir` except `go.md` and `.bak.*` backups. The remaining template tree is bundled static data that `heal` repopulates on first invocation. This eliminates the ~35-file install footprint from consumer-repo `git status` and PR reviews. Consumers migrating from a pre-Phase-P install run `project-guide init --force` to refresh the gitignore block; `git rm --cached` is the manual cleanup for previously tracked files.
+**Inverted gitignore policy.** `init`'s gitignore writer produces a canonical 3-line block under a `# project-guide` header: ignore everything under `target_dir` *except* `go.md` (tightened from the original 4-line v2.6.0 form in v2.6.1 — the explicit `.bak.*` line was redundant with the broader `**` rule). The remaining template tree is bundled static data that `heal` repopulates on first invocation. This eliminates the ~35-file install footprint from consumer-repo `git status` and PR reviews. Consumers migrating from a pre-Phase-P install run `project-guide init --force` to refresh the gitignore block; `git rm --cached` is the manual cleanup for previously tracked files. v2.6.0 installs heal to the v2.6.1 3-line form on the next `init --force`.
 
 ### FR-7: Shell Completion
 

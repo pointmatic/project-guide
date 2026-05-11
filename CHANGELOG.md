@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.6.1] - 2026-05-11
+
+Post-v2.6.0 follow-up: tighten the canonical `# project-guide` gitignore block from four lines to three. Behavior unchanged; the dropped line was functionally redundant.
+
+### Changed
+- **`project_guide/cli.py:_build_project_guide_block()`** — dropped the trailing `<target>/**/*.bak.*` line. The broader `<target>/**` rule introduced in v2.6.0 already ignores backups under that subtree, so the explicit line was a no-op carried over from the pre-P.d block during the policy inversion. New canonical form is three lines: header, `<target>/**`, `!<target>/go.md`.
+- **`project_guide/cli.py:_recognized_block_lines()`** — kept the `<target>/**/*.bak.*` entry in the recognized-lines set so v2.6.0-shipped installs heal cleanly to the v2.6.1 3-line form on the next `init --force`. Foreign hand-customized blocks remain warned-about (no behavior change there).
+- **Tests** — `_EXPECTED_GITIGNORE_BLOCK` updated to the 3-line form; added a test for the v2.6.0-→-v2.6.1 cleanup path on `init --force`.
+- **Docs** — updated the gitignore prose in `docs/specs/features.md`, `docs/specs/tech-spec.md`, `docs/specs/project-essentials.md`, and `README.md` to reflect the 3-line canonical form. Historical references to the 4-line v2.6.0 form retained where they explain the migration path.
+
+### Migration
+None required. v2.6.0 installs see no behavioral change — the dropped line was a no-op under the `<target>/**` rule. Running `init --force` on a v2.6.0 install simply produces a tidier 3-line block. Consumers who never run `init --force` keep the 4-line block forever without issue.
+
 ## [2.6.0] - 2026-05-09
 
 Phase P: Auto-heal and production hardening. Collapses the consumer-repo install footprint to a single tracked file (`go.md`) plus the tracked config; everything else is gitignored bundled data, repopulated on demand by a new self-contained `heal` command that runs invisibly before every other invocation. Bundled with a subset of post-1.0 production-readiness items: `SECURITY.md`, `CONTRIBUTING.md`, tightened `dependabot.yml`, and a CI-workflow PR-readiness audit.

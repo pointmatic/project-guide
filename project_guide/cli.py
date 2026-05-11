@@ -308,18 +308,20 @@ _GITIGNORE_HEADER = "# project-guide"
 def _build_project_guide_block(target_dir: str) -> str:
     """Build the canonical project-guide gitignore block.
 
-    Policy (Story P.d): everything under ``target_dir`` is gitignored except
-    ``go.md`` (which the LLM reads, and IDE-integrated LLMs typically hide
-    gitignored files from the LLM's view) and ``.bak.*`` backup files
-    produced by sync/heal. The remaining template tree is bundled static
+    Policy (Story P.d, tightened in P.j): everything under ``target_dir`` is
+    gitignored except ``go.md`` (which the LLM reads, and IDE-integrated
+    LLMs typically hide gitignored files from the LLM's view). The remaining
+    template tree — including ``.bak.*`` backup files — is bundled static
     data that ``heal`` repopulates on first invocation, so it does not need
-    to be tracked in the consumer repo.
+    to be tracked in the consumer repo. P.j dropped the explicit ``.bak.*``
+    line because the broad ``**`` rule already covers it; the old line is
+    still recognized as ours so v2.6.0 installs heal to this shape on
+    ``init --force``.
     """
     return (
         f"{_GITIGNORE_HEADER}\n"
         f"{target_dir}/**\n"
         f"!{target_dir}/go.md\n"
-        f"{target_dir}/**/*.bak.*\n"
     )
 
 
@@ -331,9 +333,11 @@ def _recognized_block_lines(target_dir: str) -> set[str]:
     this set has been hand-customized; we warn and leave it alone.
     """
     return {
-        # New canonical lines (Story P.d).
+        # Canonical lines as of P.j (v2.6.1).
         f"{target_dir}/**",
         f"!{target_dir}/go.md",
+        # v2.6.0 canonical form (Story P.d) — kept recognized so v2.6.0
+        # installs heal to the P.j 3-line form on `init --force`.
         f"{target_dir}/**/*.bak.*",
         # Legacy / pre-P.d variants we know about.
         f"{target_dir}/go.md",  # incorrectly gitignored go.md, if it ever appeared

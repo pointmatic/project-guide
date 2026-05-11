@@ -2404,19 +2404,18 @@ def test_hook_under_skip_input_heals_silently_with_notice(runner, tmp_path, hook
 # --- End Story P.c -----------------------------------------------------------
 
 
-# --- Story P.d: gitignore block inversion -----------------------------------
+# --- Story P.d / P.j: gitignore block inversion + tightening ----------------
 
 
 _EXPECTED_GITIGNORE_BLOCK = (
     "# project-guide\n"
     "docs/project-guide/**\n"
     "!docs/project-guide/go.md\n"
-    "docs/project-guide/**/*.bak.*\n"
 )
 
 
 def test_init_fresh_writes_inverted_gitignore_block(runner, tmp_path):
-    """Fresh `init` writes the canonical 4-line track-only-go.md block."""
+    """Fresh `init` writes the canonical 3-line track-only-go.md block."""
     with runner.isolated_filesystem(temp_dir=tmp_path):
         result = runner.invoke(main, ['init'])
 
@@ -2425,11 +2424,11 @@ def test_init_fresh_writes_inverted_gitignore_block(runner, tmp_path):
         assert _EXPECTED_GITIGNORE_BLOCK in gitignore
 
 
-def test_init_force_rewrites_old_recognized_block_cleanly(runner, tmp_path):
-    """`init --force` replaces a recognized prior block in-place."""
+def test_init_force_rewrites_legacy_bak_only_block_cleanly(runner, tmp_path):
+    """`init --force` replaces the pre-P.d `.bak.*`-only block in-place."""
     with runner.isolated_filesystem(temp_dir=tmp_path):
-        # Seed a prior .gitignore with the legacy block (the .bak.*-only form
-        # that this repo has been using up through Story P.c).
+        # Seed a prior .gitignore with the pre-P.d block (the .bak.*-only
+        # form this repo used through Story P.c).
         Path(".gitignore").write_text(
             "*.pyc\n"
             "\n"
@@ -2444,7 +2443,34 @@ def test_init_force_rewrites_old_recognized_block_cleanly(runner, tmp_path):
         # Old block lines that are not in the canonical form must be gone.
         assert gitignore.count("# project-guide") == 1, gitignore
         assert _EXPECTED_GITIGNORE_BLOCK in gitignore
+        # The dropped legacy line must not survive.
+        assert "docs/project-guide/**/*.bak.*" not in gitignore
         # Surrounding content preserved.
+        assert "*.pyc\n" in gitignore
+
+
+def test_init_force_rewrites_v260_four_line_block_to_three_lines(runner, tmp_path):
+    """`init --force` on a v2.6.0-shipped 4-line block tightens it to the v2.6.1 3-line form (Story P.j)."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        # v2.6.0 canonical form — the line P.j drops is still recognized,
+        # so the writer cleanly rewrites the block.
+        Path(".gitignore").write_text(
+            "*.pyc\n"
+            "\n"
+            "# project-guide\n"
+            "docs/project-guide/**\n"
+            "!docs/project-guide/go.md\n"
+            "docs/project-guide/**/*.bak.*\n"
+        )
+
+        result = runner.invoke(main, ['init', '--force'])
+
+        assert result.exit_code == 0, result.output
+        gitignore = Path(".gitignore").read_text()
+        assert gitignore.count("# project-guide") == 1, gitignore
+        assert _EXPECTED_GITIGNORE_BLOCK in gitignore
+        # The redundant v2.6.0 line must be gone.
+        assert "docs/project-guide/**/*.bak.*" not in gitignore
         assert "*.pyc\n" in gitignore
 
 
@@ -2493,4 +2519,4 @@ def test_init_appends_block_when_no_prior_project_guide_section(runner, tmp_path
         assert _EXPECTED_GITIGNORE_BLOCK in gitignore
 
 
-# --- End Story P.d -----------------------------------------------------------
+# --- End Story P.d / P.j ----------------------------------------------------
