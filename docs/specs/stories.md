@@ -34,7 +34,7 @@ Collapse the `docs/project-guide/` install footprint in consumer repos to a sing
 
 **Implementation order:** `heal` core (P.a) → auto-hook (P.b) → `--no-input` semantics (P.c) → gitignore template flip (P.d). Production hardening items (P.e–P.h) are independent and can ship in any order. P.i is the doc-only story that bundles the v2.6.0 release.
 
-**Version cadence:** phase-bundled — stories P.a–P.i ran unversioned and shipped together as **v2.6.0** (P.i owned the single bundled bump). **Stories P.j and P.k were added post-bundle** and follow standard per-story cadence: **P.j → v2.6.1** (patch — gitignore-block tightening, a fix-up to P.d), **P.k → v2.7.0** (minor — new `git-push` wrapper command). Phases can be extended after their bundled release, but new stories then follow the standard per-story cadence rather than rejoining the (already-shipped) bundle.
+**Version cadence:** phase-bundled — stories P.a–P.i ran unversioned and shipped together as **v2.6.0** (P.i owned the single bundled bump). **Stories P.j, P.k, and P.l were added post-bundle** and follow standard per-story cadence: **P.j → v2.6.1** (patch — gitignore-block tightening, a fix-up to P.d), **P.k → v2.7.0** (minor — new `git-push` wrapper command), **P.l → v2.7.1** (patch — switch the gitignore block from negation to explicit-list form for IDE compatibility). Phases can be extended after their bundled release, but new stories then follow the standard per-story cadence rather than rejoining the (already-shipped) bundle.
 
 ### Story P.a: Heal command with drift detection and create-missing semantics [Done]
 
@@ -261,6 +261,52 @@ This is a developer-lane convenience command. **The LLM still does not initiate 
 - Passthrough of gitbetter's other flags (`--amend`, `--keep`, `--force-with-lease`). The wrapper accepts only `BRANCH_NAME`; everything else routes through raw `git-push`.
 - A parallel `project-guide git-tag` wrapper. gitbetter has one but the project's release process already uses `bump-version` + raw `git tag`, so the value is lower.
 - Pre-flight `pyve test` / `ruff check` gates before invoking gitbetter. The developer runs those during the story's normal cycle before marking `[Done]`, so re-running them at push time is redundant.
+
+### Story P.l: v2.7.1 Negation-free gitignore for IDE LLM compatibility [Done]
+
+Switch the canonical `# project-guide` gitignore block from the v2.6.1/v2.7.0 negation form (`<target>/**` + `!<target>/go.md`) to a **negation-free explicit-list** form. Motivation: several IDE-integrated tools (Cursor, parts of the VS Code fork ecosystem, certain LSP-based search backends) implement a subset of `.gitignore` semantics that does not honor re-include negation — they apply the broad `**` rule, hide `go.md` from @-mention and fuzzy-search, and defeat the IDE-LLM-visibility constraint that's the entire reason `go.md` is tracked.
+
+The new canonical form lists every gitignored top-level entry explicitly so no negation is required. The list is **dynamically generated** from the bundled template root, so new top-level files or subdirectories added in future stories are picked up automatically — no manual maintenance.
+
+- [x] In `project_guide/cli.py:_build_project_guide_block()`: rewrite to enumerate `_get_package_template_dir()` and emit one `/<target>/<child>[/]` line per top-level entry except `go.md`, plus the existing `/<target>/**/*.bak.*` backup-catch-all. New canonical form for the default install layout:
+  ```
+  # project-guide
+  /docs/project-guide/.metadata.yml
+  /docs/project-guide/README.md
+  /docs/project-guide/developer/
+  /docs/project-guide/templates/
+  /docs/project-guide/**/*.bak.*
+  ```
+  Use a leading slash to anchor each rule at repo root; trailing slash on directories. Children sorted for deterministic output.
+- [x] In `project_guide/cli.py`: update the recognized-block check to accept every form we've ever written: *(replaced `_recognized_block_lines()` with a `_is_recognized_block_line(line, target_dir)` predicate — cleaner because the v2.7.1+ "anything anchored at `/<target>/`" rule isn't expressible as a fixed set)*
+  - [x] New v2.7.1+ form: any line starting with `/<target>/`
+  - [x] v2.6.1 form: `<target>/**`, `!<target>/go.md`
+  - [x] v2.6.0 form: `<target>/**`, `!<target>/go.md`, `<target>/**/*.bak.*`
+  - [x] pre-P.d form: `<target>/**/*.bak.*` only
+  - [x] Legacy `<target>/go.md` line
+- [x] In `tests/test_cli.py`:
+  - [x] Compute the expected block from the bundled tree via `_expected_gitignore_block()` helper instead of a hardcoded constant
+  - [x] Add `test_init_force_rewrites_v261_three_line_block_to_explicit_list` for the v2.6.1/v2.7.0 → v2.7.1 migration
+  - [x] Renamed the v2.6.0 → v2.7.1 migration test to `test_init_force_rewrites_v260_four_line_block_to_explicit_list` (was the v2.6.1-form rewrite test)
+  - [x] Foreign-block warning test updated to use a line not anchored at `/<target>/` so the new predicate flags it correctly
+  - [x] Idempotency test passes against the new canonical form (the seed builds from `_expected_gitignore_block()`)
+  - [x] All prior P.j/P.d migration tests continue to pass
+- [x] Doc updates (bundled in this story):
+  - [x] `docs/specs/features.md` FR-14: amended the "Inverted gitignore policy" paragraph with the three-version evolution (v2.6.0 → v2.6.1 → v2.7.1) and the IDE-compat rationale
+  - [x] `docs/specs/tech-spec.md` § `.gitignore Management`: replaced the negation code block with the explicit-list form, added a "Why explicit list instead of `**` + `!go.md`?" paragraph plus an explicit "do not simplify back" warning, and a "Why the trailing `<target>/**/*.bak.*` line?" paragraph
+  - [x] `docs/specs/project-essentials.md`: amended the "Inverted gitignore policy" sub-section to cover the v2.7.1 form change and the "future maintainers: do not simplify back to `**` + `!`" warning
+  - [x] `README.md`: no user-facing prose changes needed (Quick Start footnote still reads correctly — "ignored except go.md")
+- [x] Bump `project_guide/version.py`: `__version__ = "2.7.1"`
+- [x] Bump `pyproject.toml`: `version = "2.7.1"`
+- [x] Add `## [2.7.1] - <date>` CHANGELOG entry framed as a compatibility fix
+
+**Migration:** none required by consumers. The new and old blocks produce identical git-tracking outcomes (only `go.md` is tracked). The behavior change is purely in what `_ensure_gitignore_entry()` writes. Existing v2.6.x/v2.7.0 installs heal to the v2.7.1 form on `init --force` because all prior shapes remain recognized. Consumers whose IDE handles negation correctly can keep their existing block indefinitely — only consumers hitting the IDE bug actually need to migrate.
+
+**Why dynamic enumeration:** hardcoding the install footprint in `_build_project_guide_block()` means every new top-level template file or subdirectory requires a writer-code update. Enumerating `_get_package_template_dir()` at write time keeps the canonical block in sync with the bundled tree automatically. The trade-off is that the writer now reads from the package — not a real concern since `init` already does the same to copy the template tree.
+
+**Out of scope:**
+- An opt-back-in flag (`--gitignore-style=negation`). YAGNI until someone asks; the new form is strictly better for the documented IDE-LLM-visibility constraint.
+- A `project-guide check` integrity rule that detects "consumer has tracked-but-should-be-ignored files under `target_dir`". Defer until there's a second integrity rule worth shipping (see Future > Integrity & Validation).
 
 ---
 

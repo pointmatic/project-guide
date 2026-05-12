@@ -128,7 +128,7 @@ project-guide/
 | `purge` | Remove all project-guide files with confirmation |
 
 **Key functions:**
-- `_ensure_gitignore_entry(target_dir)` — writes the canonical `# project-guide` block: ignore everything under `target_dir` except `go.md` (3-line form as of P.j / v2.6.1). Idempotent. Recognized prior blocks (pre-P.d `.bak.*`-only form, v2.6.0 4-line form with the redundant `.bak.*` line, legacy `<target>/go.md` line) are rewritten cleanly to the v2.6.1 3-line form; foreign hand-customized content under a `# project-guide` header is left alone with a stderr warning.
+- `_ensure_gitignore_entry(target_dir)` — writes the canonical `# project-guide` block: ignore everything under `target_dir` except `go.md` (negation-free explicit-list form as of P.l / v2.7.1, dynamically enumerated from the bundled template root). Idempotent. Recognized prior blocks (pre-P.d `.bak.*`-only form, v2.6.0 4-line form, v2.6.1/v2.7.0 3-line negation form, legacy `<target>/go.md` line) are rewritten cleanly to the v2.7.1 explicit-list form; foreign hand-customized content under a `# project-guide` header is left alone with a stderr warning. The recognized-line check is `_is_recognized_block_line(line, target_dir)` — accepts anything anchored at `/<target>/` plus the legacy negation entries.
 - `_copy_template_tree(src, dest, force)` — recursive copy preserving structure
 - `_migrate_config_if_needed()` — renames legacy `.project-guides.yml`
 - `_apply_heal(config, config_path)` — apply pending template syncs and re-render `go.md`. Sets `PROJECT_GUIDE_HEALING=1` in `os.environ` before doing any writes so nested subprocess invocations don't re-enter the auto-hook.
@@ -270,18 +270,28 @@ class ModeDefinition:
 
 ### `.gitignore` Management
 
-`init` writes a canonical 3-line block under a `# project-guide` comment header (Story P.d, tightened in P.j / v2.6.1):
+`init` writes a canonical **negation-free explicit-list** block under a `# project-guide` comment header (Story P.d → P.j → P.l). For the default install layout the block is:
+
 ```
 # project-guide
-docs/project-guide/**
-!docs/project-guide/go.md
+/docs/project-guide/.metadata.yml
+/docs/project-guide/README.md
+/docs/project-guide/developer/
+/docs/project-guide/templates/
+/docs/project-guide/**/*.bak.*
 ```
+
+The list is **dynamically generated** at write time by enumerating the bundled template root (`_get_package_template_dir()`) and emitting one anchored line per top-level child other than `go.md`. New top-level files or subdirectories added in future releases are picked up automatically — no manual writer update required.
 
 **Why this shape:** every file under `target_dir` except `go.md` is bundled static data that `heal` (FR-14) repopulates on first invocation, so tracking the full template tree in the consumer repo would just add ~35 files of noise to `git status` and PR reviews. `go.md` itself **must remain tracked** because IDE-integrated LLMs (Cursor, Claude Code, etc.) typically hide gitignored files from the LLM's view, and the LLM's instruction to `Read docs/project-guide/go.md` requires the file to be visible. The repo-history value of `go.md` is incidental — the file churns on every mode switch — and that churn is the acceptable cost for LLM visibility.
 
-**Why not the explicit `.bak.*` line that v2.6.0 shipped?** It was carried over from the pre-P.d block during the policy inversion but is functionally redundant: the `<target>/**` rule already ignores backups produced by sync/heal under that subtree. P.j dropped the line; existing v2.6.0 installs heal cleanly to the 3-line form on `init --force` because `_recognized_block_lines()` still lists the v2.6.0 entry.
+**Why explicit list instead of `**` + `!go.md`?** The cleaner negation form (used in v2.6.0–v2.7.0) is correct per the `.gitignore` spec, but several IDE-integrated tools (Cursor, parts of the VS Code fork ecosystem, certain LSP-based search backends) implement a subset of `.gitignore` semantics that does **not** honor re-include negation — they apply the broad `**` rule, hide `go.md` from @-mention search, and defeat the IDE-LLM-visibility constraint the policy is trying to enforce. P.l (v2.7.1) switched to the explicit-list form so no negation is required; tools with simplistic parsers handle anchored line-per-entry patterns reliably. Future maintainers: do **not** "simplify" back to `**` + `!` — the regression is invisible from git's perspective but breaks the IDE workflow that motivates tracking `go.md` in the first place.
 
-**Existing-block detection:** `_ensure_gitignore_entry()` is idempotent. A recognized prior block (the v2.6.1 canonical form, the v2.6.0 4-line form, or the pre-P.d `.bak.*`-only form) is rewritten cleanly to the v2.6.1 3-line form. A foreign hand-customized block under a `# project-guide` header is left untouched with a stderr warning. A `.gitignore` with no `# project-guide` header gets the canonical block appended (separated by a blank line). Migration for pre-Phase-P consumer repos: `project-guide init --force` rewrites the block; `git rm --cached` is the manual cleanup for already-tracked files.
+**Why the trailing `<target>/**/*.bak.*` line?** Defensive coverage for backup files that `apply_file_update()` writes next to top-level synced files (e.g., `<target>/README.md.bak.<timestamp>`). Subdirectory backups are already covered by the per-directory entries; this catch-all is a simple recursive glob with no negation, so the IDEs handle it cleanly.
+
+**Existing-block detection:** `_ensure_gitignore_entry()` is idempotent. The recognized-line predicate `_is_recognized_block_line(line, target_dir)` accepts any line starting with `/<target>/` (the v2.7.1+ anchor) plus the legacy negation-form lines (`<target>/**`, `!<target>/go.md`, `<target>/**/*.bak.*`, `<target>/go.md`). A block whose every non-empty line satisfies the predicate is rewritten cleanly to the current canonical form; any line that fails the predicate marks the block as hand-customized — the writer leaves it untouched and emits a stderr warning. A `.gitignore` with no `# project-guide` header gets the canonical block appended (separated by a blank line).
+
+**Migration:** `project-guide init --force` rewrites prior blocks (pre-P.d `.bak.*`-only, v2.6.0 4-line, v2.6.1/v2.7.0 3-line) to the v2.7.1 explicit-list form in place. `git rm --cached` remains the manual cleanup for files already tracked under the old policy.
 
 ---
 

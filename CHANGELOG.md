@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.7.1] - 2026-05-11
+
+Compatibility fix for IDE-integrated LLM @-mention / fuzzy-search. The v2.6.0–v2.7.0 gitignore block used a clean `<target>/**` + `!<target>/go.md` negation pair — correct per the `.gitignore` spec, but **several IDE tools** (Cursor, parts of the VS Code fork ecosystem, certain LSP-based search backends) implement a subset of gitignore semantics that does not honor re-include negation. Those tools applied the broad `**` rule, hid `go.md`, and defeated the IDE-LLM-visibility constraint that's the entire reason `go.md` is tracked. P.l switches to a negation-free explicit-list form so simplistic parsers handle it reliably.
+
+### Changed
+- **`project_guide/cli.py:_build_project_guide_block()`** — rewritten to enumerate the bundled template root (`_get_package_template_dir()`) and emit one anchored `/<target>/<child>[/]` line per top-level entry other than `go.md`, plus a trailing `/<target>/**/*.bak.*` defensive catch-all for top-level backups. The list is dynamic — new top-level files/directories in the bundled tree are picked up automatically by both the writer and the test helper that mirrors it. Default install now writes:
+  ```
+  # project-guide
+  /docs/project-guide/.metadata.yml
+  /docs/project-guide/README.md
+  /docs/project-guide/developer/
+  /docs/project-guide/templates/
+  /docs/project-guide/**/*.bak.*
+  ```
+- **`project_guide/cli.py`** — `_recognized_block_lines()` replaced with `_is_recognized_block_line(line, target_dir)` predicate. Accepts the v2.7.1+ form (any line anchored at `/<target>/`) plus every prior legacy line (`<target>/**`, `!<target>/go.md`, `<target>/**/*.bak.*`, `<target>/go.md`). Existing v2.6.x/v2.7.0 installs heal cleanly to the v2.7.1 form on `init --force`; no multi-step migration required.
+- **Tests** — `_EXPECTED_GITIGNORE_BLOCK` constant replaced with `_expected_gitignore_block()` helper that mirrors the writer's enumeration; new `test_init_force_rewrites_v261_three_line_block_to_explicit_list` for the v2.6.1/v2.7.0 → v2.7.1 migration path; the foreign-block test now seeds a line not anchored at `/<target>/` so the predicate correctly flags it as foreign.
+- **Docs** — updated the gitignore prose in `docs/specs/features.md`, `docs/specs/tech-spec.md`, and `docs/specs/project-essentials.md` to document the three-version evolution (v2.6.0 → v2.6.1 → v2.7.1) and the "do not simplify back to negation" warning for future maintainers.
+
+### Migration
+None required at the consumer level. The v2.6.x/v2.7.0 negation form and the v2.7.1 explicit-list form produce identical git-tracking outcomes (only `go.md` is tracked). The behavior change is purely in what `_ensure_gitignore_entry()` writes. Consumers whose IDE handles negation correctly may keep their existing block indefinitely; only consumers hitting the IDE bug actually benefit from running `project-guide init --force` to adopt the new form.
+
 ## [2.7.0] - 2026-05-11
 
 New top-level `project-guide git-push` command — a thin wrapper over [gitbetter](https://github.com/pointmatic/gitbetter)'s `git-push` that auto-derives the commit subject from the most-recently-completed-and-not-yet-committed story in `docs/specs/stories.md`. Developer-lane convenience only; the LLM still does not initiate commits.

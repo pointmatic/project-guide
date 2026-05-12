@@ -312,39 +312,62 @@ _GITIGNORE_HEADER = "# project-guide"
 def _build_project_guide_block(target_dir: str) -> str:
     """Build the canonical project-guide gitignore block.
 
-    Policy (Story P.d, tightened in P.j): everything under ``target_dir`` is
-    gitignored except ``go.md`` (which the LLM reads, and IDE-integrated
-    LLMs typically hide gitignored files from the LLM's view). The remaining
-    template tree — including ``.bak.*`` backup files — is bundled static
-    data that ``heal`` repopulates on first invocation, so it does not need
-    to be tracked in the consumer repo. P.j dropped the explicit ``.bak.*``
-    line because the broad ``**`` rule already covers it; the old line is
-    still recognized as ours so v2.6.0 installs heal to this shape on
-    ``init --force``.
+    Policy (Story P.d, tightened in P.j, reshaped in P.l): everything under
+    ``target_dir`` is gitignored except ``go.md``. ``go.md`` must remain
+    tracked because IDE-integrated LLMs (Cursor, parts of the VS Code fork
+    ecosystem, several LSP-based search backends) typically hide gitignored
+    files from the LLM's @-mention / fuzzy-search view.
+
+    P.l (v2.7.1) abandons the cleaner ``<target>/**`` + ``!<target>/go.md``
+    shape because several of those same IDEs implement a subset of
+    ``.gitignore`` semantics that does not honor re-include negation —
+    they apply the broad ``**`` rule, hide ``go.md``, and defeat the
+    visibility constraint the policy is trying to enforce. The new form
+    lists every top-level entry under ``target_dir`` explicitly so no
+    negation is required. The list is enumerated from the bundled template
+    tree at write time, so future additions to the install footprint are
+    picked up automatically.
+
+    The trailing ``<target>/**/*.bak.*`` rule defensively ignores backup
+    files that ``apply_file_update`` writes next to top-level synced files
+    (subdirectory backups are already covered by the per-directory entries).
     """
-    return (
-        f"{_GITIGNORE_HEADER}\n"
-        f"{target_dir}/**\n"
-        f"!{target_dir}/go.md\n"
-    )
+    pkg_root = _get_package_template_dir()
+    entries: list[str] = [_GITIGNORE_HEADER]
+    for child in sorted(pkg_root.iterdir(), key=lambda p: p.name):
+        if child.name == "go.md":
+            continue
+        suffix = "/" if child.is_dir() else ""
+        entries.append(f"/{target_dir}/{child.name}{suffix}")
+    entries.append(f"/{target_dir}/**/*.bak.*")
+    return "\n".join(entries) + "\n"
 
 
-def _recognized_block_lines(target_dir: str) -> set[str]:
-    """Lines that mark an existing block as one we wrote (safe to replace).
+def _is_recognized_block_line(line: str, target_dir: str) -> bool:
+    """Return True when ``line`` is one we plausibly wrote in any past version.
 
-    Any block whose every non-empty line is in this set can be safely
-    rewritten to the canonical form. A block containing anything outside
-    this set has been hand-customized; we warn and leave it alone.
+    A block whose every non-empty line satisfies this predicate is treated
+    as ours and rewritten cleanly to the current canonical form; a block
+    containing anything that fails this predicate is left untouched with a
+    warning. Recognized forms (newest first):
+
+    - **v2.7.1+ explicit-list form (Story P.l):** any line starting with
+      ``/<target>/``. The leading slash anchors at repo root; we never
+      write unanchored lines, and there is nothing else we plausibly
+      generate under that anchor.
+    - **v2.6.1 form (Story P.j):** ``<target>/**`` and ``!<target>/go.md``.
+    - **v2.6.0 form (Story P.d):** the v2.6.1 lines plus ``<target>/**/*.bak.*``.
+    - **pre-P.d form:** ``<target>/**/*.bak.*`` only.
+    - **Legacy variants:** ``<target>/go.md`` (incorrectly gitignored, if
+      it ever appeared in the wild).
     """
-    return {
-        # Canonical lines as of P.j (v2.6.1).
+    if line.startswith(f"/{target_dir}/"):
+        return True
+    return line in {
         f"{target_dir}/**",
         f"!{target_dir}/go.md",
-        # v2.6.0 canonical form (Story P.d) — kept recognized so v2.6.0
-        # installs heal to the P.j 3-line form on `init --force`.
         f"{target_dir}/**/*.bak.*",
-        # Legacy / pre-P.d variants we know about.
-        f"{target_dir}/go.md",  # incorrectly gitignored go.md, if it ever appeared
+        f"{target_dir}/go.md",
     }
 
 
@@ -388,8 +411,7 @@ def _ensure_gitignore_entry(target_dir: str) -> None:
         block_end += 1
 
     block_body = [lines[i].strip() for i in range(header_idx + 1, block_end)]
-    recognized = _recognized_block_lines(target_dir)
-    foreign = [bl for bl in block_body if bl and bl not in recognized]
+    foreign = [bl for bl in block_body if bl and not _is_recognized_block_line(bl, target_dir)]
 
     if foreign:
         click.secho(

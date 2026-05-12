@@ -63,11 +63,17 @@ The hook is silent in the steady state (no drift → no output). It is recursion
 
 **Skip conditions:** the hook returns silently when `PROJECT_GUIDE_HEALING=1` is set, when `.project-guide.yml` is absent (let `init` bootstrap; `heal` would error otherwise), or when config load / drift detection fails. Missing `.project-guide.yml` is a hard error from the **`heal` subcommand itself** but a silent skip from the **hook** — the original subcommand surfaces the missing-config error with its own guidance.
 
-### Inverted gitignore policy (added v2.6.0, tightened v2.6.1)
+### Inverted gitignore policy (added v2.6.0, tightened v2.6.1, IDE-compat reshape v2.7.1)
 
-`init`'s gitignore writer produces a canonical 3-line block: ignore everything under `target_dir` *except* `go.md` (Story P.d wrote the inversion; Story P.j / v2.6.1 dropped a redundant `.bak.*` line that the original block carried over from the pre-P.d shape). The remaining template tree is bundled static data that `heal` repopulates on first invocation in a fresh clone, so tracking it in the consumer repo would just add ~35 files of noise to `git status` and PR reviews.
+`init`'s gitignore writer produces a canonical block that ignores everything under `target_dir` *except* `go.md`. The policy has gone through three shapes:
 
-**Idempotent rewrite:** `_ensure_gitignore_entry()` recognizes the v2.6.1 canonical block plus prior forms (the v2.6.0 4-line block, the pre-P.d `.bak.*`-only block, and the legacy `<target>/go.md` line) and rewrites all of them cleanly to the v2.6.1 3-line form. A foreign hand-customized block under a `# project-guide` header is left untouched with a stderr warning; migrate manually or run `init --force`.
+- **v2.6.0 (P.d):** 4-line negation form (`<target>/**` + `!<target>/go.md` + redundant `<target>/**/*.bak.*`).
+- **v2.6.1 (P.j):** 3-line negation form — dropped the redundant `.bak.*` line.
+- **v2.7.1 (P.l):** **negation-free explicit-list form** — lists every top-level entry under `target_dir` other than `go.md`, plus a `<target>/**/*.bak.*` defensive catch-all. The list is dynamically enumerated from the bundled template root at write time, so new top-level files/directories added in future stories are picked up automatically.
+
+P.l abandoned negation because several IDE-integrated tools (Cursor, parts of the VS Code fork ecosystem, certain LSP-based search backends) implement a subset of `.gitignore` semantics that does **not** honor re-include negation — they apply the broad `**` rule, hide `go.md` from @-mention / fuzzy-search, and defeat the IDE-LLM-visibility constraint the policy is trying to enforce. **Future maintainers: do not "simplify" back to `**` + `!` — the regression is invisible from git's perspective but breaks the IDE workflow.**
+
+**Idempotent rewrite:** `_ensure_gitignore_entry()` uses `_is_recognized_block_line(line, target_dir)` as its "ours-vs-foreign" predicate. It accepts anything anchored at `/<target>/` (the v2.7.1+ form) plus every prior legacy form (v2.6.1 3-line, v2.6.0 4-line, pre-P.d `.bak.*`-only, legacy `<target>/go.md`). Any block whose lines all satisfy the predicate is rewritten cleanly to the current canonical form. A foreign hand-customized block under a `# project-guide` header is left untouched with a stderr warning; migrate manually or run `init --force`.
 
 ### IDE-LLM visibility constraint (added v2.6.0)
 

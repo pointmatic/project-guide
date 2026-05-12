@@ -2404,24 +2404,41 @@ def test_hook_under_skip_input_heals_silently_with_notice(runner, tmp_path, hook
 # --- End Story P.c -----------------------------------------------------------
 
 
-# --- Story P.d / P.j: gitignore block inversion + tightening ----------------
+# --- Story P.d / P.j / P.l: gitignore block inversion + tightening + IDE compat ---
 
 
-_EXPECTED_GITIGNORE_BLOCK = (
-    "# project-guide\n"
-    "docs/project-guide/**\n"
-    "!docs/project-guide/go.md\n"
-)
+def _expected_gitignore_block() -> str:
+    """Compute the canonical gitignore block from the bundled template tree.
+
+    Mirrors `_build_project_guide_block()`'s enumeration so tests stay
+    honest when the bundled tree changes — adding a new top-level template
+    file/directory will be picked up by both the writer and this helper.
+    """
+    from project_guide.cli import _get_package_template_dir
+
+    pkg_root = _get_package_template_dir()
+    target = "docs/project-guide"
+    entries = ["# project-guide"]
+    for child in sorted(pkg_root.iterdir(), key=lambda p: p.name):
+        if child.name == "go.md":
+            continue
+        suffix = "/" if child.is_dir() else ""
+        entries.append(f"/{target}/{child.name}{suffix}")
+    entries.append(f"/{target}/**/*.bak.*")
+    return "\n".join(entries) + "\n"
 
 
 def test_init_fresh_writes_inverted_gitignore_block(runner, tmp_path):
-    """Fresh `init` writes the canonical 3-line track-only-go.md block."""
+    """Fresh `init` writes the canonical explicit-list track-only-go.md block."""
     with runner.isolated_filesystem(temp_dir=tmp_path):
         result = runner.invoke(main, ['init'])
 
         assert result.exit_code == 0, result.output
         gitignore = Path(".gitignore").read_text()
-        assert _EXPECTED_GITIGNORE_BLOCK in gitignore
+        expected = _expected_gitignore_block()
+        assert expected in gitignore
+        # No negation pattern — the whole point of the P.l rewrite.
+        assert "!" not in gitignore.split("# project-guide", 1)[1].split("\n\n", 1)[0]
 
 
 def test_init_force_rewrites_legacy_bak_only_block_cleanly(runner, tmp_path):
@@ -2442,17 +2459,15 @@ def test_init_force_rewrites_legacy_bak_only_block_cleanly(runner, tmp_path):
         gitignore = Path(".gitignore").read_text()
         # Old block lines that are not in the canonical form must be gone.
         assert gitignore.count("# project-guide") == 1, gitignore
-        assert _EXPECTED_GITIGNORE_BLOCK in gitignore
-        # The dropped legacy line must not survive.
-        assert "docs/project-guide/**/*.bak.*" not in gitignore
+        assert _expected_gitignore_block() in gitignore
         # Surrounding content preserved.
         assert "*.pyc\n" in gitignore
 
 
-def test_init_force_rewrites_v260_four_line_block_to_three_lines(runner, tmp_path):
-    """`init --force` on a v2.6.0-shipped 4-line block tightens it to the v2.6.1 3-line form (Story P.j)."""
+def test_init_force_rewrites_v260_four_line_block_to_explicit_list(runner, tmp_path):
+    """`init --force` on a v2.6.0-shipped 4-line block migrates to the v2.7.1 explicit-list form."""
     with runner.isolated_filesystem(temp_dir=tmp_path):
-        # v2.6.0 canonical form — the line P.j drops is still recognized,
+        # v2.6.0 canonical form — all four lines are still recognized,
         # so the writer cleanly rewrites the block.
         Path(".gitignore").write_text(
             "*.pyc\n"
@@ -2468,16 +2483,36 @@ def test_init_force_rewrites_v260_four_line_block_to_three_lines(runner, tmp_pat
         assert result.exit_code == 0, result.output
         gitignore = Path(".gitignore").read_text()
         assert gitignore.count("# project-guide") == 1, gitignore
-        assert _EXPECTED_GITIGNORE_BLOCK in gitignore
-        # The redundant v2.6.0 line must be gone.
-        assert "docs/project-guide/**/*.bak.*" not in gitignore
+        assert _expected_gitignore_block() in gitignore
+        # The old negation form must be gone.
+        assert "!docs/project-guide/go.md" not in gitignore
         assert "*.pyc\n" in gitignore
+
+
+def test_init_force_rewrites_v261_three_line_block_to_explicit_list(runner, tmp_path):
+    """`init --force` on a v2.6.1/v2.7.0-shipped 3-line negation block migrates to v2.7.1 explicit-list."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        Path(".gitignore").write_text(
+            "*.pyc\n"
+            "\n"
+            "# project-guide\n"
+            "docs/project-guide/**\n"
+            "!docs/project-guide/go.md\n"
+        )
+
+        result = runner.invoke(main, ['init', '--force'])
+
+        assert result.exit_code == 0, result.output
+        gitignore = Path(".gitignore").read_text()
+        assert gitignore.count("# project-guide") == 1, gitignore
+        assert _expected_gitignore_block() in gitignore
+        assert "!docs/project-guide/go.md" not in gitignore
 
 
 def test_init_with_existing_canonical_block_is_idempotent(runner, tmp_path):
     """Running `init` over a project whose .gitignore is already canonical does not rewrite."""
     with runner.isolated_filesystem(temp_dir=tmp_path):
-        Path(".gitignore").write_text("foo\n\n" + _EXPECTED_GITIGNORE_BLOCK)
+        Path(".gitignore").write_text("foo\n\n" + _expected_gitignore_block())
         before = Path(".gitignore").read_text()
 
         result = runner.invoke(main, ['init'])
@@ -2493,7 +2528,7 @@ def test_init_warns_on_foreign_project_guide_block_and_leaves_it_untouched(runne
         foreign_block = (
             "# project-guide\n"
             "docs/project-guide/**/*.bak.*\n"
-            "docs/project-guide/local-only.md\n"  # foreign line
+            "some/unrelated/path\n"  # foreign line — not under /docs/project-guide/
         )
         Path(".gitignore").write_text(foreign_block)
 
@@ -2516,10 +2551,10 @@ def test_init_appends_block_when_no_prior_project_guide_section(runner, tmp_path
         gitignore = Path(".gitignore").read_text()
         assert "*.pyc\n" in gitignore
         assert ".venv/\n" in gitignore
-        assert _EXPECTED_GITIGNORE_BLOCK in gitignore
+        assert _expected_gitignore_block() in gitignore
 
 
-# --- End Story P.d / P.j ----------------------------------------------------
+# --- End Story P.d / P.j / P.l ----------------------------------------------
 
 
 # --- Story P.k: project-guide git-push wrapper ------------------------------
