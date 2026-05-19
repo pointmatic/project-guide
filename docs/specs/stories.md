@@ -308,6 +308,40 @@ The new canonical form lists every gitignored top-level entry explicitly so no n
 - An opt-back-in flag (`--gitignore-style=negation`). YAGNI until someone asks; the new form is strictly better for the documented IDE-LLM-visibility constraint.
 - A `project-guide check` integrity rule that detects "consumer has tracked-but-should-be-ignored files under `target_dir`". Defer until there's a second integrity rule worth shipping (see Future > Integrity & Validation).
 
+### Story P.m: v2.7.2 Recognize sub-numbered story IDs (`J.m.1`) in regex sites [Done]
+
+Reported bug: in a consumer project with the heading sequence `… J.l [Done], J.m.1 [Done]`, `project-guide git-push` printed `"Story J.l is already committed. Use 'git-push' directly for any follow-up commit."` and refused to push, even though `J.m.1` was the actual just-completed story.
+
+**Root cause:** three regexes encoded the story-ID shape as `[A-Z]\.[a-z]+`, which silently fails to match the sub-numbered form. `stories.py:_STORY_RE` was the proximate cause — `_read_done_stories()` filtered the `J.m.1` heading out entirely, leaving `J.l` as the "last `[Done]`," and the commit-subject check then correctly observed that `J.l` had been committed. The other two sites (`cli.py:_COMMIT_SUBJECT_STORY_ID_RE`, `actions.py:_VERSION_RE`) had the same hole and were fixed in the same story to avoid a half-fix where a future code path re-introduced the bug from a different angle.
+
+**Sub-numbered form** — `<phase>.<letter>.<digit>+`, flat single-level only (no cascading like `J.m.1.1`). Two use cases per the developer's intent:
+
+- **Pre-implementation split:** `J.m` is planned but its scope is judged too large before any work begins; the heading is split into `J.m.1`, `J.m.2` and the bare `J.m` heading is dropped. Sequence: `… J.l, J.m.1, J.m.2, J.n, …`.
+- **Post-implementation follow-up:** `J.m` ships, then a bug or follow-on feature must land before proceeding to `J.n`; the follow-up is added as `J.m.1` (and may cascade to `J.m.2`, `J.m.3`, …). Sequence: `… J.l, J.m, J.m.1, J.m.2, …, J.n, …`.
+
+Both scenarios are exercised by the new test suite.
+
+- [x] `project_guide/stories.py:_STORY_RE` — extend capture group to `[A-Z]\.[a-z]+(?:\.\d+)?` with comment cross-referencing `_phase-letters.md`
+- [x] `project_guide/cli.py:_COMMIT_SUBJECT_STORY_ID_RE` — matching extension; updated comment to reflect the new shape so future readers see why the two regexes must move together
+- [x] `project_guide/actions.py:_VERSION_RE` — matching extension; `detect_latest_version()` now picks up versions on sub-numbered headings
+- [x] `project_guide/templates/project-guide/templates/modes/_phase-letters.md` — new "Sub-numbered stories" subsection documenting both scenarios and the flat-only constraint
+- [x] Ran `project-guide update` to propagate the template change into `docs/project-guide/templates/modes/_phase-letters.md` (installed copy)
+- [x] New `tests/test_stories.py` — first direct unit-test coverage for `stories.py` (the gap that let the bug ship in P.k). Covers `_STORY_RE` matches (plain, sub-numbered, multi-digit sub-number), `_read_done_stories()` for both scenarios, `derive_commit_message()` with sub-numbered ID, and the round-trip through `cli._COMMIT_SUBJECT_STORY_ID_RE`
+- [x] `tests/test_cli.py` — new cases for both `git-push` scenarios (post-impl follow-up; pre-impl split with no bare `J.m`) and the "sub-numbered story is already committed" path that surfaces the second-layer regex hole
+- [x] `tests/test_actions.py` — new case asserting `detect_latest_version()` picks up the version on a sub-numbered heading
+- [x] Bump `project_guide/version.py`: `__version__ = "2.7.2"`
+- [x] Bump `pyproject.toml`: `version = "2.7.2"`
+- [x] Add `## [2.7.2] - 2026-05-19` entry to `CHANGELOG.md` framed as a bug fix with test-coverage backfill
+
+**Migration:** none. The change is purely permissive — existing plain-letter IDs (`J.l`, `J.m`) continue to match. Consumers who never used sub-numbered IDs see no behavior change; consumers who did will see `git-push` and `detect_latest_version()` start handling those headings correctly.
+
+**Why the docs change rides this story:** the sub-numbered form was already in use by consumers but undocumented in `_phase-letters.md`. Extending the regex without documenting the form would leave the next maintainer staring at an unexplained `(?:\.\d+)?` tail. Doc + code travel together.
+
+**Out of scope:**
+- Multi-level cascading (`J.m.1.1`). The developer's intent is flat; YAGNI until a consumer asks. Adding it later is a strict superset (`(?:\.\d+)+` instead of `(?:\.\d+)?`) and would be backwards compatible.
+- A `project-guide check` rule that warns when a sub-numbered ID appears without a preceding plain-letter heading in non-pre-split contexts. The two valid scenarios cover everything seen in the wild; defer until there's evidence of misuse.
+- Sub-numbered phase letters (`AA.1`). Phases don't carry the same pre-impl-split / post-impl-followup workflow that motivates the story-level sub-numbering, and no consumer has asked.
+
 ---
 
 ## Future

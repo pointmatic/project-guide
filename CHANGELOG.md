@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.7.2] - 2026-05-19
+
+Bug fix: `project-guide git-push` (and version/phase detection) silently dropped sub-numbered story IDs (`J.m.1`, `J.m.2`, …). When the latest `[Done]` story used the sub-numbered form, the wrapper fell back to the previous bare-letter heading and reported it as "already committed," blocking the push of the new story.
+
+### Fixed
+- **`project_guide/stories.py:_STORY_RE`** — extended the story-ID character class from `[A-Z]\.[a-z]+` to `[A-Z]\.[a-z]+(?:\.\d+)?` so headings of the form `### Story J.m.1: ...` parse correctly. Without this, `_read_done_stories()` silently filtered such headings out and the wrapper picked the wrong "last [Done] story."
+- **`project_guide/cli.py:_COMMIT_SUBJECT_STORY_ID_RE`** — extended in the same shape so the already-committed check recognizes commit subjects like `J.m.1: ...`. Without this fix the duplicate-detection path would have a second-layer hole even after the stories.md side was fixed.
+- **`project_guide/actions.py:_VERSION_RE`** — extended in the same shape so `detect_latest_version()` no longer under-reports the highest version when the latest story uses the sub-numbered form.
+
+### Documented
+- **`_phase-letters.md`** — added a "Sub-numbered stories" subsection covering both use cases: pre-implementation split (`J.m` was planned but split into `J.m.1`, `J.m.2` before any work; bare `J.m` heading dropped) and post-implementation follow-up (`J.m` shipped, then a bug or follow-on feature lands as `J.m.1` before proceeding to `J.n`). Flat single-level only — no cascading like `J.m.1.1`.
+
+### Tests
+- New `tests/test_stories.py` covering `_STORY_RE`, `_read_done_stories()`, and `derive_commit_message()` — `stories.py` had no direct unit tests prior to this story (the test-coverage gap that let the bug ship in P.k).
+- New `tests/test_cli.py` cases for both `git-push` scenarios (post-impl follow-up with bare `J.m` present; pre-impl split with no bare `J.m`) and the round-trip "sub-numbered story is already committed" path.
+- New `tests/test_actions.py` case asserting `detect_latest_version()` picks up the version on a sub-numbered heading.
+
 ## [2.7.1] - 2026-05-11
 
 Compatibility fix for IDE-integrated LLM @-mention / fuzzy-search. The v2.6.0–v2.7.0 gitignore block used a clean `<target>/**` + `!<target>/go.md` negation pair — correct per the `.gitignore` spec, but **several IDE tools** (Cursor, parts of the VS Code fork ecosystem, certain LSP-based search backends) implement a subset of gitignore semantics that does not honor re-include negation. Those tools applied the broad `**` rule, hid `go.md`, and defeated the IDE-LLM-visibility constraint that's the entire reason `go.md` is tracked. P.l switches to a negation-free explicit-list form so simplistic parsers handle it reliably.

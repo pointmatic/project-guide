@@ -14,6 +14,15 @@ Within a phase, stories use lowercase letters following the same scheme: `A.a`, 
 
 Examples: `A.a`, `A.b`, …, `A.z`, `A.aa`, `A.ab`, ….
 
+### Sub-numbered stories
+
+A story may carry an optional numeric suffix — `J.m.1`, `J.m.2`, … — appended after the sub-letter. Sub-numbers are flat (no cascading like `J.m.1.1`) and start at `1`. Two situations use them:
+
+- **Pre-implementation split.** When `J.m` is planned but its scope is judged too large before any work begins, the heading is split into `J.m.1`, `J.m.2`, … and the bare `J.m` heading is dropped. Sequence becomes `…, J.l, J.m.1, J.m.2, J.n, …`.
+- **Post-implementation follow-up.** When `J.m` ships but a bug or follow-on feature must land before proceeding to `J.n`, the follow-up is added as `J.m.1` (and may cascade to `J.m.2`, `J.m.3`, …). Sequence becomes `…, J.l, J.m, J.m.1, J.m.2, …, J.n, …`.
+
+Sub-numbered stories follow normal Version Cadence: each one that ships code takes its own bump.
+
 ### Continuing across archive boundaries
 
 When `stories.md` is archived (via `archive_stories` mode), the fresh `stories.md` starts empty — but phase letters do **not** reset. To determine the next phase letter:

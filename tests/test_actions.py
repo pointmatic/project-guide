@@ -150,6 +150,19 @@ def test_detect_latest_version_raises_when_none_found():
         detect_latest_version(text)
 
 
+def test_detect_latest_version_recognizes_subnumbered_story_id():
+    """Sub-numbered story IDs (J.m.1, used for pre-impl splits or post-impl
+    follow-ups) must contribute to the latest-version computation. The
+    plain-letter regex silently dropped them, causing `detect_latest_version`
+    to under-report the highest version when the latest story used the
+    `.NN` form."""
+    text = (
+        "### Story J.l: v0.68.0 prior story [Done]\n\n"
+        "### Story J.m.1: v0.70.0 follow-up after J.m [Done]\n"
+    )
+    assert detect_latest_version(text) == (0, 70, 0)
+
+
 # ---------------------------------------------------------------------------
 # detect_latest_phase_letter
 # ---------------------------------------------------------------------------

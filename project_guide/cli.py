@@ -1626,8 +1626,9 @@ def heal(no_input: bool):
 
 # Regex matching the story-ID prefix of a commit-subject line — used to detect
 # which stories have already been committed (Story P.k). Mirrors the
-# `[A-Z]\.[a-z]+` shape of `_STORY_RE` in `stories.py`.
-_COMMIT_SUBJECT_STORY_ID_RE = __import__("re").compile(r"^([A-Z]\.[a-z]+):\s")
+# `[A-Z]\.[a-z]+(?:\.\d+)?` shape of `_STORY_RE` in `stories.py` (the optional
+# `.\d+` tail covers sub-numbered IDs like `J.m.1`).
+_COMMIT_SUBJECT_STORY_ID_RE = __import__("re").compile(r"^([A-Z]\.[a-z]+(?:\.\d+)?):\s")
 
 
 def _get_committed_story_ids() -> set[str]:

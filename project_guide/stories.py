@@ -17,8 +17,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 # Matches: ### Story N.a: v2.4.0 Some Title [Done]
+# The optional `(?:\.\d+)?` tail captures sub-numbered IDs (`J.m.1`, `J.m.2`, …)
+# used for pre-implementation splits or post-implementation follow-ups. See
+# `_phase-letters.md` (Sub-numbered stories).
 _STORY_RE = re.compile(
-    r"^### Story ([A-Z]\.[a-z]+): (.+) \[(Done|In Progress|Planned)\]\s*$",
+    r"^### Story ([A-Z]\.[a-z]+(?:\.\d+)?): (.+) \[(Done|In Progress|Planned)\]\s*$",
     re.MULTILINE,
 )
 

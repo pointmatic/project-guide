@@ -2811,4 +2811,87 @@ def test_git_push_propagates_child_exit_code(runner, tmp_path, monkeypatch):
         assert result.exit_code == 7, result.output
 
 
+def test_git_push_picks_up_subnumbered_last_done_story_scenario_a(runner, tmp_path, monkeypatch):
+    """Scenario A — post-implementation follow-up: ..., J.l, J.m, J.m.1.
+
+    Reported bug: when the last [Done] story is `J.m.1`, the wrapper
+    silently fell back to `J.l` and reported it as already committed.
+    """
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story J.l: update remaining refs [Done]",
+            "### Story J.m: v0.69.0 Integrate component [Done]",
+            "### Story J.m.1: v0.70.0 Follow-up after J.m [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(
+            monkeypatch,
+            subjects=[
+                "J.l: update remaining refs",
+                "J.m: v0.69.0 Integrate component",
+            ],
+            git_push_argv_capture=captured,
+        )
+
+        result = runner.invoke(main, ['git-push'])
+
+        assert result.exit_code == 0, result.output
+        assert len(captured) == 1, captured
+        assert captured[0][1] == "J.m.1: v0.70.0 Follow-up after J.m"
+
+
+def test_git_push_picks_up_subnumbered_last_done_story_scenario_b(runner, tmp_path, monkeypatch):
+    """Scenario B — pre-implementation split: ..., J.l, J.m.1, J.m.2 (no bare J.m).
+
+    When J.m's scope is split before implementation, the bare J.m heading
+    never exists. The wrapper's "last [Done]" must be J.m.2.
+    """
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story J.l: update remaining refs [Done]",
+            "### Story J.m.1: v0.69.0 First half of the split [Done]",
+            "### Story J.m.2: v0.70.0 Second half of the split [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(
+            monkeypatch,
+            subjects=[
+                "J.l: update remaining refs",
+                "J.m.1: v0.69.0 First half of the split",
+            ],
+            git_push_argv_capture=captured,
+        )
+
+        result = runner.invoke(main, ['git-push'])
+
+        assert result.exit_code == 0, result.output
+        assert len(captured) == 1, captured
+        assert captured[0][1] == "J.m.2: v0.70.0 Second half of the split"
+
+
+def test_git_push_errors_when_subnumbered_story_is_already_committed(runner, tmp_path, monkeypatch):
+    """Already-committed detection must recognize sub-numbered IDs in
+    commit subjects (e.g. `J.m.1: ...`), not just `J.m: ...`. Without
+    this, a sub-numbered story would be re-pushed silently."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story J.m.1: v0.70.0 Follow-up after J.m [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(
+            monkeypatch,
+            subjects=["J.m.1: v0.70.0 Follow-up after J.m"],
+            git_push_argv_capture=captured,
+        )
+
+        result = runner.invoke(main, ['git-push'])
+
+        assert result.exit_code == 1
+        assert "Story J.m.1 is already committed" in result.output
+        assert captured == [], "git-push must not be invoked when the story is already committed"
+
+
 # --- End Story P.k ----------------------------------------------------------
