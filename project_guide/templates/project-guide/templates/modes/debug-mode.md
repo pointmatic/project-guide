@@ -155,6 +155,8 @@ LLM: "Test passes. Running full suite to check for regressions..."
 
 This step has **two distinct artifacts**. (a) is the gate; (b) is required but secondary.
 
+**Scope reminder before you write:** per the `_header-common.md` Rules block, `debug` mode appends a story under the **existing** phase. Do not create a new `## Phase <Letter>:` heading, even if this fix feels like it belongs to a different theme than the current phase. If the work surfaces broader scope, recommend `plan_phase` at the approval gate and let the developer decide — do not pre-empt that decision by reshaping `stories.md`'s phase structure.
+
 **(a) The story write-up — the gate artifact:**
 
 Create a new story in `docs/specs/stories.md` matching the project format (see the bundled `stories.md` template and `project-essentials.md` for commit/version conventions). Implementation tasks the fix actually completed are marked `[x]`; any housekeeping tasks discovered during the fix (related-bug scans, doc updates) are marked `[ ]` and left for follow-up.

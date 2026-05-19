@@ -344,6 +344,119 @@ Both scenarios are exercised by the new test suite.
 
 ---
 
+### Story P.n: Scope-of-authority guardrail for cycle-mode templates [Done]
+
+While drafting a Step-5 story in the `debug` cycle, the LLM created a new `## Phase Q: Generated artifact lifecycle` heading and theme paragraph in `docs/specs/stories.md` without authorization, then defended the choice as "a meaningful policy shift." The developer corrected: phase creation — the heading, the theme, the bundle of stories it owns — is the exclusive job of `plan_phase` (or `plan_production_phase` post-1.0). Cycle modes (`debug`, `code_direct`, `code_test_first`, `refactor_document`, `refactor_plan`) append stories under an **existing** phase only. This story bakes the boundary into the cycle-mode template instructions so the same drift cannot recur silently.
+
+**Root cause:** the universal Rules block in `_header-common.md` covered approval-gate discipline, hand-edit safety, and copyright headers, but did not bound *structural* edits to `stories.md`. An LLM following the existing rules verbatim could still rationalize a new phase heading as "appropriate context for the work I'm documenting." The fix is to name the boundary explicitly and pair it with an escape valve (recommend `plan_phase`) so the LLM has a legitimate action to take when broader scope surfaces.
+
+**Implementation:**
+
+- [x] `project_guide/templates/project-guide/templates/modes/_header-common.md` — added a new bullet to the universal **Rules** block: explicit scope-of-authority statement covering structural changes to `stories.md`. May append stories under existing `## Phase <Letter>:` headings and edit existing story bodies; may **not** create new `## Phase` headings, re-theme existing phases, or move stories between phases. Phase creation is the exclusive job of `plan_phase` / `plan_production_phase`. When broader scope surfaces, recommend `plan_phase` at the approval gate; do not unilaterally start a new phase.
+- [x] `project_guide/templates/project-guide/templates/modes/debug-mode.md` — added a "Scope reminder before you write" paragraph at Step 5, inline at the specific point where the LLM is most tempted to overstep (composing a new story for a discovered bug).
+- [x] Ran `project-guide update` to propagate both template edits into the installed copy under `docs/project-guide/templates/modes/`.
+- [x] Verified the rendered `docs/project-guide/go.md` includes the new Rules-block bullet and the Step-5 reminder.
+
+**Why no per-mode reinforcement in the other cycle templates:** the other cycle modes (`code_direct`, `code_test_first`, `refactor_document`, `refactor_plan`) consume `[Planned]` stories rather than authoring new ones, so the universal `_header-common.md` rule covers them without needing inline reinforcement. The `debug` mode is unique in that Step 5 explicitly directs the LLM to write a new story — that's the temptation point where unilateral phase creation can occur, and where inline reinforcement adds real value. If field experience shows the other modes drift the same way, inline reinforcement can be added then.
+
+**Version assignment:** doc-only template change. Per the Version Cadence rule (top of this file), doc-only stories do not bump for themselves — this story rides the next code-story release. No `project_guide/version.py`, `pyproject.toml`, or `CHANGELOG.md` change in this story.
+
+**Migration:** none. The Rules-block addition affects only LLM behavior on subsequent mode invocations; consumers see the new wording on their next `project-guide mode <X>` render (or on the next auto-heal sync of the installed templates).
+
+**Out of scope:**
+- Inline scope-of-authority reinforcement in `code_direct`, `code_test_first`, `refactor_document`, `refactor_plan` templates. The universal `_header-common.md` rule covers them; defer per-mode reinforcement until evidence shows it's needed.
+- Strengthening Step 5's authorship language ("you, the LLM, write this story yourself") and adding an Anti-Pattern entry for "Deferring the Gate Artifact to the Developer," plus a trigger for "prevention-scan discovery spawned a new cycle." These gaps were identified during this conversation but are a separate fix — they govern *who authors* the Step-5 artifact, not *what structural changes* are in-bounds. Scope as a follow-up story (likely P.p) if the developer agrees they are worth landing.
+- Cross-cutting `features.md` / `tech-spec.md` scope rules (parallel to the `stories.md` rule). No drift observed; defer until one is.
+
+---
+
+### Story P.o: Untracked-by-default `go.md` policy [Planned]
+
+Reframe `go.md` from "the one tracked file under `target_dir`" to "unignored-but-untracked, regenerated on demand." The IDE-LLM-visibility constraint that drove the entire P.d → P.l line of work is about **gitignore status**, not **tracking status**: an unignored-but-untracked file is fully visible to IDE-integrated LLMs (Cursor, Claude Code, VS Code forks), while removing it from version control eliminates an entire class of dirty-working-tree failures during branch switches and post-merge cleanup.
+
+**Found in the field** (consumer report from pyve): a `update/project-guide-v2.7.1` feature branch was pushed, the PR was merged on GitHub, and gitbetter's post-merge `git switch main` aborted with `error: The following untracked working tree files would be overwritten by checkout: docs/project-guide/go.md`. Diagnostics confirmed pyve's main tracked `go.md` (last touched in pyve's `322423d project-guide upgrade to v2.6.0`), the feature branch's tip did not (`git ls-files` empty for the path), and no gitignore rule matched (`git check-ignore` empty). The structural cause was the hybrid status — git's branch-switch safety check sees an untracked-unignored file in the working tree and refuses to overwrite it with main's tracked version. Re-rendering `go.md` from `.project-guide.yml:mode` in `heal` (a related architectural improvement) doesn't help here because git aborts *before* any `project-guide` command runs. Collapsing to untracked-by-default removes the conflict entirely: git doesn't gate `switch` on untracked-unignored files.
+
+**Visibility vs. tracking — the key distinction:**
+- **Gitignore status** governs IDE-LLM visibility. The constraint from P.d / the IDE-LLM-visibility section of `project-essentials.md` is: `go.md` must remain **non-gitignored** so Cursor / Claude Code / VS Code-fork LLM tooling can read it via `@-mention` and fuzzy-search. This story preserves that constraint unchanged — the v2.7.1 explicit-list gitignore block already leaves `go.md` un-listed (and therefore unignored).
+- **Tracking status** governs version-control churn. The current "tracked by historical accident" state means `go.md` appears in every mode-switch diff, every cross-branch comparison, every merge resolution, and (as in the pyve case) every post-merge `git switch`. Untracking removes the churn without affecting visibility.
+
+**Implementation:**
+
+- [ ] `project_guide/cli.py:heal` — add a step that detects when `docs/project-guide/go.md` is in the consumer's git index (via `git ls-files --error-unmatch <path>` returning 0). When tracked, emit a single-line stderr warning with the copyable migration command:
+  ```
+  Warning: docs/project-guide/go.md is tracked. The current policy is untracked-by-default — run `git rm --cached docs/project-guide/go.md && git commit` once to migrate.
+  ```
+  - Silent when go.md is untracked (the steady state).
+  - Silent when the cwd is not a git repository (use `git rev-parse --is-inside-work-tree`; fall through on non-zero exit).
+  - Suppressed under `PROJECT_GUIDE_HEALING=1` (recursion guard already in place).
+  - Suppressed under `--no-input` per the contract.
+  - **Do NOT auto-run `git rm --cached`.** That is a history-changing operation on the consumer's index; consistent with the approval-gate-discipline rule (no LLM/wrapper-initiated git ops beyond declared scope), `project-guide` warns and the consumer runs the command on their own schedule.
+- [ ] `project_guide/cli.py:init` — after the initial `go.md` render, emit a single-line stderr note: `Note: docs/project-guide/go.md is intentionally untracked. Do not 'git add' it.`. Suppressed under `--quiet` / `--no-input` per the contract. This prevents fresh installs from immediately landing in the same tracked-from-historical-accident state.
+- [ ] Project-guide's own dogfooded repo: as part of shipping this story, run `git rm --cached docs/project-guide/go.md && git commit` so the source-of-truth repo matches the new policy and self-validates on next clone.
+- [ ] Docs reshape:
+  - [ ] `docs/specs/project-essentials.md` — **"IDE-LLM visibility constraint"** subsection: rewrite to make the visibility-vs-tracking distinction explicit. Add the new canonical state: `go.md` is **untracked-but-unignored**.
+  - [ ] `docs/specs/project-essentials.md` — **"Inverted gitignore policy"** subsection: append the v2.8.0 stage to the existing v2.6.0 → v2.6.1 → v2.7.1 evolution narrative ("the gitignore block stays at v2.7.1 form; tracking status flips").
+  - [ ] `docs/specs/features.md` — FR-14 (Inverted gitignore policy): same evolution-note addition.
+  - [ ] `docs/specs/tech-spec.md` — `.gitignore Management` section: add a "Visibility vs. tracking" paragraph and a "Why untracked-by-default?" rationale paragraph citing the pyve incident as the field-evidence trigger.
+  - [ ] `README.md` Quick Start: one-line note that `go.md` is intentionally not tracked; consumers upgrading from v2.6.x–v2.7.x run `git rm --cached docs/project-guide/go.md && git commit` once.
+  - [ ] `CHANGELOG.md` — `## [2.8.0] - <date>` entry framed as a behavior change with the one-line migration command and the visibility-vs-tracking rationale.
+- [ ] Tests:
+  - [ ] `tests/test_cli.py` — `init` test asserting the stderr "intentionally untracked" note appears, and is suppressed under `--quiet`.
+  - [ ] `tests/test_cli.py` — `heal` test in an `isolated_filesystem` git repo with a tracked `docs/project-guide/go.md`: assert the warning text appears on stderr, the command suggestion is copy-pasteable verbatim, and `heal` exits 0 (warning is non-fatal).
+  - [ ] `tests/test_cli.py` — `heal` test in an `isolated_filesystem` git repo with an untracked `docs/project-guide/go.md`: assert no warning is emitted (steady state silent).
+  - [ ] `tests/test_cli.py` — `heal` test in a non-git directory: assert no warning, no error, no spurious `git` invocations.
+  - [ ] `tests/test_cli.py` — `heal` test with `PROJECT_GUIDE_NO_INPUT=1`: assert the warning is suppressed.
+- [ ] Bump `project_guide/version.py`: `__version__ = "2.8.0"`
+- [ ] Bump `pyproject.toml`: `version = "2.8.0"`
+- [ ] Add `## [2.8.0] - <date>` entry to `CHANGELOG.md`.
+
+**Migration:** consumers run `git rm --cached docs/project-guide/go.md && git commit` once on their default branch. The next `project-guide` invocation (auto-heal hook) regenerates `go.md` as an untracked-unignored working-tree file; IDE LLMs continue to see it; the cross-branch dirty-tree class of failures disappears. Consumers who don't migrate continue to function — `heal` warns on every invocation but doesn't error or refuse work; the cost is `go.md` keeps appearing in their working-tree diff on every mode switch.
+
+**Why "warn-don't-auto-fix":** auto-running `git rm --cached` from inside `project-guide` would mutate the consumer's git index — the same wrapper-initiates-git-ops concern that constrained P.k's `git-push` to a thin gitbetter passthrough. Project-guide writes its own files (templates, `.project-guide.yml`, the gitignore block) but does not edit the consumer's index or HEAD. The warning surfaces the issue with a copyable command; the consumer decides when to apply it.
+
+**Out of scope:**
+- A dedicated `project-guide untrack-go-md` subcommand. YAGNI — the heal warning gives the consumer the exact command verbatim, and a dedicated subcommand would expand the wrapper-initiates-git-ops surface that the project has been deliberate about keeping narrow.
+- A `project-guide check` integrity rule that flags tracked `go.md` as a defect with non-zero exit. Defer until the broader integrity-check surface is built (see Future > Integrity & Validation); the heal warning covers the same ground with a softer touch.
+- Pre-flight on the `project-guide git-push` wrapper to detect dirty/untracked `go.md` before invoking gitbetter. The post-P.o steady state is "go.md is untracked-unignored on every branch" — branch switches no longer fail on it. If a pre-flight is still wanted after P.o ships and field-tests, scope it as a separate follow-up story.
+- Backporting the new policy to v2.6.x or v2.7.x. Consumers on older project-guide versions stay on the historical tracked-`go.md` model; upgrading to v2.8.0 surfaces the heal warning and the README migration note.
+- Changing the v2.7.1 explicit-list gitignore block. The block is unchanged — `go.md` is still un-listed and therefore unignored. Only tracking status flips.
+- Applying the same untracked-by-default policy to other generated artifacts under `target_dir` (e.g., rendered mode files in `templates/`). Those are already gitignored under the v2.7.1 block, so the question doesn't arise; if a future artifact lands in the same "tracked + generated" hybrid as `go.md` is leaving, that would warrant its own story (and possibly a new phase via `plan_phase`).
+
+---
+
+### Story P.p: LLM workflow discipline — documentation timing, spike-awareness, gate handoff [Planned]
+
+Bake four cross-cutting workflow rules into the universal Rules block of `_header-common.md` so every rendered `go.md` carries them, and reinforce the rules that hit hardest at `debug`-mode's Step 5 with inline guidance plus a new anti-pattern entry. The rules address structural LLM failure modes observed in this conversation and in prior cycles: undocumented work, off-by-one story numbering when work is paused/resumed, conflation of documentation with implementation, deferral of the gate artifact to the developer.
+
+**Failure mode this story closes:** in a prior turn, the LLM (this assistant) made template changes after misreading "go" as approval for a recommendation rather than as a directive to implement the planned story. The work was completed without a story; at the approval gate, the LLM asked the developer how to wrap it instead of writing the story itself. The developer correctly named both the immediate fix (renumber + insert) and the structural gap (the templates don't tell the LLM *who* writes the Step-5 artifact). P.p installs the missing rules at the template level so the next LLM in this situation just knows what to do.
+
+**The four rules** (full text lands in `_header-common.md` Rules block; summary here for the story record):
+
+1. **Sequential, story-by-story documentation.** Every chunk of LLM-produced work that lands in the repo (code, tests, docs, templates) is captured as a story in `stories.md` under the existing phase, in the order performed. One coherent unit of work → one story → one developer commit.
+2. **Documentation timing.** Default: write the story with its `[ ]` checklist → execute → flip to `[x]` → present at the gate. Exception for `debug` mode: when the root cause is unknown until exploration, the legitimate sequence is explore → reproduce → small-scope fix → write the story (Step 5). Either way, **the story exists on disk by the time the cycle reaches its approval gate.**
+3. **Spikes for uncertainty reduction.** When the path forward is uncertain, document the work as a spike — a time-boxed throwaway effort whose deliverable is a documented outcome. Three flavors recognized (integration / architectural / investigation); full definitions in `developer/best-practices-guide.md`'s "Hello World First — Spike Early, Spike Often" section. *(P.q lands the three-flavor expansion at that destination; P.p's Rule 3 forward-references the section, which already exists.)*
+4. **Approval-gate documentation handoff.** Every gate presents (a) a story reflecting current completion state (`[x]` done, `[ ]` outstanding, one-line note on in-progress items) alongside (b) the files changed. If you enter a gate with undocumented work, write or update the story *before* pausing. The developer returns distracted; the handoff names what's done, what's next, what decision is being asked for.
+
+**Implementation:**
+
+- [ ] `project_guide/templates/project-guide/templates/modes/_header-common.md` — add four bullets to the Rules block, immediately after the "Scope of authority — structural changes to `stories.md`" bullet added in P.n. Use bold-leading-title style matching the existing substantive rules. Rule 3 points at `developer/best-practices-guide.md` § "Hello World First — Spike Early, Spike Often"; the section exists today, P.q expands its content.
+- [ ] `project_guide/templates/project-guide/templates/modes/debug-mode.md` Step 5 — add a "Documentation timing in `debug`" paragraph after the existing "Scope reminder before you write" paragraph (added in P.n), before "(a) The story write-up." Names the exception explicitly (debug discovers root cause then writes the story) and reinforces the on-disk-before-gate invariant.
+- [ ] `project_guide/templates/project-guide/templates/modes/debug-mode.md` Anti-Patterns section — add a new entry: **"Deferring the Gate Artifact to the Developer"**, sibling to the existing "Declaring the Fix Complete After Step 4". Names the exact failure shape from this session: stopping at Step 4 and asking the developer how to story-ize the work, or asking permission to write the story. Solution points at Rule 4.
+- [ ] Run `pyve run project-guide update` to propagate the template edits to `docs/project-guide/templates/modes/_header-common.md` and `docs/project-guide/templates/modes/debug-mode.md`.
+- [ ] Verify rendered `docs/project-guide/go.md` contains the four new rule bullets and the two new debug-mode insertions.
+- [ ] Flip this story's status to `[Done]` and all `[ ]` checklist items to `[x]`.
+
+**Version assignment:** doc-only template change. Per Version Cadence, doc-only stories do not bump for themselves; P.p rides the next code-story release. No `project_guide/version.py`, `pyproject.toml`, or `CHANGELOG.md` change in this story.
+
+**Migration:** none. The new Rules-block bullets affect LLM behavior on the next `project-guide mode <X>` render or the next auto-heal sync of installed templates. Existing consumers see the new wording without any consumer-side action.
+
+**Out of scope:**
+- **The XP methodology grounding and the three-spike-flavor expansion in `developer/best-practices-guide.md`.** Scoped as P.q so the cycle-mode discipline rules (P.p) and the foundation-terminology reconciliation (P.q) can be reviewed and committed independently.
+- **Inline reinforcement of Rules 1–4 in `code_direct`, `code_test_first`, `refactor_document`, `refactor_plan` mode templates.** The universal `_header-common.md` rule covers them; defer per-mode reinforcement until evidence shows it's needed.
+- **Tooling helper to detect "approval gate reached without story update"** (e.g., a `project-guide check` rule). Defer until the broader integrity-check surface is built.
+
+---
+
 ## Future
 
 ### Audit Modes [Deferred]
