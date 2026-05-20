@@ -398,7 +398,7 @@ Reframe `go.md` from "the one tracked file under `target_dir`" to "unignored-but
   - [x] `docs/specs/features.md` — extended the FR-14 evolution narrative with the v2.8.0 tracking flip and migration command.
   - [x] `docs/specs/tech-spec.md` — added "Visibility vs. tracking" and "Why untracked-by-default?" paragraphs to `## .gitignore Management`, citing the pyve `git switch` incident.
   - [x] `README.md` — Quick Start now describes `go.md` as unignored-but-untracked and includes the consumer migration one-liner; `heal` command reference documents the tracked-`go.md` warning.
-  - [x] `CHANGELOG.md` — `## [Unreleased]` entry with P.o-tagged Changed/Documented/Migration subsections (the unified `## [2.8.0]` entry is assembled by P.z at release time).
+  - [x] `CHANGELOG.md` — `## [Unreleased]` entry with P.o-tagged Changed/Documented/Migration subsections (the unified `## [2.8.0]` entry is assembled by P.t at release time).
 - [x] Tests:
   - [x] `tests/test_cli.py::test_init_emits_untracked_note_on_stderr`
   - [x] `tests/test_cli.py::test_init_quiet_suppresses_untracked_note`
@@ -408,7 +408,7 @@ Reframe `go.md` from "the one tracked file under `target_dir`" to "unignored-but
   - [x] `tests/test_cli.py::test_heal_silent_when_not_in_git_repo`
   - [x] `tests/test_cli.py::test_heal_suppresses_warning_under_no_input`
 
-**Version assignment:** P.o is the code-bearing story in the Phase P v2.8.0 release bundle. The version bump itself (`project_guide/version.py`, `pyproject.toml`, `CHANGELOG.md` entry) is owned by **P.z** — the bundled-release story for v2.8.0 — following the same single-story-owns-the-bump pattern used by P.i for v2.6.0. P.o's CHANGELOG bullet (consumer migration command, heal-warning text, etc.) lands inside the unified `## [2.8.0]` entry that P.z assembles.
+**Version assignment:** P.o is the code-bearing story in the Phase P v2.8.0 release bundle. The version bump itself (`project_guide/version.py`, `pyproject.toml`, `CHANGELOG.md` entry) is owned by **P.t** — the bundled-release story for v2.8.0 — following the same single-story-owns-the-bump pattern used by P.i for v2.6.0. P.o's CHANGELOG bullet (consumer migration command, heal-warning text, etc.) lands inside the unified `## [2.8.0]` entry that P.t assembles.
 
 **Migration:** consumers run `git rm --cached docs/project-guide/go.md && git commit` once on their default branch. The next `project-guide` invocation (auto-heal hook) regenerates `go.md` as an untracked-unignored working-tree file; IDE LLMs continue to see it; the cross-branch dirty-tree class of failures disappears. Consumers who don't migrate continue to function — `heal` warns on every invocation but doesn't error or refuse work; the cost is `go.md` keeps appearing in their working-tree diff on every mode switch.
 
@@ -525,7 +525,7 @@ Two complementary rules for how the LLM frames its responses in any project-guid
 - [x] Verified the rendered `docs/project-guide/go.md` for both `code_direct` and `debug` modes — each shows the four-line "After reading" protocol with the correct mode-name interpolation (`Mode: code_direct.` / `Mode: debug.`) at line 15, and the step-name Rules-block bullet at line 35. Mode restored to `code_direct`.
 - [x] Flipped this story's status to `[Done]` and all checklist items to `[x]`.
 
-**Version assignment:** template change (code abstracted into text — see P.z's principle note). Rides P.z's bundled v2.8.0 release; no per-story version bump.
+**Version assignment:** template change (code abstracted into text — see P.t's principle note). Rides P.t's bundled v2.8.0 release; no per-story version bump.
 
 **Migration:** none required by consumers. Behavior change is purely in LLM response framing on next mode invocation. Existing consumers see the new conventions on next `project-guide update` or auto-heal sync.
 
@@ -585,21 +585,21 @@ The non-capturing `(?:Story\s+)?` consumes an optional `"Story "` prefix without
 - [x] Ran `pyve run project-guide update` to propagate the template-source edits into `docs/project-guide/`.
 - [x] Flipped this story's status to `[Done]` and all checklist items to `[x]`.
 
-**Version assignment:** patch-level regex bug fix; rides P.z's v2.8.0 bundled release. No standalone version bump in this story.
+**Version assignment:** patch-level regex bug fix; rides P.t's v2.8.0 bundled release. No standalone version bump in this story.
 
 **Migration:** none. The permissive regex retains backward compatibility with the bare form (historical wrapper output and direct developer use) and adds forward compatibility with the `"Story "` prefix form (legacy hand-typed style). Consumers with mixed history get coherent recognition automatically on upgrade to v2.8.0.
 
 **Out of scope:**
 - **Updating `derive_commit_message` to emit the `"Story "` prefix.** Considered (Option 2 in triage) and rejected: docs examples are being aligned *to* the bare form, not away from it; changing the wrapper's emitted format would also require updating the P.k test pinning and would propagate a longer prefix into every wrapper-generated commit.
 - **A `project-guide check` integrity rule** verifying that every `[Done]` story in `stories.md` has a matching commit-subject parse under the regex. Defer until the broader integrity-check surface exists; the wrapper's own error message already surfaces this kind of mismatch interactively.
-- **Backporting the regex fix to v2.7.x as a patch release.** Consumers stay on v2.7.2 until v2.8.0 ships; bundling under P.z avoids a stand-alone v2.7.3 release that would only contain this one regex tweak.
+- **Backporting the regex fix to v2.7.x as a patch release.** Consumers stay on v2.7.2 until v2.8.0 ships; bundling under P.t avoids a stand-alone v2.7.3 release that would only contain this one regex tweak.
 - **Auto-detecting and warning when an existing repo's commit history contains a mix of `"Story <id>:"` and bare `"<id>:"` subjects.** The mix is benign under the permissive regex; no warning needed.
 
 ---
 
-### Story P.z: v2.8.0 bundled release [Planned]
+### Story P.t: v2.8.0 bundled release [Planned]
 
-**Placeholder ID convention.** `P.z` is a placeholder, deliberately drafted at the end of Phase P's alphabet so it stays out of the way of in-flight work. At release time the developer renumbers this story to whatever the next sequential letter is in Phase P (likely `P.s` or `P.t` after P.o/P.p/P.q/P.r ship) so the final on-disk record matches Rule 1's "in the order performed" invariant.
+**Placeholder ID convention.** `P.t` is a placeholder, deliberately drafted at the end of Phase P's alphabet so it stays out of the way of in-flight work. At release time the developer renumbers this story to whatever the next sequential letter is in Phase P (likely `P.s` or `P.t` after P.o/P.p/P.q/P.r ship) so the final on-disk record matches Rule 1's "in the order performed" invariant.
 
 **Principle: template changes are not doc-only.** A template under `project_guide/templates/` is **code abstracted into text** — it ships inside the Python package, gets rendered into the consumer's `go.md` on `project-guide init`/`update`/`mode`, and changes the LLM's runtime behavior on the next mode invocation. To reach consumers it must be published to PyPI, which requires a release tag. Therefore template-touching stories cannot follow the "doc-only stories don't bump for themselves" rule literally; they must ride a versioned release. The cleanest pattern (mirroring P.i's role for v2.6.0) is to bundle every template/code story since the previous release under a single bundled-release story (this one) that owns the version bump and assembles a unified CHANGELOG entry.
 
@@ -622,10 +622,10 @@ The non-capturing `(?:Story\s+)?` consumes an optional `"Story "` prefix without
   - One opening paragraph naming the release theme — "Phase P closing bundle: cycle-mode LLM-workflow discipline + XP methodology grounding + untracked-by-default `go.md` policy."
   - `### Added` / `### Changed` / `### Fixed` / `### Documented` subsections as appropriate, with each bundled story summarized as one bullet and credited by ID.
   - **Migration** subsection at the bottom: one-line consumer command for P.o (`git rm --cached docs/project-guide/go.md && git commit`) plus the link to P.o's body for full rationale.
-- [ ] Renumber this story's ID from `P.z` to the next sequential letter in Phase P at release time (verify by reading the highest `[Planned]` letter currently in the file and incrementing). Update any in-body references (none expected; this story is self-contained) and any commit-message draft.
+- [ ] Renumber this story's ID from `P.t` to the next sequential letter in Phase P at release time (verify by reading the highest `[Planned]` letter currently in the file and incrementing). Update any in-body references (none expected; this story is self-contained) and any commit-message draft.
 - [ ] Flip this story's status to `[Done]` and all `[ ]` checklist items to `[x]`.
 
-**Version assignment:** **v2.8.0** — minor bump driven by P.o's new behavior (heal warning + consumer migration path). The four template stories (P.n, P.p, P.q, P.r) ride this release per the principle above. P.z owns the single bump; individual bundled stories do **not** carry their own `Bump version.py` / `Bump pyproject.toml` / `CHANGELOG.md` tasks.
+**Version assignment:** **v2.8.0** — minor bump driven by P.o's new behavior (heal warning + consumer migration path). The four template stories (P.n, P.p, P.q, P.r) ride this release per the principle above. P.t owns the single bump; individual bundled stories do **not** carry their own `Bump version.py` / `Bump pyproject.toml` / `CHANGELOG.md` tasks.
 
 **Migration:** see P.o's Migration section for the consumer-side `git rm --cached docs/project-guide/go.md && git commit` one-liner. No migration needed for the template-only stories beyond running `project-guide update`.
 
