@@ -31,7 +31,7 @@ For each story:
 **Developer's role (do NOT prompt for, offer, or initiate):**
 
 - **Direct commits to main** -- no branches, no PRs, no code review (velocity convention)
-- **Commit messages** reference story IDs: `"Story A.a: v0.1.0 Hello World"`
+- **Commit messages** reference story IDs in the bare `<id>: <title>` form: `"A.a: v0.1.0 Hello World"` (no `Story ` prefix — see `project-essentials.md`'s Commit-workflow section for the rationale)
 - **Decides when to commit** -- the LLM presents, the developer commits. Multiple stories may be bundled into one commit at the developer's discretion — that is not the LLM's call to make or suggest.
 
 ## Story Ordering

@@ -3016,3 +3016,51 @@ def test_heal_suppresses_warning_under_no_input(runner, tmp_path, monkeypatch):
 
 
 # --- End Story P.o ----------------------------------------------------------
+
+
+# --- Story P.s: permissive commit-subject regex -----------------------------
+
+
+def test_commit_subject_regex_matches_story_prefix_form():
+    """Recognize the `Story <id>: ...` form (the docs-example convention)."""
+    from project_guide.cli import _COMMIT_SUBJECT_STORY_ID_RE
+
+    m = _COMMIT_SUBJECT_STORY_ID_RE.match(
+        "Story J.m.2: v0.71.0 — 'QuizProvider' Protocol → 'AssessmentProvider'"
+    )
+    assert m is not None
+    assert m.group(1) == "J.m.2"
+
+
+def test_commit_subject_regex_matches_bare_form():
+    """Bare `<id>: ...` form continues to match (regression check for P.k/P.m)."""
+    from project_guide.cli import _COMMIT_SUBJECT_STORY_ID_RE
+
+    m = _COMMIT_SUBJECT_STORY_ID_RE.match(
+        "J.m.2: v0.71.0 — Integrate Published Component"
+    )
+    assert m is not None
+    assert m.group(1) == "J.m.2"
+
+
+def test_commit_subject_regex_matches_plain_letter_id_both_forms():
+    """Both forms recognize plain-letter (non-sub-numbered) IDs."""
+    from project_guide.cli import _COMMIT_SUBJECT_STORY_ID_RE
+
+    bare = _COMMIT_SUBJECT_STORY_ID_RE.match("A.a: v0.1.0 Hello World")
+    storied = _COMMIT_SUBJECT_STORY_ID_RE.match("Story A.a: v0.1.0 Hello World")
+    assert bare is not None and bare.group(1) == "A.a"
+    assert storied is not None and storied.group(1) == "A.a"
+
+
+def test_commit_subject_regex_rejects_other_prefixes():
+    """`Fix`/`Feat`/etc. prefixes are not absorbed by the optional `Story` group."""
+    from project_guide.cli import _COMMIT_SUBJECT_STORY_ID_RE
+
+    assert _COMMIT_SUBJECT_STORY_ID_RE.match("Fix J.m.2: something") is None
+    assert _COMMIT_SUBJECT_STORY_ID_RE.match("Feat A.a: hello") is None
+    # No colon → still no match (sanity check on the existing regex).
+    assert _COMMIT_SUBJECT_STORY_ID_RE.match("Story J.m.2 some other text") is None
+
+
+# --- End Story P.s ----------------------------------------------------------

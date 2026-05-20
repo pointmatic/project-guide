@@ -32,9 +32,10 @@ Any future interactive prompt added to a CLI command **must** use the `should_sk
 
 ### Commit workflow
 
-- **Commit messages reference the story ID**; include **`vX.Y.Z`** when this commit is the **single** version bump for that story — examples:
-  - `"Story M.a: v2.3.0 project-essentials render hook"` (M.a owns v2.3.0)
-  - `"Story M.c: align specs with FR-9"` (doc-only; no version in title — rides M.b's or whichever code story owns the release line)
+- **Commit messages reference the story ID** in the bare form `<id>: <title>` (no `Story ` prefix — the prefix is implicit context and adds no information the `<id>:` anchor doesn't already convey). Include **`vX.Y.Z`** when this commit is the **single** version bump for that story — examples:
+  - `"M.a: v2.3.0 project-essentials render hook"` (M.a owns v2.3.0)
+  - `"M.c: align specs with FR-9"` (doc-only; no version in title — rides M.b's or whichever code story owns the release line)
+  - The `project-guide git-push` wrapper's `_COMMIT_SUBJECT_STORY_ID_RE` accepts both bare and legacy `Story <id>:` forms for backward compatibility with historical hand-typed commits (Story P.s), but **bare is canonical** for new commits.
 - **Direct commits to main** in `code_direct` mode — no branches, no PRs.
 
 ### Config schema versioning

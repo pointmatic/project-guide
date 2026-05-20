@@ -47,7 +47,7 @@ Recognize and adapt to two distinct development modes:
   - Version bump per story (v0.1.0 → v0.2.0 → v0.3.0)
   - Focus on feature completion and iteration speed
   - Skip branch protection, PR reviews, security policies
-- **Commit messages:** `"Story A.a: v0.1.0 Hello World"`
+- **Commit messages:** `"A.a: v0.1.0 Hello World"` (bare `<id>: <title>` form)
 
 **Production Mode** (Mature Development):
 - **When:** After CI/CD phase is complete and core functionality works
@@ -58,7 +58,7 @@ Recognize and adapt to two distinct development modes:
   - Bundled releases with multiple stories (v0.8.0 includes J.a-J.d)
   - Trusted publishers for package registries
   - Code review requirements
-- **Commit messages:** `"Story J.c: Branch Protection & Repo Settings"`
+- **Commit messages:** `"J.c: Branch Protection & Repo Settings"` (bare `<id>: <title>` form)
 - **Release process:** Tag-based automation with GitHub Releases
 
 **The Switch:**
@@ -265,7 +265,7 @@ These are three concerns, not one — collapsing Hello World into the spike (or 
 
 - One story/feature per commit when possible
 - Include both code and documentation changes in the same commit
-- Write clear commit messages that reference story IDs: `"Story H.d: Service error classification and exception migration"`
+- Write clear commit messages that reference story IDs in the bare `<id>: <title>` form: `"H.d: Service error classification and exception migration"`
 
 **Rationale:** Atomic commits make history readable and enable selective rollbacks.
 

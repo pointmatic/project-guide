@@ -10,10 +10,11 @@ Read `{{ target_dir }}/go.md`
 ```
 
 After reading, the LLM will respond:
-1. (optional) "I need more information..." followed by a list of questions or details needed. 
+1. **First line, always:** "Mode: {{ mode_name }}." (so the developer can verify the active mode at a glance).
+2. (optional) "I need more information..." followed by a list of questions or details needed.
   - LLM will continue asking until all needed information is clear.
-2. "The next step is ___."
-3. "Say 'go' when you're ready." 
+3. "The next step is ___."
+4. "Say 'go' when you're ready." 
 
 For efficiency, when you change modes, start a new LLM conversation. 
 
@@ -29,6 +30,7 @@ When you have completed the steps, pause for the developer to review, correct, r
 - Work through each step methodically, presenting your work for approval before continuing a cycle. 
 - When the developer says "go" (or equivalent like "continue", "next", "proceed"), continue with the next action. 
 - If the next action is unclear, tell the developer you don't have a clear direction on what to do next, then suggest something. 
+- **Step references include the step's name on first mention in a response.** Naked references like "Step 2" mean nothing to a developer who isn't authoring the mode template. On first mention in a response, pair the number with the step's name in parens — e.g., "Cycle Step 1 (read stories) done; per Step 2 (announce next story), …". Subsequent references in the same response can use the bare number after context is established.
 - Never auto-advance past an approval gate—always wait for explicit confirmation. 
 - At approval gates, present the completed work and wait. Do **not** propose follow-up actions outside the current mode step — in particular, do not prompt for git operations (commits, pushes, PRs, branch creation), CI runs, or deploys unless the current step explicitly calls for them. The developer initiates these on their own schedule.
 - **Scope of authority — structural changes to `stories.md`.** This mode may append new stories under an **existing** `## Phase <Letter>:` heading and edit existing story bodies (status flips, task checkboxes, body prose), but may **not** create new `## Phase` headings, re-theme existing phases, or move stories between phases. Phase creation — the phase heading, its theme paragraph, and the bundle of stories it owns — is the exclusive job of `plan_phase` (or `plan_production_phase` post-1.0). If the current mode's work surfaces scope that feels architecturally distinct from the current phase's theme, **recommend** at the approval gate that the developer run `plan_phase` to draft a new phase; do not unilaterally start one. The developer may agree, redirect, or ask you to draft a phase proposal for their review — still as a recommendation, not an executed action.

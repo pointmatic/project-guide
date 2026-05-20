@@ -112,11 +112,11 @@ git switch -c docs/update-readme
 git add .
 
 # Commit with descriptive message
-git commit -m "Story J.d: Add release workflow for PyPI publishing"
+git commit -m "J.d: Add release workflow for PyPI publishing"
 ```
 
 **Commit message format:**
-- Start with story ID if applicable: `Story J.d: <description>`
+- Start with the story ID in bare `<id>: <description>` form when applicable (e.g., `J.d: <description>`). The bare form is canonical because it matches the `project-guide git-push` wrapper's emitted output; the wrapper's regex also accepts the legacy `Story J.d: ...` form for backward compatibility, but new commits should use bare.
 - Or use conventional commits: `feat:`, `fix:`, `docs:`, `chore:`
 - Keep first line under 72 characters
 - Add detailed description in body if needed
@@ -137,7 +137,7 @@ git push
 
 **Via GitHub CLI (if installed):**
 ```bash
-gh pr create --title "Story J.d: Release Workflow" --body "Implements automated PyPI publishing on version tags"
+gh pr create --title "J.d: Release Workflow" --body "Implements automated PyPI publishing on version tags"
 ```
 
 **Via GitHub Web UI:**

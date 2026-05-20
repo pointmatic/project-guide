@@ -508,7 +508,7 @@ Bake four cross-cutting workflow rules into the universal Rules block of `_heade
 
 ---
 
-### Story P.r: LLM response framing — mode echo and step contextualization [Planned]
+### Story P.r: LLM response framing — mode echo and step contextualization [Done]
 
 Two complementary rules for how the LLM frames its responses in any project-guide-powered repo, addressing two friction points observed during dogfooding:
 
@@ -518,29 +518,12 @@ Two complementary rules for how the LLM frames its responses in any project-guid
 
 **Implementation:**
 
-- [ ] `project_guide/templates/project-guide/templates/modes/_header-common.md` — extend the "After reading, the LLM will respond:" protocol (currently at lines 12–17 of the template) to include mode echo as the always-first line:
-  ```
-  After reading, the LLM will respond:
-  1. **First line, always:** "Mode: <mode_name>." (so the developer can verify at a glance).
-  2. (optional) "I need more information..." followed by a list of questions or details needed.
-     - LLM will continue asking until all needed information is clear.
-  3. "The next step is ___."
-  4. "Say 'go' when you're ready."
-  ```
-  No "if the mode looks wrong, say so" qualifier — corrections are the developer's job; the LLM just emits the signal.
-- [ ] `project_guide/templates/project-guide/templates/modes/_header-common.md` Rules block — add a new bullet (placed near the other behavioral rules):
-  ```
-  - **Step references include the step's name on first mention in a response.**
-    Naked references like "Step 2" mean nothing to a developer who isn't authoring
-    the mode template. On first mention in a response, pair the number with the
-    step's name in parens — e.g., "Cycle Step 1 (read stories) done; per Step 2
-    (announce next story), …". Subsequent references in the same response can use
-    the bare number after context is established.
-  ```
-- [ ] Audit the cycle-mode template set for existing mode-announcement language (some already announce, others don't) and reconcile to the new convention. Specific files to inspect: `_header-cycle.md`, `_header-sequence.md`, `code-direct-mode.md` (developer-flagged as currently inconsistent), `code-test-first-mode.md`, `debug-mode.md`, `refactor-document-mode.md`, `refactor-plan-mode.md`, `default-mode.md`. Remove any redundant mode-announcement instructions inside individual mode files now that `_header-common.md` covers it universally.
-- [ ] Run `pyve run project-guide update` to propagate.
-- [ ] Verify rendered `docs/project-guide/go.md` for at least two modes (e.g., `debug` and `code_direct`) shows the new four-line "After reading" protocol and the step-name Rules-block bullet.
-- [ ] Flip this story's status to `[Done]` and all `[ ]` checklist items to `[x]`.
+- [x] `project_guide/templates/project-guide/templates/modes/_header-common.md` — extended the "After reading, the LLM will respond:" protocol to four numbered lines, with `**First line, always:** "Mode: {% raw %}{{ mode_name }}{% endraw %}."` as the new always-first item. No "if the mode looks wrong, say so" qualifier — the LLM just emits the signal, per the deliberate out-of-scope rejection.
+- [x] `project_guide/templates/project-guide/templates/modes/_header-common.md` Rules block — added the **"Step references include the step's name on first mention in a response"** bullet near the other response-framing rules (right after "If the next action is unclear", before "Never auto-advance past an approval gate"). Bullet text matches the story spec verbatim.
+- [x] Audited the cycle-mode template set (`_header-cycle.md`, `_header-sequence.md`, `code-direct-mode.md`, `code-test-first-mode.md`, `debug-mode.md`, `refactor-document-mode.md`, `refactor-plan-mode.md`, `default-mode.md`) — no per-mode mode-announce / "first response" / "say the mode" language exists in any of them. `_header-common.md` is already the sole source for the response protocol. No reconciliation edits required.
+- [x] Ran `pyve run project-guide update` to propagate the `_header-common.md` edits.
+- [x] Verified the rendered `docs/project-guide/go.md` for both `code_direct` and `debug` modes — each shows the four-line "After reading" protocol with the correct mode-name interpolation (`Mode: code_direct.` / `Mode: debug.`) at line 15, and the step-name Rules-block bullet at line 35. Mode restored to `code_direct`.
+- [x] Flipped this story's status to `[Done]` and all checklist items to `[x]`.
 
 **Version assignment:** template change (code abstracted into text — see P.z's principle note). Rides P.z's bundled v2.8.0 release; no per-story version bump.
 
@@ -554,7 +537,7 @@ Two complementary rules for how the LLM frames its responses in any project-guid
 
 ---
 
-### Story P.s: Recognize "Story " prefix in commit-subject regex [Planned]
+### Story P.s: Recognize "Story " prefix in commit-subject regex [Done]
 
 **Bug report from the field** (consumer repo running project-guide v2.7.2):
 
@@ -590,16 +573,17 @@ The non-capturing `(?:Story\s+)?` consumes an optional `"Story "` prefix without
 
 **Implementation:**
 
-- [ ] Write failing unit test in `tests/test_cli.py` asserting `_COMMIT_SUBJECT_STORY_ID_RE` matches `"Story J.m.2: v0.71.0 — example title"` and extracts `J.m.2` as group 1.
-- [ ] Write parallel regression-check test (same file) asserting bare form `"J.m.2: v0.71.0 — example title"` continues to match and extract `J.m.2`.
-- [ ] Run `pyve test tests/test_cli.py` and confirm both new tests fail before the fix.
-- [ ] Update `project_guide/cli.py:_COMMIT_SUBJECT_STORY_ID_RE` per the fix design above. Update the comment immediately above the regex to note both supported subject forms.
-- [ ] Confirm both new tests pass after the fix; run `pyve test` (full suite) and confirm no regressions.
-- [ ] Grep for commit-message examples carrying the `"Story "` prefix in project-guide's own templates/specs and reconcile to the bare form. Known/suspected locations:
-  - `project_guide/templates/project-guide/templates/artifacts/project-essentials.md` — "Commit workflow" subsection (currently shows `"Story M.a: v2.3.0 project-essentials render hook"` and `"Story M.c: align specs with FR-9"`)
-  - Any additional instance surfaced by `grep -rn '"Story [A-Z]\.' project_guide/templates/ docs/`
-- [ ] Run `pyve run project-guide update` to propagate any template-source edits to `docs/project-guide/`.
-- [ ] Flip this story's status to `[Done]` and all `[ ]` checklist items to `[x]`.
+- [x] Added 4 new tests in `tests/test_cli.py` under `--- Story P.s ---`: `Story <id>:` form matches (`test_commit_subject_regex_matches_story_prefix_form`), bare `<id>:` form continues to match (`test_commit_subject_regex_matches_bare_form`), both forms work for plain-letter IDs (`..._matches_plain_letter_id_both_forms`), and `Fix `/`Feat ` prefixes are *not* absorbed (`..._rejects_other_prefixes` — pins the regex's permissive scope to `Story ` specifically). Confirmed the two `Story `-prefix tests fail before the fix and pass after.
+- [x] Updated `project_guide/cli.py:_COMMIT_SUBJECT_STORY_ID_RE` to `re.compile(r"^(?:Story\s+)?([A-Z]\.[a-z]+(?:\.\d+)?):\s")`. Replaced the comment block with the dual-form rationale (bare canonical, `Story ` legacy) and a back-reference to the P.s field bug.
+- [x] Confirmed full test suite green (`pyve test` → 532 passed; up from 528 by the 4 new tests) and `ruff check project_guide/ tests/` clean.
+- [x] Reconciled commit-message examples to bare `<id>: <title>` form across the source templates and the project's own `project-essentials.md`:
+  - `docs/specs/project-essentials.md` (this repo's own project-essentials, not the artifact template) — Commit-workflow subsection: M.a / M.c examples flipped to bare; added a sentence naming bare as canonical and citing P.s for the regex's dual-form tolerance.
+  - `project_guide/templates/project-guide/templates/modes/code-direct-mode.md` — Velocity-mode commit-message example flipped to bare with cross-reference to `project-essentials.md`.
+  - `project_guide/templates/project-guide/developer/best-practices-guide.md` — three Commit-messages examples flipped to bare (A.a velocity, J.c production, H.d version-control).
+  - `project_guide/templates/project-guide/developer/production-github-guide.md` — `git commit -m` example and `gh pr create --title` example flipped to bare; rewrote the "Commit message format" guidance bullet to name bare as canonical and acknowledge the regex's backward-compatible `Story ` tolerance.
+  - **Bundled artifact template** `templates/artifacts/project-essentials.md` confirmed *not* to contain commit-message examples (the field-bug examples lived in this project's own `project-essentials.md`, not in the artifact scaffolding shipped to consumers).
+- [x] Ran `pyve run project-guide update` to propagate the template-source edits into `docs/project-guide/`.
+- [x] Flipped this story's status to `[Done]` and all checklist items to `[x]`.
 
 **Version assignment:** patch-level regex bug fix; rides P.z's v2.8.0 bundled release. No standalone version bump in this story.
 
