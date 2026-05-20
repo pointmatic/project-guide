@@ -14,6 +14,21 @@ The artifact templates above are installed by `project-guide init` and refreshed
 
 Skip any document that does not exist. If a document already reflects the current state of the project, confirm with the developer and skip.
 
+## Session Story (author once, before the per-document cycle)
+
+Per `_header-common.md` Rule 1 (Sequential, story-by-story documentation), every refactor session is captured as a **single story** in `docs/specs/stories.md` under the existing phase — the rewrites across concept/features/tech-spec plus the project-essentials revisit collectively are *one* unit of work that the developer commits as one PR. Per `_phase-letters.md`'s "Inserting a new story" rules, the default insertion is Append (next sequential top-level ID under the current phase); refactor sessions never create new phase headings (Rule: Scope of authority).
+
+**When:** after Step 1 (Understand the Change) of the first document establishes which documents will be touched and why; before Step 2 (Backup) of that document.
+
+**How:**
+
+1. Pick the next sequential top-level story ID under the current phase (Append default).
+2. Author the heading: `### Story <id>: Refactor planning docs (<brief reason>) [Planned]`. The `(<brief reason>)` captures the developer's Step-1 answer in 4–8 words (e.g., `Phase Q feature additions`, `v2.x artifact migration`, `scope reshape for new ML backend`).
+3. Write a checklist: one `[ ]` task per document that will be touched in this session (only documents that actually need work — skip any the developer confirms are current), plus one `[ ]` task for the Final Step project-essentials revisit if it will fire. Use bare-form task names: `Refactor concept.md (gap: ...)`, `Refactor features.md (...)`, `Refactor tech-spec.md (...)`, `Revisit project-essentials.md`.
+4. Present the planned heading + checklist to the developer for confirmation. Adjust per their feedback. Then begin the per-document cycle below.
+
+**Version assignment** is deferred to the developer at the session gate — pure prose restructure with no behavioral implications omits the version (rides the next code-story release per Version Cadence); refactors that surface user-visible feature changes via the doc updates may take a minor bump.
+
 ## Cycle Steps (for each document)
 
 ### Step 1: Understand the Change
@@ -21,6 +36,8 @@ Skip any document that does not exist. If a document already reflects the curren
 Ask the developer what needs updating and why. This could be:
 - **New features or improvements** — sections need to reflect new capabilities, architecture changes, or revised scope
 - **Legacy migration** — the document predates the v2.x artifact template format and needs restructuring
+
+**Note:** the first document's Step 1 doubles as the session-scope conversation. After completing this step for the first document, **author the session story** (see "Session Story" section above) before proceeding to Step 2 for any document.
 
 ### Step 2: Backup
 
@@ -122,4 +139,16 @@ Present the completed (or updated) `project-essentials.md` to the developer for 
 - What was modified (existing facts the refactor invalidated)
 - What was preserved (existing facts the refactor did not touch)
 
-Iterate as needed. Once approved, this cycle ends.
+Iterate as needed. Once approved, proceed to Step F.5.
+
+### Step F.5: Close the Session Story and Present at the Session-Level Gate
+
+Per `_header-common.md` Rule 4 (Approval-gate documentation handoff), every cycle ends with a session-level handoff to the developer that pairs (a) the story reflecting current completion state with (b) the files changed.
+
+1. Return to `docs/specs/stories.md` and locate the session story authored after Step 1 of the first document.
+2. Flip every `[ ]` task in its checklist to `[x]`. If any task was abandoned mid-session (e.g., a document the developer ultimately decided not to refactor), mark it `[x]` with a one-line note in the body explaining the deferral, or remove the task and note the change in the story body.
+3. Change the story's status suffix from `[Planned]` to `[Done]`.
+4. If the developer indicated at session start that the refactor warrants a version bump (typically a minor bump when user-visible feature changes surface via the doc updates), add the bump-and-CHANGELOG tasks to the checklist now and execute them per the standard Version Cadence rule. Pure prose restructure with no behavioral implications omits the bump (rides the next code-story release).
+5. **Present the session story at the gate.** Name each document rewritten, the project-essentials outcome (added / modified / preserved / skipped), any Legacy Content sections that were added, and the version bump (or its absence). The developer commits the refactor session as one PR/commit referencing the story ID — do **not** propose the commit yourself (per `_header-common.md` Rule 5; approval-gate discipline).
+
+This is the session-level gate, distinct from the per-document gates at Step 7 of each document's cycle. Once approved, this cycle ends.

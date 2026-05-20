@@ -36,7 +36,7 @@ For each story:
 
 ## Story Ordering
 
-- Start with Story A.a (Hello World) if not yet implemented
+- For a fresh project, the foundation stories are **A.a Scaffolding** (executed in `scaffold_project` mode), **A.b Hello World** (the first story this cycle implements), and **A.c integration spike** — per `developer/best-practices-guide.md` § "Hello World First — Spike Early, Spike Often." Start with whichever of these is the lowest still-Planned story when the cycle picks up.
 - The Step 2 announce-and-wait gate is where the developer confirms (or redirects). If you are unsure which story is next, that is the moment to surface the ambiguity in the announce — e.g., "I see two candidates: Story B.c and Story B.d. Which should I work on?" — not a moment to silently pick one.
 - Never skip ahead -- complete stories in order within each phase
 

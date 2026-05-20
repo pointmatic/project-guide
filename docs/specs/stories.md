@@ -597,7 +597,7 @@ The non-capturing `(?:Story\s+)?` consumes an optional `"Story "` prefix without
 
 ---
 
-### Story P.t: v2.8.0 bundled release [Planned]
+### Story P.t: v2.8.0 Refactor mode story authoring and bundled release [Done]
 
 **Placeholder ID convention.** `P.t` is a placeholder, deliberately drafted at the end of Phase P's alphabet so it stays out of the way of in-flight work. At release time the developer renumbers this story to whatever the next sequential letter is in Phase P (likely `P.s` or `P.t` after P.o/P.p/P.q/P.r ship) so the final on-disk record matches Rule 1's "in the order performed" invariant.
 
@@ -615,15 +615,32 @@ The non-capturing `(?:Story\s+)?` consumes an optional `"Story "` prefix without
 
 **Implementation:**
 
-- [ ] Verify every story in the bundle list is `[Done]` on disk. If any are still `[Planned]`, either ship them first or remove them from the bundle (and update the CHANGELOG entry accordingly).
-- [ ] Bump `project_guide/version.py`: `__version__ = "2.8.0"`
-- [ ] Bump `pyproject.toml`: `version = "2.8.0"`
-- [ ] Add a unified `## [2.8.0] - <date>` entry to `CHANGELOG.md`. Recommended structure:
-  - One opening paragraph naming the release theme — "Phase P closing bundle: cycle-mode LLM-workflow discipline + XP methodology grounding + untracked-by-default `go.md` policy."
-  - `### Added` / `### Changed` / `### Fixed` / `### Documented` subsections as appropriate, with each bundled story summarized as one bullet and credited by ID.
-  - **Migration** subsection at the bottom: one-line consumer command for P.o (`git rm --cached docs/project-guide/go.md && git commit`) plus the link to P.o's body for full rationale.
-- [ ] Renumber this story's ID from `P.t` to the next sequential letter in Phase P at release time (verify by reading the highest `[Planned]` letter currently in the file and incrementing). Update any in-body references (none expected; this story is self-contained) and any commit-message draft.
-- [ ] Flip this story's status to `[Done]` and all `[ ]` checklist items to `[x]`.
+Pre-release content tasks (folded in at the developer's request during the announce of this story):
+
+- [x] **Foundation-reconciliation cleanup** — rewrote the "Story Ordering" bullet at `code-direct-mode.md:39` from the stale `"Start with Story A.a (Hello World)"` to a 3-story foundation summary (A.a Scaffolding / A.b Hello World / A.c integration spike) with cross-reference to `best-practices-guide.md` § "Hello World First — Spike Early, Spike Often." Confirmed no parallel issues exist in `code-test-first-mode.md` (no foundation language), `debug-mode.md`, `default-mode.md`, or the `developer/` guides (already reconciled by P.p).
+- [x] **Mode-template audit vs. new universal rules** — reviewed every cycle-mode and planning-mode template against P.n/P.q/P.r's universal rules. Findings:
+  - **Per-mode "Do not propose commits…" reinforcements** at `code-direct-mode.md` Step 10 and `code-test-first-mode.md` Step 9 duplicate `_header-common.md` Rule 5 in spirit, but are deliberate per-step emphasis at the highest-temptation moment (parallels P.q's debug-mode inline reinforcement pattern). Not redundancy in the bad sense; **left as-is**.
+  - **No conflicts found** between any per-mode template and the new universal rules. The P.p terminology rename ("end-to-end stack spike" → "integration spike") had already reconciled the planning-mode cross-references; the P.n scope-of-authority guardrail had already been reinforced inline at debug-mode Step 5.
+  - **Ambiguity flagged at the approval gate (not fixed unilaterally):** `refactor-plan-mode.md` and `refactor-document-mode.md` do not currently author `stories.md` entries per-cycle, which is in tension with P.q Rule 1 ("every chunk of LLM-produced work is captured as a story"). The historical refactor convention has been that the rewrite session documents itself in the rewritten artifacts. Resolving this is a methodology decision beyond P.t's bundled-release scope; **flagging for the developer**.
+
+Release bundling tasks:
+
+- [x] Verified all six bundled stories are `[Done]` on disk: P.n, P.o, P.p, P.q, P.r, P.s (P.t self-completes).
+- [x] Bumped `project_guide/version.py`: `__version__ = "2.8.0"`
+- [x] Bumped `pyproject.toml`: `version = "2.8.0"`
+- [x] Added unified `## [2.8.0] - 2026-05-19` entry to `CHANGELOG.md` with the recommended structure: opening paragraph naming the Phase P closing-bundle theme, `### Changed` / `### Added` / `### Fixed` subsections crediting each bundled story by ID (P.n–P.t), and a `### Migration` subsection with the one-line P.o consumer command. Consolidated the previously P.o-tagged content from `## [Unreleased]`; `[Unreleased]` is now empty.
+- [x] Ran `pyve run project-guide update` to propagate the foundation-cleanup edit (one source template) into `docs/project-guide/`.
+- [x] Ran full test suite + lint sweep: `pyve test` → **532 passed**; `ruff check project_guide/ tests/` → **All checks passed**.
+
+Folded-in audit follow-up (developer-directed Path 2, after the initial gate presentation):
+
+- [x] **Refactor modes now author session-level stories** — resolved the ambiguity flagged at the initial gate by updating both refactor cycle templates to bring them inside P.q Rule 1's "every chunk of LLM-produced work is captured as a story" invariant:
+  - `project_guide/templates/project-guide/templates/modes/refactor-plan-mode.md` — new **Session Story** section between "Targets" and "Cycle Steps (for each document)" specifying: write one story per session (after Step 1 of the first document), checklist holds one `[ ]` per doc touched + one `[ ]` for the Final-Step project-essentials revisit, version-bump decision deferred to the developer at the session gate. New **Step F.5** (after F.4 Approval) flips the checklist `[x]`, marks the story `[Done]`, executes any version-bump-and-CHANGELOG tasks the developer authorized at session start, and presents the session story at a session-level gate distinct from the per-document gates at Step 7. Cross-references `_header-common.md` Rules 1 (story-by-story) / 4 (gate handoff) / 5 (no LLM-proposed commits) and `_phase-letters.md`'s "Inserting a new story" Append rule (no new phase headings — Scope of authority).
+  - `project_guide/templates/project-guide/templates/modes/refactor-document-mode.md` — parallel **Session Story** + **Session Close** additions covering README / brand-descriptions / landing page / MkDocs config. Note that `refactor_document` has no project-essentials revisit, so the session-story checklist captures only document-rewrite tasks.
+- [x] Ran `pyve run project-guide update` and verified rendered `go.md` for both modes: 4 occurrences each of "Session Story" / "Session Close" / "session-level gate" reaching the rendered output. Mode restored to `code_direct`.
+- [x] Re-ran the test/lint sweep after the additional template edits: still **532 passed**, ruff clean.
+- [x] Extended `CHANGELOG.md`'s `## [2.8.0]` `### Fixed` section with a P.t-credited bullet describing the refactor-mode change.
+- [x] Flipped this story's status to `[Done]` and all checklist items to `[x]`. (P.t remains the v2.8.0 bundled-release story; the audit follow-up rides the same release.)
 
 **Version assignment:** **v2.8.0** — minor bump driven by P.o's new behavior (heal warning + consumer migration path). The four template stories (P.n, P.p, P.q, P.r) ride this release per the principle above. P.t owns the single bump; individual bundled stories do **not** carry their own `Bump version.py` / `Bump pyproject.toml` / `CHANGELOG.md` tasks.
 
