@@ -63,23 +63,31 @@ The hook is silent in the steady state (no drift → no output). It is recursion
 
 **Skip conditions:** the hook returns silently when `PROJECT_GUIDE_HEALING=1` is set, when `.project-guide.yml` is absent (let `init` bootstrap; `heal` would error otherwise), or when config load / drift detection fails. Missing `.project-guide.yml` is a hard error from the **`heal` subcommand itself** but a silent skip from the **hook** — the original subcommand surfaces the missing-config error with its own guidance.
 
-### Inverted gitignore policy (added v2.6.0, tightened v2.6.1, IDE-compat reshape v2.7.1)
+### Inverted gitignore policy (added v2.6.0, tightened v2.6.1, IDE-compat reshape v2.7.1, untracked-by-default v2.8.0)
 
-`init`'s gitignore writer produces a canonical block that ignores everything under `target_dir` *except* `go.md`. The policy has gone through three shapes:
+`init`'s gitignore writer produces a canonical block that ignores everything under `target_dir` *except* `go.md`. The block has gone through three shapes; the **tracking status** of `go.md` flipped in v2.8.0:
 
 - **v2.6.0 (P.d):** 4-line negation form (`<target>/**` + `!<target>/go.md` + redundant `<target>/**/*.bak.*`).
 - **v2.6.1 (P.j):** 3-line negation form — dropped the redundant `.bak.*` line.
 - **v2.7.1 (P.l):** **negation-free explicit-list form** — lists every top-level entry under `target_dir` other than `go.md`, plus a `<target>/**/*.bak.*` defensive catch-all. The list is dynamically enumerated from the bundled template root at write time, so new top-level files/directories added in future stories are picked up automatically.
+- **v2.8.0 (P.o):** gitignore block unchanged from v2.7.1; **tracking status of `go.md` flips** from "tracked by historical accident" to **untracked-by-default**. `heal` emits a stderr warning with a copyable `git rm --cached docs/project-guide/go.md && git commit` command when it detects `go.md` in the consumer's git index. `init` emits a stderr note that the file is intentionally untracked.
 
 P.l abandoned negation because several IDE-integrated tools (Cursor, parts of the VS Code fork ecosystem, certain LSP-based search backends) implement a subset of `.gitignore` semantics that does **not** honor re-include negation — they apply the broad `**` rule, hide `go.md` from @-mention / fuzzy-search, and defeat the IDE-LLM-visibility constraint the policy is trying to enforce. **Future maintainers: do not "simplify" back to `**` + `!` — the regression is invisible from git's perspective but breaks the IDE workflow.**
 
 **Idempotent rewrite:** `_ensure_gitignore_entry()` uses `_is_recognized_block_line(line, target_dir)` as its "ours-vs-foreign" predicate. It accepts anything anchored at `/<target>/` (the v2.7.1+ form) plus every prior legacy form (v2.6.1 3-line, v2.6.0 4-line, pre-P.d `.bak.*`-only, legacy `<target>/go.md`). Any block whose lines all satisfy the predicate is rewritten cleanly to the current canonical form. A foreign hand-customized block under a `# project-guide` header is left untouched with a stderr warning; migrate manually or run `init --force`.
 
-### IDE-LLM visibility constraint (added v2.6.0)
+### IDE-LLM visibility constraint (added v2.6.0, untracked-by-default refinement v2.8.0)
 
-`go.md` **must remain non-gitignored** because IDE-integrated LLMs (Cursor, Claude Code, etc.) typically hide gitignored files from the LLM's view, and the LLM's instruction to `Read docs/project-guide/go.md` requires the file to be visible. The repo-history value of `go.md` is incidental — the file churns on every mode switch — and that churn is the acceptable cost for LLM visibility.
+`go.md` **must remain non-gitignored** because IDE-integrated LLMs (Cursor, Claude Code, etc.) typically hide gitignored files from the LLM's view, and the LLM's instruction to `Read docs/project-guide/go.md` requires the file to be visible.
 
-This is the constraint that forces the **inverted** gitignore policy rather than the simpler "ignore the entire `target_dir`" approach. Future refactors of the gitignore logic must preserve the `!<target>/go.md` exception.
+**Visibility vs. tracking — the key distinction (clarified v2.8.0):**
+
+- **Gitignore status** governs IDE-LLM visibility. The constraint is: `go.md` must remain **non-gitignored** so Cursor / Claude Code / VS Code-fork LLM tooling can read it. The v2.7.1 explicit-list gitignore block already leaves `go.md` un-listed (and therefore unignored).
+- **Tracking status** governs version-control churn and branch-switch safety. Pre-v2.8.0 `go.md` was tracked by historical accident, which made every mode switch appear in diffs and (more dangerously) caused `git switch` aborts when a feature branch had a different `go.md` than its base. v2.8.0 flips the tracking status to **untracked-but-unignored**: IDE LLMs still see the file (because it's not gitignored), but it stays out of the consumer's index so branch switches and merges no longer trip on it.
+
+The canonical state is therefore: `go.md` is **untracked-but-unignored**. Future refactors of the gitignore logic must preserve `go.md` as un-listed in the block (visibility), and project-guide itself must never `git add` it (tracking).
+
+**Warn-don't-auto-fix:** `heal` warns when `go.md` is tracked but does **not** auto-run `git rm --cached` — same wrapper-initiates-git-ops constraint that bounded the P.k `git-push` wrapper. The consumer applies the migration command on their own schedule.
 
 ### `heal` vs. `update` vs. `init` (added v2.6.0)
 

@@ -376,15 +376,16 @@ The bundled `templates/artifacts/pyve-essentials.md` artifact covers: two-enviro
 - `.project-guide.yml` is absent (let `init` bootstrap; the hook does not error).
 - The config fails to load (schema mismatch, parse error) — the subcommand surfaces the error with its own guidance.
 
-**Inverted gitignore policy.** `init`'s gitignore writer produces a canonical block under a `# project-guide` header that ignores everything under `target_dir` *except* `go.md`. The block has gone through three shapes (P.d → P.j → P.l):
+**Inverted gitignore policy.** `init`'s gitignore writer produces a canonical block under a `# project-guide` header that ignores everything under `target_dir` *except* `go.md`. The block has gone through three shapes; the **tracking status** of `go.md` flipped in v2.8.0 (P.d → P.j → P.l → P.o):
 
 - **v2.6.0 (P.d):** 4-line negation form (`<target>/**` + `!<target>/go.md` + redundant `<target>/**/*.bak.*`).
 - **v2.6.1 (P.j):** 3-line negation form — dropped the redundant `.bak.*` line.
 - **v2.7.1 (P.l):** **negation-free explicit-list form** — lists every top-level entry under `target_dir` other than `go.md`, plus a `<target>/**/*.bak.*` catch-all for top-level backups. The list is generated dynamically from the bundled template tree, so new top-level files/subdirectories added in future releases are picked up automatically.
+- **v2.8.0 (P.o):** **untracked-by-default `go.md`**. The gitignore block is unchanged from v2.7.1 — `go.md` is still un-listed (and therefore unignored), preserving IDE-LLM visibility. What flips is the **tracking status**: `go.md` is no longer in the consumer's git index. `heal` warns (stderr) when it detects a tracked `go.md` with a copyable `git rm --cached docs/project-guide/go.md && git commit` migration command; `init` emits a stderr note that fresh installs leave `go.md` untracked. Branch switches and merges no longer trip on `go.md`.
 
-P.l abandoned the negation form because several IDE-integrated tools (Cursor, parts of the VS Code fork ecosystem, certain LSP-based search backends) implement a subset of `.gitignore` semantics that does not honor re-include negation — they apply the broad `**` rule, hide `go.md` from @-mention / fuzzy-search, and defeat the IDE-LLM-visibility constraint that's the whole reason `go.md` is tracked.
+P.l abandoned the negation form because several IDE-integrated tools (Cursor, parts of the VS Code fork ecosystem, certain LSP-based search backends) implement a subset of `.gitignore` semantics that does not honor re-include negation — they apply the broad `**` rule, hide `go.md` from @-mention / fuzzy-search, and defeat the IDE-LLM-visibility constraint that's the whole reason `go.md` stays unignored. The v2.8.0 tracking flip preserves that visibility — `go.md` remains unignored — while removing the version-control churn and branch-switch failure mode that motivated P.o.
 
-Consumers migrating from a pre-Phase-P install run `project-guide init --force` to refresh the gitignore block; `git rm --cached` is the manual cleanup for previously tracked files. Existing v2.6.x/v2.7.0 installs heal to the v2.7.1 explicit-list form on the next `init --force` — every prior shape stays recognized by `_is_recognized_block_line()`. The track-only-`go.md` policy is unchanged across all three shapes; only the syntax that expresses it differs.
+Consumers migrating from a pre-Phase-P install run `project-guide init --force` to refresh the gitignore block. Consumers upgrading from v2.6.x/v2.7.x to v2.8.0 run `git rm --cached docs/project-guide/go.md && git commit` once on their default branch to migrate the tracking status; `heal` surfaces the warning until the migration is applied. Existing pre-v2.7.1 installs heal to the v2.7.1 explicit-list form on the next `init --force` — every prior shape stays recognized by `_is_recognized_block_line()`.
 
 ### FR-15: Story-Aware `git-push` Wrapper (gitbetter integration)
 

@@ -177,11 +177,10 @@ def init(
     """Initialize project-guide in a new project."""
     config_path = Path(".project-guide.yml")
 
-    # Compute once, up front, so any future prompt site in this command has
-    # a single source of truth. Today `init` has no interactive prompts, so
-    # this value is plumbed through but not consulted — that's intentional:
-    # the contract needs to exist *before* the first prompt is added.
-    skip_input = should_skip_input(no_input)  # noqa: F841  (reserved for future prompts)
+    # Compute once, up front, as the single source of truth for any prompt
+    # or skip-input-suppressed output in this command. P.o consumes it to
+    # suppress the "intentionally untracked" stderr notice under --no-input.
+    skip_input = should_skip_input(no_input)
 
     # Resolve test_first via the four-level chain: CLI flag → env var → default.
     # Config is not yet loaded at init time, so the config level is skipped.
@@ -301,6 +300,17 @@ def init(
         click.secho(
             f"Previous config backed up to {config_backup_path}. "
             f"Delete once you've verified the new config.",
+            fg='yellow',
+            err=True,
+        )
+
+    # Story P.o: go.md is intentionally untracked-but-unignored. IDE-integrated
+    # LLMs still see it (no gitignore rule), but it stays out of the index so
+    # branch switches don't trip on it. Surface the policy at install time so
+    # fresh installs don't land in the historical "tracked from accident" state.
+    if not quiet and not skip_input:
+        click.secho(
+            f"Note: {output_path} is intentionally untracked. Do not 'git add' it.",
             fg='yellow',
             err=True,
         )
@@ -1469,6 +1479,61 @@ def _apply_heal(config: Config, config_path: Path) -> None:
         click.secho(f"Warning: Could not re-render go.md: {e}", fg='yellow', err=True)
 
 
+def _warn_if_go_md_tracked(config: Config) -> None:
+    """Warn (stderr, non-fatal) when ``<target_dir>/go.md`` is tracked in git.
+
+    Story P.o reframes ``go.md`` as untracked-but-unignored: IDE-integrated
+    LLMs still see it (because it's not gitignored), but it stays out of the
+    consumer's index so branch switches and merges don't trip over it.
+    Consumers upgrading from v2.6.x–v2.7.x have it tracked from historical
+    accident; the warning surfaces the issue with a copyable migration
+    command and the consumer decides when to apply it. The command is never
+    auto-run from inside ``project-guide`` — same wrapper-initiates-git-ops
+    constraint that bounded the P.k ``git-push`` wrapper.
+
+    Silent when ``go.md`` is untracked (the steady state), when the cwd is
+    not a git repository, under the recursion guard env var, under
+    ``--no-input``, or when ``git`` is unavailable.
+    """
+    if os.environ.get(_HEAL_GUARD_ENV) == "1":
+        return
+    if should_skip_input():
+        return
+
+    go_md_path = f"{config.target_dir}/go.md"
+    try:
+        repo_check = subprocess.run(
+            ["git", "rev-parse", "--is-inside-work-tree"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except (FileNotFoundError, OSError):
+        return
+    if repo_check.returncode != 0:
+        return
+
+    try:
+        ls_files = subprocess.run(
+            ["git", "ls-files", "--error-unmatch", go_md_path],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except (FileNotFoundError, OSError):
+        return
+    if ls_files.returncode != 0:
+        return
+
+    click.secho(
+        f"Warning: {go_md_path} is tracked. The current policy is "
+        "untracked-by-default — run "
+        f"`git rm --cached {go_md_path} && git commit` once to migrate.",
+        fg='yellow',
+        err=True,
+    )
+
+
 def _run_pre_invoke_hook() -> None:
     """Group-level hook: heal first, then let the requested subcommand run.
 
@@ -1501,6 +1566,8 @@ def _run_pre_invoke_hook() -> None:
         config = Config.load(str(config_path))
     except (SchemaVersionError, ConfigError):
         return
+
+    _warn_if_go_md_tracked(config)
 
     try:
         updated, _skipped, _current, missing = sync_files(config, dry_run=True)
@@ -1590,6 +1657,8 @@ def heal(no_input: bool):
     except ConfigError as e:
         click.secho(f"Error: {e}", fg='red', err=True)
         sys.exit(3)
+
+    _warn_if_go_md_tracked(config)
 
     # Drift detection via dry-run sync; overrides are intentionally not drift.
     try:

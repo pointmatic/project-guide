@@ -100,7 +100,7 @@ project-guide/
 | `_header-*.md` | Jinja2 partials included by mode templates |
 | `.metadata.yml` | Hidden config/metadata files (dotfile prefix) |
 | `*.bak.<timestamp>` | Backup files created by forced updates |
-| `go.md` | Rendered entry point (gitignored) |
+| `go.md` | Rendered entry point (unignored but untracked-by-default as of P.o / v2.8.0) |
 
 ---
 
@@ -283,7 +283,18 @@ class ModeDefinition:
 
 The list is **dynamically generated** at write time by enumerating the bundled template root (`_get_package_template_dir()`) and emitting one anchored line per top-level child other than `go.md`. New top-level files or subdirectories added in future releases are picked up automatically — no manual writer update required.
 
-**Why this shape:** every file under `target_dir` except `go.md` is bundled static data that `heal` (FR-14) repopulates on first invocation, so tracking the full template tree in the consumer repo would just add ~35 files of noise to `git status` and PR reviews. `go.md` itself **must remain tracked** because IDE-integrated LLMs (Cursor, Claude Code, etc.) typically hide gitignored files from the LLM's view, and the LLM's instruction to `Read docs/project-guide/go.md` requires the file to be visible. The repo-history value of `go.md` is incidental — the file churns on every mode switch — and that churn is the acceptable cost for LLM visibility.
+**Why this shape:** every file under `target_dir` except `go.md` is bundled static data that `heal` (FR-14) repopulates on first invocation, so tracking the full template tree in the consumer repo would just add ~35 files of noise to `git status` and PR reviews. `go.md` itself **must remain non-gitignored** because IDE-integrated LLMs (Cursor, Claude Code, etc.) typically hide gitignored files from the LLM's view, and the LLM's instruction to `Read docs/project-guide/go.md` requires the file to be visible.
+
+**Visibility vs. tracking (clarified in P.o / v2.8.0).** Two separate properties are at play:
+
+- **Gitignore status** governs IDE-LLM visibility — the file must stay unignored for Cursor / Claude Code / VS Code-fork tooling to see it.
+- **Tracking status** governs version-control churn and branch-switch safety — a tracked `go.md` appears in every mode-switch diff and (more dangerously) causes `git switch` aborts when a feature branch's tip has a different `go.md` than its base.
+
+Pre-v2.8.0, `go.md` was tracked by historical accident. v2.8.0 (Story P.o) flips it to **untracked-but-unignored**: `heal` emits a stderr warning with a copyable `git rm --cached docs/project-guide/go.md && git commit` command when it detects `go.md` in the consumer's index; `init` emits a stderr note that fresh installs leave the file untracked. The gitignore block itself is unchanged from v2.7.1.
+
+**Why untracked-by-default?** Field-evidence trigger: a consumer (pyve) pushed `update/project-guide-v2.7.1` as a feature branch, the PR merged on GitHub, and the post-merge `git switch main` aborted with `error: The following untracked working tree files would be overwritten by checkout: docs/project-guide/go.md` — pyve's main had `go.md` from an earlier `git add`, the feature-branch tip did not, and git refused the switch. Re-rendering `go.md` from `.project-guide.yml:mode` at heal-time doesn't help here because git aborts *before* any `project-guide` command runs. Collapsing to untracked-by-default removes the conflict entirely: git does not gate `switch` on untracked-unignored files.
+
+**Why warn-don't-auto-fix.** `heal` warns when `go.md` is tracked but does not run `git rm --cached` itself. Project-guide writes its own files (templates, `.project-guide.yml`, the gitignore block) but does not edit the consumer's index or HEAD — same wrapper-initiates-git-ops constraint that bounded the P.k `git-push` wrapper. The consumer applies the one-line migration on their own schedule.
 
 **Why explicit list instead of `**` + `!go.md`?** The cleaner negation form (used in v2.6.0–v2.7.0) is correct per the `.gitignore` spec, but several IDE-integrated tools (Cursor, parts of the VS Code fork ecosystem, certain LSP-based search backends) implement a subset of `.gitignore` semantics that does **not** honor re-include negation — they apply the broad `**` rule, hide `go.md` from @-mention search, and defeat the IDE-LLM-visibility constraint the policy is trying to enforce. P.l (v2.7.1) switched to the explicit-list form so no negation is required; tools with simplistic parsers handle anchored line-per-entry patterns reliably. Future maintainers: do **not** "simplify" back to `**` + `!` — the regression is invisible from git's perspective but breaks the IDE workflow that motivates tracking `go.md` in the first place.
 

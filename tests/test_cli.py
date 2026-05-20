@@ -2895,3 +2895,124 @@ def test_git_push_errors_when_subnumbered_story_is_already_committed(runner, tmp
 
 
 # --- End Story P.k ----------------------------------------------------------
+
+
+# --- Story P.o: untracked-by-default go.md policy ---------------------------
+
+
+def _git_init_repo() -> None:
+    """Initialize a throwaway git repo in the cwd for the tracked-go.md tests."""
+    import subprocess
+    subprocess.run(["git", "init", "-q", "-b", "main"], check=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], check=True)
+    subprocess.run(["git", "config", "user.name", "Test"], check=True)
+
+
+def test_init_emits_untracked_note_on_stderr(runner, tmp_path, prompt_tty):
+    """init prints the 'intentionally untracked' note when stdin is interactive."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(main, ['init'])
+
+        assert result.exit_code == 0, result.output
+        assert "is intentionally untracked" in result.output
+        assert "Do not 'git add' it" in result.output
+
+
+def test_init_quiet_suppresses_untracked_note(runner, tmp_path, prompt_tty):
+    """`init --quiet` suppresses the 'intentionally untracked' note."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(main, ['init', '--quiet'])
+
+        assert result.exit_code == 0
+        assert "intentionally untracked" not in result.output
+
+
+def test_init_no_input_suppresses_untracked_note(runner, tmp_path):
+    """`init --no-input` suppresses the 'intentionally untracked' note (no prompt_tty)."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(main, ['init', '--no-input'])
+
+        assert result.exit_code == 0, result.output
+        assert "intentionally untracked" not in result.output
+
+
+def test_heal_warns_when_go_md_is_tracked(runner, tmp_path, prompt_tty, monkeypatch):
+    """In a git repo where go.md is in the index, heal warns with a copyable command."""
+    # The recursion-guard env var is set autouse-globally by conftest to suppress
+    # the auto-hook; it would also suppress the P.o warning. Clear it for tests
+    # that exercise the warning path itself.
+    monkeypatch.delenv("PROJECT_GUIDE_HEALING", raising=False)
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _git_init_repo()
+        _init_project(runner)
+
+        import subprocess
+        # Force-add go.md so it lands in the index regardless of the gitignore
+        # block (which doesn't ignore go.md, but we want to be explicit).
+        subprocess.run(
+            ["git", "add", "-f", "docs/project-guide/go.md"], check=True
+        )
+        subprocess.run(
+            ["git", "commit", "-q", "-m", "seed"], check=True
+        )
+
+        result = runner.invoke(main, ['heal'])
+
+        assert result.exit_code == 0, result.output
+        assert "docs/project-guide/go.md is tracked" in result.output
+        # The migration command must be copy-pasteable verbatim.
+        assert (
+            "`git rm --cached docs/project-guide/go.md && git commit`"
+            in result.output
+        )
+
+
+def test_heal_silent_when_go_md_is_untracked(runner, tmp_path, prompt_tty, monkeypatch):
+    """In a git repo where go.md is not in the index, heal is silent (no warning)."""
+    monkeypatch.delenv("PROJECT_GUIDE_HEALING", raising=False)
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _git_init_repo()
+        _init_project(runner)
+        # Leave go.md untracked — do not `git add` it.
+
+        result = runner.invoke(main, ['heal'])
+
+        assert result.exit_code == 0, result.output
+        assert "is tracked" not in result.output
+
+
+def test_heal_silent_when_not_in_git_repo(runner, tmp_path, prompt_tty, monkeypatch):
+    """In a non-git directory, heal emits no warning and no errors."""
+    monkeypatch.delenv("PROJECT_GUIDE_HEALING", raising=False)
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_project(runner)
+        # No `git init` — the cwd is not a git work tree.
+
+        result = runner.invoke(main, ['heal'])
+
+        assert result.exit_code == 0, result.output
+        assert "is tracked" not in result.output
+
+
+def test_heal_suppresses_warning_under_no_input(runner, tmp_path, monkeypatch):
+    """`PROJECT_GUIDE_NO_INPUT=1` suppresses the tracked-go.md warning."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _git_init_repo()
+        _init_project(runner)
+
+        import subprocess
+        subprocess.run(
+            ["git", "add", "-f", "docs/project-guide/go.md"], check=True
+        )
+        subprocess.run(
+            ["git", "commit", "-q", "-m", "seed"], check=True
+        )
+
+        monkeypatch.setenv("PROJECT_GUIDE_NO_INPUT", "1")
+        result = runner.invoke(main, ['heal'])
+
+        assert result.exit_code == 0, result.output
+        assert "is tracked" not in result.output
+
+
+# --- End Story P.o ----------------------------------------------------------

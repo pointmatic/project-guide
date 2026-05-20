@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (P.o — untracked-by-default `go.md`)
+- **`project_guide/cli.py:heal`** — added a tracked-`go.md` detection step. When `docs/project-guide/go.md` is in the consumer's git index, `heal` emits a stderr warning with a copyable migration command (`git rm --cached docs/project-guide/go.md && git commit`). Non-fatal; the warning surfaces the issue but never auto-runs git operations — same wrapper-initiates-git-ops constraint that bounded the P.k `git-push` wrapper. Silent when `go.md` is untracked, when cwd is not a git repo, under `PROJECT_GUIDE_HEALING=1` (recursion guard), or under `--no-input`.
+- **`project_guide/cli.py:init`** — added a stderr note after the initial render that `go.md` is intentionally untracked. Suppressed under `--quiet` / `--no-input`.
+
+### Documented (P.o)
+- **`docs/specs/project-essentials.md`** — extended "Inverted gitignore policy" and "IDE-LLM visibility constraint" subsections with the v2.8.0 visibility-vs-tracking distinction. `go.md` is now **untracked-but-unignored**: IDE LLMs still see it (no gitignore rule), but it stays out of the index so branch switches and merges don't trip on it.
+- **`docs/specs/features.md`** — extended the FR-14 evolution narrative with the v2.8.0 tracking flip and the consumer migration command.
+- **`docs/specs/tech-spec.md`** — added "Visibility vs. tracking" and "Why untracked-by-default?" paragraphs to `## .gitignore Management`, citing the pyve `git switch` incident as the field-evidence trigger.
+- **`README.md`** — Quick Start now describes `go.md` as unignored-but-untracked and includes the consumer migration one-liner for upgrades from v2.6.x – v2.7.x. The `heal` command-reference section documents the tracked-`go.md` warning.
+
+### Migration (P.o)
+Consumers upgrading from v2.6.x – v2.7.x run once on their default branch:
+```bash
+git rm --cached docs/project-guide/go.md && git commit -m "untrack go.md per project-guide v2.8.0"
+```
+`heal` continues to warn until the migration is applied. Consumers who never migrate continue to function — `go.md` keeps appearing in their working-tree diff on every mode switch, but no command fails.
+
 ## [2.7.2] - 2026-05-19
 
 Bug fix: `project-guide git-push` (and version/phase detection) silently dropped sub-numbered story IDs (`J.m.1`, `J.m.2`, …). When the latest `[Done]` story used the sub-numbered form, the wrapper fell back to the previous bare-letter heading and reported it as "already committed," blocking the push of the new story.

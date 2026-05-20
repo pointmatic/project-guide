@@ -86,10 +86,18 @@ project-guide init
 
 This creates:
 - `.project-guide.yml` - Configuration file (tracked)
-- `docs/project-guide/go.md` - Rendered LLM instructions (tracked — must be visible to IDE-integrated LLMs)
+- `docs/project-guide/go.md` - Rendered LLM instructions (**unignored but intentionally untracked** as of v2.8.0 — must be visible to IDE-integrated LLMs, but kept out of git so branch switches don't trip on it)
 - `docs/project-guide/` - Mode templates, artifact templates, and metadata (gitignored bundled data)
 
 Everything under `docs/project-guide/` is gitignored **except** `go.md` (which the LLM reads). The gitignored template tree is bundled static data — `project-guide heal` repopulates it on first invocation in a fresh clone, and the auto-hook makes that healing run silently before any other command.
+
+**Upgrading from v2.6.x – v2.7.x?** Earlier project-guide versions left `go.md` tracked by historical accident. v2.8.0 flips the policy to untracked-by-default to eliminate branch-switch and merge friction. If `heal` warns that `go.md` is tracked, run once on your default branch:
+
+```bash
+git rm --cached docs/project-guide/go.md && git commit -m "untrack go.md per project-guide v2.8.0"
+```
+
+The file stays visible to your IDE LLM (the gitignore block hasn't changed), but it stops appearing in diffs and stops blocking `git switch`.
 
 ### 2. Tell your LLM to read the guide
 
@@ -328,6 +336,8 @@ project-guide heal [OPTIONS]
 - Whenever you're not sure whether the install is up-to-date with the package version.
 
 **Auto-hook:** every `project-guide` invocation (including `--help` and `--version`) calls heal first via a group-level hook, so the fresh-clone case usually resolves itself silently the first time you run *any* command. The hook is silent in the steady state and prompts only when there's actual drift.
+
+**Tracked-`go.md` warning (v2.8.0+):** if `docs/project-guide/go.md` is in your git index, `heal` emits a stderr warning with a copyable migration command. The current policy is untracked-by-default — `go.md` stays visible to IDE LLMs (because it's unignored) but is kept out of the index so branch switches don't trip on it. The warning is non-fatal; the consumer applies the migration on their own schedule.
 
 **Examples:**
 ```bash
