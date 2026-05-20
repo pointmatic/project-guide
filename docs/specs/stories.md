@@ -475,7 +475,7 @@ Bundle four related doc-and-template reconciliations surfaced during the P.m →
 
 ---
 
-### Story P.q: LLM workflow discipline — documentation timing, spike-awareness, gate handoff [Planned]
+### Story P.q: LLM workflow discipline — documentation timing, spike-awareness, gate handoff [Done]
 
 Bake four cross-cutting workflow rules into the universal Rules block of `_header-common.md` so every rendered `go.md` carries them, and reinforce the rules that hit hardest at `debug`-mode's Step 5 with inline guidance plus a new anti-pattern entry. The rules address structural LLM failure modes observed in this conversation and in prior cycles: undocumented work, off-by-one story numbering when work is paused/resumed, conflation of documentation with implementation, deferral of the gate artifact to the developer.
 
@@ -490,12 +490,12 @@ Bake four cross-cutting workflow rules into the universal Rules block of `_heade
 
 **Implementation:**
 
-- [ ] `project_guide/templates/project-guide/templates/modes/_header-common.md` — add four bullets to the Rules block, immediately after the "Scope of authority — structural changes to `stories.md`" bullet added in P.n. Use bold-leading-title style matching the existing substantive rules. Rule 3 points at `developer/best-practices-guide.md` § "Hello World First — Spike Early, Spike Often"; the section exists today, P.p expands its content.
-- [ ] `project_guide/templates/project-guide/templates/modes/debug-mode.md` Step 5 — add a "Documentation timing in `debug`" paragraph after the existing "Scope reminder before you write" paragraph (added in P.n), before "(a) The story write-up." Names the exception explicitly (debug discovers root cause then writes the story) and reinforces the on-disk-before-gate invariant.
-- [ ] `project_guide/templates/project-guide/templates/modes/debug-mode.md` Anti-Patterns section — add a new entry: **"Deferring the Gate Artifact to the Developer"**, sibling to the existing "Declaring the Fix Complete After Step 4". Names the exact failure shape from this session: stopping at Step 4 and asking the developer how to story-ize the work, or asking permission to write the story. Solution points at Rule 4.
-- [ ] Run `pyve run project-guide update` to propagate the template edits to `docs/project-guide/templates/modes/_header-common.md` and `docs/project-guide/templates/modes/debug-mode.md`.
-- [ ] Verify rendered `docs/project-guide/go.md` contains the four new rule bullets and the two new debug-mode insertions.
-- [ ] Flip this story's status to `[Done]` and all `[ ]` checklist items to `[x]`.
+- [x] `project_guide/templates/project-guide/templates/modes/_header-common.md` — added four new bullets to the Rules block, immediately after the P.n "Scope of authority" bullet, in bold-leading-title style: (1) **Sequential, story-by-story documentation**, (2) **Documentation timing** (default + `debug` exception, on-disk-before-gate invariant), (3) **Spikes for uncertainty reduction** (forward-references the three-flavor taxonomy that P.p expanded in `developer/best-practices-guide.md`), (4) **Approval-gate documentation handoff** (story + files-changed presented together; story authored before pausing, not after the developer asks).
+- [x] `project_guide/templates/project-guide/templates/modes/debug-mode.md` Step 5 — added the "Documentation timing in `debug`" paragraph after the P.n "Scope reminder before you write" paragraph and before "(a) The story write-up." Names the explore→reproduce→fix→write sequence as the one legitimate exception to the universal timing rule, reinforces the on-disk invariant, and states explicitly that the LLM authors the story (no asking the developer how to wrap it).
+- [x] `project_guide/templates/project-guide/templates/modes/debug-mode.md` Anti-Patterns section — added the new **"Deferring the Gate Artifact to the Developer"** entry as a sibling to "Declaring the Fix Complete After Step 4." Names both shapes of the failure (asking the developer how to story-ize the work; asking permission to author the story) and points the solution at Rule 4 plus the `_phase-letters.md` "Inserting a new story" rules from P.p.
+- [x] Ran `pyve run project-guide update` to propagate both template edits into `docs/project-guide/templates/modes/`.
+- [x] Verified rendered `docs/project-guide/go.md` (under `debug` mode) contains all four new universal Rules-block bullets (lines 37–40), the new Step-5 "Documentation timing in `debug`" paragraph (line 434), and the new "Deferring the Gate Artifact to the Developer" anti-pattern (lines 716–720). Mode restored to `code_direct` for ongoing work.
+- [x] Flipped this story's status to `[Done]` and all checklist items to `[x]`.
 
 **Version assignment:** doc-only template change. Per Version Cadence, doc-only stories do not bump for themselves; P.q rides the next code-story release. No `project_guide/version.py`, `pyproject.toml`, or `CHANGELOG.md` change in this story.
 

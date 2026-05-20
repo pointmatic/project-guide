@@ -157,6 +157,8 @@ This step has **two distinct artifacts**. (a) is the gate; (b) is required but s
 
 **Scope reminder before you write:** per the `_header-common.md` Rules block, `debug` mode appends a story under the **existing** phase. Do not create a new `## Phase <Letter>:` heading, even if this fix feels like it belongs to a different theme than the current phase. If the work surfaces broader scope, recommend `plan_phase` at the approval gate and let the developer decide — do not pre-empt that decision by reshaping `stories.md`'s phase structure.
 
+**Documentation timing in `debug`.** This mode is the one legitimate exception to the universal **Documentation timing** rule (write story → execute → flip checklist). In `debug` the root cause is typically unknown until Steps 1–2 have run, so the legitimate sequence is: **explore → reproduce → small-scope fix → write the story (here, at Step 5).** Steps 1–4 produce working code and a reproducible test; Step 5 produces the story that captures all of it. **The on-disk invariant still holds:** by the time you present the approval gate at the end of Step 5, the story exists in `stories.md` with the executed tasks marked `[x]` and any prevention-scan follow-ups marked `[ ]`. You — the LLM — author this story; do not ask the developer how to wrap it, and do not present the gate without it.
+
 **(a) The story write-up — the gate artifact:**
 
 Create a new story in `docs/specs/stories.md` matching the project format (see the bundled `stories.md` template and `project-essentials.md` for commit/version conventions). Implementation tasks the fix actually completed are marked `[x]`; any housekeeping tasks discovered during the fix (related-bug scans, doc updates) are marked `[ ]` and left for follow-up.
@@ -436,6 +438,12 @@ all_records.sort(key=lambda r: (r.date, r.id))  # Sort interleaves duplicates
 **Problem:** Step 4 is "code works"; Step 5 is "cycle is done." Skipping Step 5 leaves the project record incomplete and the next debugger blind to what was learned. The 5-step workflow has a single named output artifact for each step — Step 5's artifact is the new story in `stories.md`. Without it, there is no gate.
 
 **Solution:** Run the Debugging Checklist before declaring the cycle complete. If you cannot point to a story in `stories.md` documenting this fix, you are at Step 4, not at the gate.
+
+### ❌ Deferring the Gate Artifact to the Developer
+
+**Problem:** A subtler variant of the previous anti-pattern. Steps 1–4 are complete; the LLM reaches the gate, recognizes the story is missing, and **asks the developer how to wrap the work** ("Should I add this as a new story? Sub-number under the previous one? Rename the existing planned story?") or **asks permission to author the story** ("Want me to add a story for this?"). Both shapes defer the Step-5 artifact to the developer's judgment when the Step-5 artifact is the LLM's job. The developer returns to the conversation with reduced context; the gate must present a story they can react to, not a meta-question about how to make one.
+
+**Solution:** Per Rule 4 (Approval-gate documentation handoff) in the universal Rules block: the LLM authors the story before pausing at the gate. If the right placement (new story vs. sub-number vs. follow-up to an existing story) is genuinely ambiguous, pick the most defensible option using `_phase-letters.md`'s "Inserting a new story" rules, write the story, and *flag the placement choice in the gate presentation* — "I added this as `<id>` because `<reason>`; tell me if a different placement would be better." That is a story the developer can act on; "how should I document this?" is not.
 
 ---
 
