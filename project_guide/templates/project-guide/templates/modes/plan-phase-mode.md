@@ -50,7 +50,7 @@ Before planning a new phase, the following should exist:
    - The successor follows the base-26-no-zero scheme (`Z` → `AA`, `ZZ` → `AAA`). See the Phase and Story ID Scheme below for details.
    - If `stories.md` was empty, **insert the new phase as the first phase** in the file (after the header and `---`, before any `## Future` section). Otherwise append after the highest existing phase but before `## Future`.
    - Break the phase into stories following the standard story format.
-   - Include a spike story if the phase introduces a new integration boundary.
+   - Include an **integration spike** story if the phase introduces a new integration boundary. See `docs/project-guide/developer/best-practices-guide.md` § "Hello World First — Spike Early, Spike Often" for the three-flavor spike taxonomy (integration / architectural / investigation); architectural and investigation spikes enter the sequence ad-hoc per that section.
 
 7. Present the updated stories to the developer for approval.
 

@@ -388,15 +388,15 @@ Rules:
 - **Version**: semver, bumped per story. Stories with no code changes omit the version.
 - **Status suffix**: `[Planned]` initially, changed to `[Done]` when completed.
 - **Checklist**: use `- [ ]` for planned tasks, `- [x]` for completed tasks. Subtasks are indented with two spaces.
-- **First story** should always be a minimal "Hello World" (Story A.a) — the smallest
-  possible runnable artifact proving the environment and package structure are wired up.
-- **Second story** (A.b) should be an **end-to-end stack spike** — a throwaway script
-  (in `scripts/`, not the package) that wires the full critical path together before
-  any production modules are written. See `docs/guides/best-practices-guide.md` §
-  "Hello World First — Spike Early, Spike Often" for the full principle and rationale.
+- **Foundation stories (A.a → A.b → A.c)** — every project starts with the canonical 3-story foundation that each prove one thing:
+  - **A.a — Scaffolding.** Package manifest, copyright header, README, CHANGELOG, `.gitignore`. Executed in `scaffold_project` mode (not the chosen code cycle). Marked `[Done]` by `scaffold_project` upon completion.
+  - **A.b — Hello World.** The smallest possible runnable artifact proving the runtime works (e.g., CLI prints `__version__`, server returns 200 on `/`, script runs `main()`).
+  - **A.c — Integration spike.** A throwaway end-to-end script (in `scripts/`, not the package) that wires the critical-path integration boundary together before any production modules. See `docs/project-guide/developer/best-practices-guide.md` § "Hello World First — Spike Early, Spike Often" for the full three-flavor spike taxonomy (integration / architectural / investigation) and rationale.
 - **Additional spikes** should be added as the first story of any phase that introduces
   a major new integration boundary (new API, new hardware backend, new async framework).
-  Each spike gets its own story ID and version bump.
+  Each spike gets its own story ID and version bump. The integration-spike pattern is the default
+  foundation flavor; architectural and investigation spikes are added ad-hoc per the same
+  best-practices-guide section.
 - **Homepage**: If a project homepage (e.g. `docs/index.html`) was created during the
   planning phase, include a task in the Hello World story to verify it is present and
   references the correct repository URL.
@@ -413,7 +413,7 @@ Present the complete `stories.md` to the developer. Do not proceed until approve
 
 Once all three documents are approved, begin implementing stories in order:
 
-1. **Start with Story A.a** (Hello World).
+1. **Start with Story A.a** (Scaffolding) — executed in `scaffold_project` mode. The chosen code cycle takes over from Story A.b (Hello World) onward.
 2. For each story:
    a. Read the story's checklist.
    b. Implement all tasks.

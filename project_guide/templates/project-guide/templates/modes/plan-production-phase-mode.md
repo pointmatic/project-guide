@@ -66,7 +66,7 @@ If the package version is below v1.0.0 and this is **not** the first-time crossi
 
 6. **Present the phase plan** to the developer for approval. Iterate if needed.
 
-7. **After approval, add a new phase section and stories to `docs/specs/stories.md`** — same algorithm as `plan_phase` step 5 (next phase letter, base-26-no-zero successor scheme, insertion before `## Future`, story format). Stories within the phase run **unversioned** during work; the phase ships as one bundled release at the end (per the Version Cadence rule). Include a spike story if the phase introduces a new integration boundary.
+7. **After approval, add a new phase section and stories to `docs/specs/stories.md`** — same algorithm as `plan_phase` step 5 (next phase letter, base-26-no-zero successor scheme, insertion before `## Future`, story format). Stories within the phase run **unversioned** during work; the phase ships as one bundled release at the end (per the Version Cadence rule). Include an **integration spike** story if the phase introduces a new integration boundary. See `docs/project-guide/developer/best-practices-guide.md` § "Hello World First — Spike Early, Spike Often" for the three-flavor spike taxonomy (integration / architectural / investigation); architectural and investigation spikes enter the sequence ad-hoc per that section.
 
 8. **Present the updated stories** to the developer for approval.
 

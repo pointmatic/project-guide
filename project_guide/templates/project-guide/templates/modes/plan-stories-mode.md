@@ -40,8 +40,8 @@ The high-level concept (why) should be captured in `concept.md`. The requirement
 - **Checklist**: use `- [ ]` for planned tasks, `- [x]` for completed tasks. Subtasks indented with two spaces.
 - **First story (A.a)**: Always Project Scaffolding — LICENSE, copyright header, package manifest, README, CHANGELOG, .gitignore. This story is executed in `scaffold_project` mode, not `{% if test_first %}code_test_first{% else %}code_direct{% endif %}`. It is marked `[Done]` by `scaffold_project` mode upon completion.
 - **Second story (A.b)**: Always a minimal "Hello World" -- the smallest runnable artifact proving the environment is wired up.
-- **Third story (A.c)**: An end-to-end stack spike -- a throwaway script (in `scripts/`, not the package) that wires the full critical path together before production modules.
-- **Additional spikes**: Add as the first story of any phase introducing a major new integration boundary.
+- **Third story (A.c)**: An **integration spike** — a throwaway script (in `scripts/`, not the package) that wires the full critical path together before production modules. See `docs/project-guide/developer/best-practices-guide.md` § "Hello World First — Spike Early, Spike Often" for the full three-flavor spike taxonomy (integration / architectural / investigation).
+- **Additional spikes**: Add an **integration spike** as the first story of any phase introducing a major new integration boundary. Architectural and investigation spikes enter the sequence ad-hoc per the best-practices-guide section above.
 - **Each story**: Completable in a single session and independently verifiable.
 - **Verification tasks**: Include where appropriate (e.g., "Verify: command prints version").
 - **Version bump and changelog tasks**: Every versioned story must include these two tasks as the last items before any Verify tasks: `- [ ] Bump version to vX.Y.Z` (substituting the actual version) and `- [ ] Update CHANGELOG.md`.
@@ -50,7 +50,7 @@ The high-level concept (why) should be captured in `concept.md`. The requirement
 
 | Phase | Name | Purpose |
 |-------|------|---------|
-| A | Foundation | Scaffolding (A.a), hello world (A.b), spike (A.c), core models, config, logging |
+| A | Foundation | Scaffolding (A.a), hello world (A.b), integration spike (A.c), core models, config, logging |
 | B | Core Services | The main functional modules (one story per service) |
 | C | Pipeline & Orchestration | Wiring services together, caching, concurrency, error handling |
 | D | CLI & Library API | User-facing interfaces |

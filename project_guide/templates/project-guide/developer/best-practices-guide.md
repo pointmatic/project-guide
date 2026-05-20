@@ -4,6 +4,31 @@ This guide documents key learnings and best practices for LLM-assisted software 
 
 ---
 
+## Methodology — Extreme Programming (XP)
+
+### Lineage
+
+The practices in this guide — cycle modes with approval gates, mandatory test-first in `debug`, single-story-per-commit discipline, the spike concept, small steps with frequent verification, pair-style developer/LLM collaboration — derive from **Extreme Programming (XP)** as articulated by Kent Beck and the C3 team in the late 1990s. project-guide is not a from-scratch invention; it is an adaptation of XP to the specifics of working with an LLM as a collaborator.
+
+### Why XP fits LLM-assisted development
+
+Each core XP practice counters a known LLM failure mode:
+
+- **Test-first** counters "looks right" hallucination. The test pins behavior before the code is written; "the code passes the tests" replaces "the code looks plausible" as the acceptance criterion.
+- **Small steps with frequent verification** matches the LLM's context-window economics. Long uninterrupted runs accumulate drift; short steps with a checkpoint each (commit, test pass, approval gate) make the drift catchable.
+- **Spikes for explicit uncertainty handling** give the LLM a legitimate action when the path forward is unknown. Without the spike concept, the LLM either fabricates a plausible-looking implementation or stalls. A spike is the structured "I don't know yet — let's find out" move.
+- **Documented decisions (stories, ADRs, project-essentials)** forestall invisible scope creep. Each unit of work has a name and a checklist; "scope crept" is a divergence the developer can see at the approval gate.
+- **Pair-style collaboration with rotating driver/navigator roles** is literally the developer/LLM relationship. The LLM drives at the keyboard; the developer navigates at the approval gate. Both roles are explicit, not aspirational.
+
+The implication is conservative: when an XP rule feels inconvenient, the failure mode it counters is probably the reason it exists. Drifting back to non-XP defaults (skipping tests, batching work, implementing without a story) reintroduces the failure modes XP was designed to prevent.
+
+### References
+
+- Kent Beck, *Extreme Programming Explained: Embrace Change* (Addison-Wesley, 1st ed. 1999; 2nd ed. with Cynthia Andres 2004).
+- Ron Jeffries, Ann Anderson, Chet Hendrickson, *Extreme Programming Installed* (Addison-Wesley, 2000).
+
+---
+
 ## Development Modes
 
 ### Velocity Mode vs. Production Mode
@@ -56,43 +81,29 @@ Recognize and adapt to two distinct development modes:
 
 ## Hello World First — Spike Early, Spike Often
 
-### Front-Load Integration Risk With Minimal End-to-End Spikes
+"Spike" is a canonical XP practice (Beck 1999) — a **time-boxed, throwaway effort to reduce uncertainty**. The deliverable is the documented outcome (decision, path forward, ruled-out alternatives), not production code. Code produced during a spike is either deleted or quarantined in `scripts/` / `notebooks/` and never imported by the package.
 
-**Problem:** Projects with multiple external dependencies (ML frameworks, cloud APIs,
-hardware accelerators, async libraries) often discover a critical assumption doesn't
-hold — wrong backend, incompatible library versions, missing system dependency —
-only after significant production code has been written. This is the "jump off the
-cliff YOLO" failure mode: everything looks fine until the very end, when it isn't.
+Agile literature recognizes three structurally distinct spike flavors. Each addresses a different category of uncertainty; picking the right flavor depends on **what kind of question** you can't answer without running an experiment.
 
-**Best Practice:**
+### Integration spike
 
-Before writing any production module code, create a **minimal throwaway spike** that
-wires the full stack together end-to-end. The spike:
+**Question answered:** Will the external systems connect end-to-end?
 
-- Lives in `scripts/` or `notebooks/`, **not** in the installable package
-- Is explicitly labelled throwaway (comment at the top: `# SPIKE — not production code`)
-- Uses hardcoded values, no config, no abstraction
-- Does exactly one thing: prove the critical path works
+Wires the full critical path together before any production modules are written. Hardcoded values, no abstraction, no config — the script's job is to prove the integration boundary actually works under realistic conditions (real credentials, real device, real network).
 
-A project with multiple integration layers warrants **multiple spikes**, one per
-major new integration boundary. Add a new spike story whenever you introduce:
+**Triggers** — add an integration spike whenever you introduce:
 
 - A new external service or API
 - A new hardware accelerator (GPU, MPS, TPU)
 - A new async or concurrency framework
 - A new ML framework or model serving path
 
-**Spike placement in `stories.md`:**
+**Placement in `stories.md`:**
 
-- **First spike (A.b):** Immediately after scaffolding (A.a), before any
-  production modules. Validates the core technology stack.
-- **Subsequent spikes:** As early as possible after the integration boundary
-  is introduced — typically the first story in the phase that introduces it.
-- Spikes get their own version bump and story ID.
-- Once a spike passes, the production implementation that follows it can
-  proceed with confidence.
+- **A.c by default** — the third story of the project, after A.a (scaffolding) and A.b (Hello World). The three foundation stories are structurally distinct: A.a proves the **package** is wired up; A.b proves the **runtime** is wired up; A.c proves the **integration boundary** is wired up.
+- **First story of any later phase that introduces a new integration boundary** — same shape, scoped to whatever the phase is introducing.
 
-**Example — the shape of a good spike:**
+**Example — shape of a good integration spike:**
 
 ```
 Script: scripts/spike_<integration_name>.py
@@ -107,15 +118,55 @@ If this script runs and produces sensible output, the integration is validated.
 If it fails, you find out now — before writing the modules that depend on it.
 ```
 
-**What a spike is NOT:**
+### Architectural spike
 
-- A prototype to keep and clean up — delete or clearly archive it after it passes
-- A substitute for proper tests — it proves the path exists, not that it's correct
-- An excuse to skip the production implementation — it's a gate, not a destination
+**Question answered:** Will this design or pattern actually work? What is the probability of implementation success?
 
-**Rationale:** The cost of discovering a broken assumption at A.b (one story in) is
-near zero. The cost of discovering it at D.b (ten stories in) is a potential
-rewrite. Spikes are cheap insurance against the most expensive category of failure.
+Beck's original spike flavor (Beck 1999). Throwaway code written to test a design choice **before** committing to it as the project's architecture. Used when the *implementation pattern* itself is uncertain — e.g., "can I express this state machine cleanly with async generators, or do I need a class-based approach?" or "will this serialization scheme survive round-trips under realistic load?"
+
+**Triggers** — add an architectural spike when:
+
+- A design choice is non-obvious and committing to it would touch many files
+- Two or more candidate patterns are credible and you can't pick on paper
+- The implementation pattern depends on a runtime characteristic you can't predict (performance, memory, threading semantics)
+
+**Output:** the throwaway implementation **plus** a documented pattern decision inside the spike's story. The decision is the deliverable; the code is the evidence.
+
+### Investigation spike
+
+**Question answered:** Is there a viable path at all? What are the options?
+
+A time-boxed research effort into an uncertain path. Often produces **no code** — the deliverable is a written hypothesis, the steps undertaken, and a resolution (no action / candidate found / deferred). Used most commonly in cycle modes (especially `debug`) when even the *existence* of a fix path is unclear.
+
+**Triggers** — add an investigation spike when:
+
+- The problem isn't yet defined well enough to write a story for the fix
+- Multiple plausible causes exist and prematurely picking one would waste effort
+- The work might be impossible or out-of-scope and you need to confirm before scoping a real story
+
+**Output:** a documented outcome — usually 3–10 lines stating the hypothesis, the experiment, and what was learned. Spike box-boundary: when the time-box expires, the spike ends regardless of whether a fix path was found.
+
+### What spikes are NOT
+
+- A prototype to keep and clean up — delete or clearly archive after the spike passes
+- A substitute for proper tests — they prove a question's answer, not that production code is correct
+- An excuse to skip the production implementation — they are a gate, not a destination
+
+### Why spikes early, spikes often
+
+**Rationale:** The cost of discovering a broken assumption at A.c (three stories in) is near zero. The cost of discovering it at D.b (ten stories in) is a potential rewrite. Spikes are cheap insurance against the most expensive category of failure — the kind that doesn't show up until the dependent code already exists.
+
+### Foundation-story structure
+
+Every project starts with three structurally distinct foundation stories that each prove one thing:
+
+| Story | Name | What it proves |
+|-------|------|----------------|
+| **A.a** | Scaffolding | The package builds, lints, and the manifest is wired up. Executed in `scaffold_project` mode. |
+| **A.b** | Hello World | The runtime works — the smallest possible executable artifact (e.g., a CLI that prints `__version__`, an HTTP server that returns 200 on `/`, a script that imports the package and runs `main()`). |
+| **A.c** | Integration spike | The external integration boundary works — the throwaway end-to-end spike described above. |
+
+These are three concerns, not one — collapsing Hello World into the spike (or omitting scaffolding because "the package manager handles it") consistently surfaces ambiguity that the 3-story shape resolves. The canonical 3-story foundation is enforced by `plan_stories` mode.
 
 ---
 

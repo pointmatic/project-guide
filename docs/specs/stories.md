@@ -425,7 +425,7 @@ Reframe `go.md` from "the one tracked file under `target_dir`" to "unignored-but
 
 ---
 
-### Story P.p: XP methodology grounding, three-flavor spike taxonomy, foundation-story reconciliation, and ID-insertion rules [Planned]
+### Story P.p: XP methodology grounding, three-flavor spike taxonomy, foundation-story reconciliation, and ID-insertion rules [Done]
 
 Bundle four related doc-and-template reconciliations surfaced during the P.m → P.q design conversation. Each by itself is small; together they make project-guide's methodology explicit, name its terminology in line with industry conventions, and close three latent drifts that would have caused future confusion if left as-is.
 
@@ -447,25 +447,16 @@ Bundle four related doc-and-template reconciliations surfaced during the P.m →
 
 **Implementation:**
 
-- [ ] `project_guide/templates/project-guide/developer/best-practices-guide.md` — **add new top-level section "Methodology — Extreme Programming (XP)"** near the top of the file (before any practice-specific sections). Three subsections:
-  - **Lineage** — short paragraph: project-guide's practices derive from XP (Beck and the C3 team, late 1990s).
-  - **Why XP fits LLM-assisted development** — paragraph naming the specific XP practices that counter known LLM failure modes (test-first counters "looks right" hallucination; small steps with frequent verification matches LLM context-window economics; explicit uncertainty handling via spikes gives the LLM a legitimate action when path-forward is unknown; documented decisions forestall invisible scope creep; pair-style collaboration with rotating driver/navigator roles is what the developer-LLM relationship literally is).
-  - **References** — bibliography: Kent Beck, *Extreme Programming Explained: Embrace Change* (Addison-Wesley, 1st ed. 1999; 2nd ed. 2004). Ron Jeffries / Ann Anderson / Chet Hendrickson, *Extreme Programming Installed* (Addison-Wesley, 2000).
-- [ ] `project_guide/templates/project-guide/developer/best-practices-guide.md` — **rework the existing "Hello World First — Spike Early, Spike Often" section** to anchor in XP explicitly and document three flavors:
-  - Opening line: *"Spike" is a canonical XP practice (Beck 1999) — a time-boxed, throwaway effort to reduce uncertainty, deliverable is the documented outcome rather than production code.*
-  - **### Integration spike** — the existing content (throwaway script in `scripts/`, wires the full stack end-to-end, validates connection-level integration). Renames "end-to-end stack spike" to "integration spike." Placement: A.c by default; first story of any phase that introduces a new integration boundary.
-  - **### Architectural spike** (Beck-canonical) — new content: throwaway code to test whether a design or pattern will work before committing to it. Triggered when probability of implementation success or the implementation pattern is unknown or uncertain. Output: throwaway implementation + pattern decision documented in the spike's story.
-  - **### Investigation spike** (research / risk-reduction spike) — new content: time-boxed research into an uncertain path; often produces no code at all. Output: documented hypothesis, steps undertaken, and resolution (no action / candidate found / deferred). Used in cycle modes (especially `debug`) when even the existence of a fix path is unclear.
-  - Reconcile section's existing "Spike placement in `stories.md`" subsection to use the new vocabulary and reflect the 3-story foundation (A.a scaffolding, A.b hello world, A.c integration spike).
-- [ ] `project_guide/templates/project-guide/developer/best-practices-guide.md` — **reconcile foundation-story structure** in the "Spike placement" subsection to match `plan-stories-mode.md`'s 3-story foundation. Currently says "First spike (A.b): Immediately after scaffolding (A.a)" — change to "First integration spike (A.c): Immediately after the Hello World story (A.b)." Acknowledge the hello-world story as the distinct A.b runtime-self-proof story (not collapsed into the spike).
-- [ ] `project_guide/templates/project-guide/developer/project-guide.md` — **reconcile foundation-story structure** in the planning rules block (around line 391). Currently calls A.a "Hello World" and A.b "spike" (2-story foundation, A.a misnamed). Update to: A.a scaffolding, A.b hello world, A.c integration spike, matching the canonical `plan-stories-mode.md` convention. Update the cross-reference text to point at the updated `best-practices-guide.md` section.
-- [ ] `project_guide/templates/project-guide/templates/modes/plan-stories-mode.md` — **terminology update**: rename "end-to-end stack spike" to "integration spike" (line 43 and the recommended-phase-progression table at line 53). Add a parenthetical reference to `best-practices-guide.md` for the full three-flavor definitions on first mention. Existing A.a / A.b / A.c structure is already canonical — no structural change.
-- [ ] `project_guide/templates/project-guide/templates/modes/plan-phase-mode.md` — **terminology update** at line 53 ("Include a spike story if the phase introduces a new integration boundary"): clarify this means an *integration spike* and reference `best-practices-guide.md`.
-- [ ] `project_guide/templates/project-guide/templates/modes/plan-production-phase-mode.md` — **terminology update** at line 69 (same language as `plan-phase-mode.md`): same fix.
-- [ ] `project_guide/templates/project-guide/templates/modes/_phase-letters.md` — **add new "Inserting a new story" subsection** between the existing "Sub-numbered stories" subsection and "Continuing across archive boundaries." Documents the three insertion options (append / sub-number extension / renumber-as-last-resort) and restates the 3-level depth limit explicitly.
-- [ ] Run `pyve run project-guide update` to propagate all template edits to `docs/project-guide/`.
-- [ ] Verify the rendered `docs/project-guide/go.md` includes the new Rules-block Rule 3 reference resolving cleanly against the expanded `best-practices-guide.md` section.
-- [ ] Flip this story's status to `[Done]` and all `[ ]` checklist items to `[x]`.
+- [x] `project_guide/templates/project-guide/developer/best-practices-guide.md` — added new top-level section **"Methodology — Extreme Programming (XP)"** with three subsections (Lineage, Why XP fits LLM-assisted development, References — Beck 1999/2004 and Jeffries/Anderson/Hendrickson 2000).
+- [x] `project_guide/templates/project-guide/developer/best-practices-guide.md` — reworked the "Hello World First — Spike Early, Spike Often" section to anchor in XP and document three flavors (Integration / Architectural / Investigation), each with question-answered framing, triggers, and output. Replaced the implicit "first spike (A.b)" placement language with explicit A.c placement, and added a closing "Foundation-story structure" subsection that names the 3-story foundation (A.a scaffolding / A.b hello world / A.c integration spike) as canonical.
+- [x] `project_guide/templates/project-guide/developer/project-guide.md` — rewrote the planning-rules foundation-stories bullets to match the 3-story foundation (A.a scaffolding, A.b hello world, A.c integration spike). Updated the cross-reference to point at the v2-path `docs/project-guide/developer/best-practices-guide.md` (was pointing at the legacy v1 `docs/guides/...` path). Also updated Step 4's "Start with Story A.a" line — A.a is now Scaffolding (executed in `scaffold_project`), not Hello World.
+- [x] `project_guide/templates/project-guide/templates/modes/plan-stories-mode.md` — renamed "end-to-end stack spike" → "integration spike" on the A.c line and in the Recommended Phase Progression table. Added a cross-reference to `best-practices-guide.md` for the three-flavor taxonomy.
+- [x] `project_guide/templates/project-guide/templates/modes/plan-phase-mode.md` — clarified that the phase-spike means an *integration spike* with cross-reference to `best-practices-guide.md`; architectural and investigation spikes enter the sequence ad-hoc.
+- [x] `project_guide/templates/project-guide/templates/modes/plan-production-phase-mode.md` — same fix as `plan-phase-mode.md`.
+- [x] `project_guide/templates/project-guide/templates/modes/_phase-letters.md` — added a new **"Inserting a new story"** subsection between "Sub-numbered stories" and "Continuing across archive boundaries." Documents the three insertion options (Append default / Sub-number extension / Renumber last-resort), restates the 3-level depth limit (flat single-level only), and includes both precision rules from the P.s bug-triage conversation: Sub-number is valid only when the parent is the latest top-level ID committed under its phase, and Renumber is valid only on working-tree-only IDs (committed IDs are locked, verified via `git log -- docs/specs/stories.md`).
+- [x] Ran `pyve run project-guide update` to propagate all six template edits into `docs/project-guide/`.
+- [x] Verified the rendered `docs/project-guide/go.md` under `plan_phase` mode contains the new "Inserting a new story" subsection and the integration-spike terminology with cross-reference. (Mode restored to `code_direct` for ongoing work.)
+- [x] Flipped this story's status to `[Done]` and all checklist items to `[x]`.
 
 **Version assignment:** doc-only template change. Per Version Cadence, doc-only stories do not bump for themselves; P.p rides the next code-story release. No `project_guide/version.py`, `pyproject.toml`, or `CHANGELOG.md` change in this story.
 
@@ -563,6 +554,65 @@ Two complementary rules for how the LLM frames its responses in any project-guid
 
 ---
 
+### Story P.s: Recognize "Story " prefix in commit-subject regex [Planned]
+
+**Bug report from the field** (consumer repo running project-guide v2.7.2):
+
+```
+% project-guide git-push
+Multiple uncommitted [Done] stories: J.m.2, J.m.3. Use 'git-push' directly to commit them one at a time with explicit messages.
+
+% git log
+commit 1323a8b... Story J.m.2: v0.71.0 — 'QuizProvider' Protocol → 'AssessmentProvider' + Parameter Rename
+commit 5abf42a... J.m.1: v0.70.0 — Integrate Published '@pointmatic/quizazz' SvelteKit Component, Retire Local Placeholder
+```
+
+J.m.2 *is* committed (visible in `git log`), but the wrapper claims it isn't and refuses to push.
+
+**Root cause.** The wrapper's commit-subject regex at `project_guide/cli.py:_COMMIT_SUBJECT_STORY_ID_RE` is `^([A-Z]\.[a-z]+(?:\.\d+)?):\s` — it requires the commit subject to start with the bare story ID. The two field commits use different conventions:
+
+- `J.m.1: v0.70.0 — Integrate Published ...` — bare prefix → regex matches → recognized as committed ✓
+- `Story J.m.2: v0.71.0 — 'QuizProvider' ...` — `"Story "` prefix → regex does **not** match → NOT recognized ✗
+
+`_get_committed_story_ids()` returns `{J.m.1}` instead of `{J.m.1, J.m.2}`, so the wrapper concludes both J.m.2 and the next `[Done]` (J.m.3) are uncommitted and bails with the "Multiple uncommitted" error.
+
+**Wider inconsistency (resolved as part of this fix).** `derive_commit_message` emits output *without* the `"Story "` prefix (`<id>: <title>`), but project-guide's own `project-essentials.md` Commit-workflow section shows examples *with* the prefix (`"Story M.a: v2.3.0 ..."`). Developers following the docs convention with raw `git commit` produce subjects the wrapper can't recognize. Resolution per the bug-triage conversation: **Option 3 — permissive regex + concise/bare-form docs examples**. Wrapper output unchanged (still bare); regex accepts both forms for historical-mix compatibility; docs examples updated to bare form so the canonical convention is unambiguous going forward.
+
+**Why bare form is the canonical convention.** Concise. Matches what the wrapper produces. The `"Story "` prefix doesn't add information that the `<id>:` anchor doesn't already convey, and "Story" is implicit context — every commit referencing a story ID is by definition a story commit.
+
+**Fix design:**
+
+```python
+_COMMIT_SUBJECT_STORY_ID_RE = re.compile(r"^(?:Story\s+)?([A-Z]\.[a-z]+(?:\.\d+)?):\s")
+```
+
+The non-capturing `(?:Story\s+)?` consumes an optional `"Story "` prefix without altering the captured story-ID group. Existing tests on the bare form continue to pass; new tests cover the `"Story "`-prefixed form.
+
+**Implementation:**
+
+- [ ] Write failing unit test in `tests/test_cli.py` asserting `_COMMIT_SUBJECT_STORY_ID_RE` matches `"Story J.m.2: v0.71.0 — example title"` and extracts `J.m.2` as group 1.
+- [ ] Write parallel regression-check test (same file) asserting bare form `"J.m.2: v0.71.0 — example title"` continues to match and extract `J.m.2`.
+- [ ] Run `pyve test tests/test_cli.py` and confirm both new tests fail before the fix.
+- [ ] Update `project_guide/cli.py:_COMMIT_SUBJECT_STORY_ID_RE` per the fix design above. Update the comment immediately above the regex to note both supported subject forms.
+- [ ] Confirm both new tests pass after the fix; run `pyve test` (full suite) and confirm no regressions.
+- [ ] Grep for commit-message examples carrying the `"Story "` prefix in project-guide's own templates/specs and reconcile to the bare form. Known/suspected locations:
+  - `project_guide/templates/project-guide/templates/artifacts/project-essentials.md` — "Commit workflow" subsection (currently shows `"Story M.a: v2.3.0 project-essentials render hook"` and `"Story M.c: align specs with FR-9"`)
+  - Any additional instance surfaced by `grep -rn '"Story [A-Z]\.' project_guide/templates/ docs/`
+- [ ] Run `pyve run project-guide update` to propagate any template-source edits to `docs/project-guide/`.
+- [ ] Flip this story's status to `[Done]` and all `[ ]` checklist items to `[x]`.
+
+**Version assignment:** patch-level regex bug fix; rides P.z's v2.8.0 bundled release. No standalone version bump in this story.
+
+**Migration:** none. The permissive regex retains backward compatibility with the bare form (historical wrapper output and direct developer use) and adds forward compatibility with the `"Story "` prefix form (legacy hand-typed style). Consumers with mixed history get coherent recognition automatically on upgrade to v2.8.0.
+
+**Out of scope:**
+- **Updating `derive_commit_message` to emit the `"Story "` prefix.** Considered (Option 2 in triage) and rejected: docs examples are being aligned *to* the bare form, not away from it; changing the wrapper's emitted format would also require updating the P.k test pinning and would propagate a longer prefix into every wrapper-generated commit.
+- **A `project-guide check` integrity rule** verifying that every `[Done]` story in `stories.md` has a matching commit-subject parse under the regex. Defer until the broader integrity-check surface exists; the wrapper's own error message already surfaces this kind of mismatch interactively.
+- **Backporting the regex fix to v2.7.x as a patch release.** Consumers stay on v2.7.2 until v2.8.0 ships; bundling under P.z avoids a stand-alone v2.7.3 release that would only contain this one regex tweak.
+- **Auto-detecting and warning when an existing repo's commit history contains a mix of `"Story <id>:"` and bare `"<id>:"` subjects.** The mix is benign under the permissive regex; no warning needed.
+
+---
+
 ### Story P.z: v2.8.0 bundled release [Planned]
 
 **Placeholder ID convention.** `P.z` is a placeholder, deliberately drafted at the end of Phase P's alphabet so it stays out of the way of in-flight work. At release time the developer renumbers this story to whatever the next sequential letter is in Phase P (likely `P.s` or `P.t` after P.o/P.p/P.q/P.r ship) so the final on-disk record matches Rule 1's "in the order performed" invariant.
@@ -577,6 +627,7 @@ Two complementary rules for how the LLM frames its responses in any project-guid
 - P.p — XP methodology grounding, three-flavor spike taxonomy, foundation-story reconciliation, ID-insertion rules (template/doc change)
 - P.q — LLM workflow discipline (documentation timing, spike-awareness, gate handoff) (template change)
 - P.r — LLM response framing rules (mode echo + step contextualization) (template change)
+- P.s — Recognize "Story " prefix in commit-subject regex (code: regex + tests; template: bare-form docs examples)
 
 **Implementation:**
 

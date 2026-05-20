@@ -23,6 +23,21 @@ A story may carry an optional numeric suffix — `J.m.1`, `J.m.2`, … — appen
 
 Sub-numbered stories follow normal Version Cadence: each one that ships code takes its own bump.
 
+### Inserting a new story
+
+When a new story needs to land and the obvious sequential ID is contested (work has paused/resumed, multiple stories were drafted in parallel, a follow-up to an earlier story emerged), choose one of three insertion options in this order of preference:
+
+1. **Append (default).** Use the next sequential ID at the top level (`A.a → A.b → A.c → …`). This is correct in the overwhelming majority of cases — new work goes after the latest committed story, regardless of which earlier story conceptually motivated it. Always try Option 1 first.
+
+2. **Sub-number extension.** Add `<parent>.1`, `<parent>.2`, … when the new work is conceptually a follow-up to an existing story (`J.m → J.m.1`). Two pre-conditions apply:
+   - **Parent must be the latest top-level ID committed under its phase.** If `J.n` (or any later top-level ID) already exists in committed git history, sub-numbering `J.m` would produce a heading that appears in the file *before* `J.n` — violating the "stories appear in the order performed" invariant. Use Option 1 (Append) instead in that case.
+   - The form is flat — no cascading like `J.m.1.1`. Maximum two levels: top-level (`J.m`) and one numeric suffix (`J.m.1`). The 3-level depth limit is hard.
+
+3. **Renumber (last resort).** Insert at an existing position by shifting later IDs by one (`A.c → A.d`, `A.d → A.e`, …) and updating every cross-reference. Used only when neither Append nor Sub-number applies and the conceptual ordering genuinely matters more than the historical ordering. One hard pre-condition:
+   - **Only valid on working-tree-only IDs.** Once a story heading appears in **committed git history** (regardless of `[Planned]` / `[In Progress]` / `[Done]` status), its ID is **locked** — renumbering would silently break references in commit messages, CHANGELOG entries, in-body story cross-references, and external tooling. `git log -- docs/specs/stories.md` is the source of truth for which IDs have been committed; verify before any renumber attempt.
+
+Sub-numbering and renumber are both deliberate exceptions to the simpler "always append" rule. When in doubt, Append.
+
 ### Continuing across archive boundaries
 
 When `stories.md` is archived (via `archive_stories` mode), the fresh `stories.md` starts empty — but phase letters do **not** reset. To determine the next phase letter:
