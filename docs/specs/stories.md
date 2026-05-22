@@ -654,6 +654,77 @@ Folded-in audit follow-up (developer-directed Path 2, after the initial gate pre
 
 ---
 
+### Story P.u: v2.9.0 `git-push` bundled-commit recognition and bundle offer [Done]
+
+**Problem.** Two related friction points in the `project-guide git-push` wrapper (P.k), observed in dogfooded use in a downstream project (`ml-datarefinery`):
+
+1. **Bundled commits aren't recognized.** When a developer commits multiple `[Done]` stories under one subject (e.g., `H.a, H.b, H.c InputSource sidecar labels...`), the wrapper's `_COMMIT_SUBJECT_STORY_ID_RE` only matches single-ID prefixes. The bundled subject is invisible to `_get_committed_story_ids()`, so on the next invocation those three stories appear "uncommitted" — the wrapper either incorrectly offers the oldest one for re-commit (if it would now be the lone `[Done]` candidate) or falls through to the multi-uncommitted error path.
+2. **No bundle offer.** When 2+ `[Done]` stories are uncommitted, the wrapper exits 1 with `"Multiple uncommitted [Done] stories: ... Use 'git-push' directly to commit them one at a time"`. The developer must hand-type a bundled message. The wrapper already knows the IDs, versions, and titles — it should offer to assemble the bundled message and ask `[Y/n]`.
+
+**Behavior (post-story).**
+
+- **Bundled-commit parsing.** `_COMMIT_SUBJECT_STORY_ID_RE` is retired in favor of a structured parser that extracts the full sequence of ID tokens from a commit subject. The parser greedily consumes `<id>(: vX.Y.Z)?` tokens separated by `,\s*`, followed by an optional `:` before the title. Every colon is **optional on parse** to tolerate legacy bundled subjects (`H.a, H.b, H.c InputSource ...`).
+  - **Emit rule (canonical):** a colon precedes a *version* or a *title*; it does **not** separate two bare IDs. Concrete shapes:
+    - `H.a, H.b, H.c: Foo bar bing baz` (no versions; colon only before the title)
+    - `H.a, H.b: v1.2.3, H.c: Foo bar bing baz` (one interior version; colon before that version and before the title)
+    - `H.a, H.b, H.c: v1.2.3 Foo bar bing baz` (single trailing version covering the bundle's release; colon before the version)
+    - `H.a: v1.2.3, H.b: v1.2.4, H.c: v1.3.0 Foo bar bing baz` (each ID versioned; colon before every version, and the last ID's `: <ver>` segment doubles as the boundary before the title)
+  - Single-ID subjects continue to parse correctly under both legacy forms (bare `A.a: ...` and storied `Story A.a: ...`).
+  - The "already-committed" set is keyed on bare `<id>` only (version is incidental — see duplicate-key warning below).
+- **Duplicate-`<id>` warning.** When `_get_committed_story_ids()` finds the same `<id>` in 2+ commit subjects (regardless of version), emit a stderr warning listing the affected `<id>` plus the offending commit subjects, and ask `Continue? [Y/n]`. Under `--no-input`, auto-**no** (abort with exit 1) so CI surfaces the anomaly. Default at the interactive prompt is `Y` (continue).
+- **Bundle offer.** When 2+ uncommitted `[Done]` stories exist, the wrapper proposes a bundled commit subject and asks `Use this message? [Y/n]`:
+  - **Emit format (formatter side, derived from `stories.md` headings):** join the per-story tokens with `, `, then append `: ` and the joined titles. Per-story token = `<id>` if the story has no version, `<id>: <version>` if it does. The colon-before-title boundary is supplied by the formatter (after the last ID, or after its `: <version>` if present) — collapsed to a single `:` when the last ID is already versioned (i.e., `H.a: v0.1.0` followed by ` Foo` reads as "version then title", with the colon doing double duty). Titles joined with ` + `, no escaping of `+` inside individual titles. Concretely, the four shapes above are reachable:
+    - All versionless → `H.a, H.b, H.c: title1 + title2 + title3`
+    - Mixed → `H.a, H.b: v1.2.3, H.c: title1 + title2 + title3`
+    - All versioned → `H.a: v0.10.0, H.b: v0.11.0 title1 + title2` (last ID's `: <ver>` is the boundary; no second colon)
+    - The single-trailing-version shape (`H.a, H.b, H.c: v1.2.3 Foo`) is **valid on parse** (legacy / hand-typed bundles) but not what the formatter emits from stories.md headings — each story carries its own version or none.
+  - **Whitespace:** the final message is trimmed and internal whitespace collapsed to single spaces.
+  - **Title sanitization:** same rules as single-story (backticks → single quotes; double quotes → single quotes; single quotes pass through).
+  - **`[Y]`:** the wrapper invokes `git-push` with the bundled message (same shell-less `subprocess.run` path as the single-story branch).
+  - **`[n]`:** today's exit-1 `"Multiple uncommitted [Done] stories: ... Use 'git-push' directly"` error. Developer untangles the situation manually.
+  - **`--no-input`:** auto-**no**. CI gets the existing exit-1 error path; nothing new is committed silently. The developer re-runs interactively and types `y` to accept the bundle.
+- **Single uncommitted `[Done]` story:** unchanged. No bundle prompt; today's behavior preserved exactly.
+
+**Why these defaults.**
+
+- Duplicate-`<id>` is project-wide anomalous (one story = one commit, modulo bundles where the ID still only appears once across subjects). Worth a warning + interactive confirm. Auto-no under `--no-input` because CI shouldn't paper over a real history irregularity.
+- Bundle offer auto-**no** under `--no-input` because accepting changes the *shape* of the commit (bundled vs. single) silently — that is a developer decision, not a CI default. Falling through to today's error keeps CI behavior bit-identical and the developer can re-run interactively (or up-arrow + `y`) to take the offer.
+- Title parsing is intentionally absent on the read side. As the developer observed, story prose may contain `+` and other separators; anchoring on the ID-token shape is the only robust strategy.
+
+**Implementation:**
+
+- [x] **Replace `_COMMIT_SUBJECT_STORY_ID_RE` with a multi-ID parser.** Extracted to `project_guide/stories.py` as `parse_committed_ids_from_subject(line: str) -> list[str]`. Tokenizer-style parser: greedy `<id>(: <ver>)?` consumption, comma-separated for bundles, with the colon optional on parse (legacy bundles tolerated). Disambiguation rule preserved: a single ID without `:` is rejected (`Story J.m.2 some other text` → `[]`).
+- [x] **Rewrote `_get_committed_story_ids()`** to use the new parser. Return type changed from `set[str]` to `tuple[set[str], dict[str, list[str]]]` so callers receive both the committed-IDs set and the duplicates map (keyed on bare `<id>`, regardless of version differences).
+- [x] **Added `derive_bundle_commit_message(headings: list[StoryHeading]) -> str`** in `project_guide/stories.py`. Splits the leading `vX.Y.Z ` off each `StoryHeading.title` (the existing dataclass shape — no schema expansion needed), joins per-story tokens with `", "`, applies the colon-precedes-version-or-title rule, joins titles with `" + "`, sanitizes backticks / double quotes, and trims + collapses whitespace.
+- [x] **Added `_prompt_continue_on_duplicate_ids(duplicates, skip_input) -> bool`** helper in `project_guide/cli.py`. Always emits the duplicate warning to stderr (visible even in non-interactive flows). Returns `False` (abort) under `skip_input`. Interactive default `Y`.
+- [x] **Rewrote the `len(uncommitted) > 1` branch in `git_push`.** Builds the bundled message, calls `_prompt_use_bundle_message(message, skip_input)`. Under `skip_input` returns `False` (auto-decline → today's exit-1 error). Interactive prints the proposed subject then prompts `Use this message? [Y/n]`. Accept → invoke gitbetter with the bundled message. Decline → exit 1 with the existing `"use git-push directly"` text.
+- [x] **Plumbed `--no-input` into `git-push`.** Added `@click.option('--no-input/--input', 'no_input', ...)` with `should_skip_input(no_input)` resolution. Help text describes the auto-decline behavior on both gates.
+- [x] **Tests in `tests/test_cli.py`** (extend the existing P.k test section):
+  - Migrated four P.s regex tests to call the new parser (preserves coverage; tests now live in stories.py for the comprehensive matrix).
+  - New `test_git_push_recognizes_bundled_commit_in_already_committed_check` regression for the field bug (bundled subject now marks all IDs committed).
+  - New bundle-offer tests: happy path (versioned, versionless, mixed), branch-name pass-through, quote sanitization, `--no-input` auto-decline, interactive decline, distinct-IDs-in-bundle-is-not-duplicate.
+  - New duplicate-`<id>` warning tests: interactive `[Y]` continues, interactive `[n]` aborts, `--no-input` auto-aborts.
+  - Updated `test_git_push_errors_on_multiple_uncommitted_done_stories` → `*_with_no_input` (preserves the exit-1 behavior under the new `--no-input` path) + companion test for interactive decline.
+- [x] **Tests in `tests/test_stories.py`**: 12 new parser tests (single bare/storied/sub-numbered, bundle legacy/canonical/mixed/single-trailing-version/storied/sub-numbered, garbage rejection) and 7 new bundle-formatter tests (all-versionless, all-versioned, mixed, quote sanitization, `+`-in-title pass-through, whitespace trim/collapse, round-trip with parser).
+- [x] **Ran full test suite** — `pyve test` → **566 passed** (up from 532 baseline; +34 net tests).
+- [x] **Ran lint** — `pyve testenv run ruff check project_guide/ tests/` → **All checks passed!**
+- [x] **Updated `docs/specs/project-essentials.md`** — expanded the `git-push` developer-lane section with the bundle-offer flow, the colon-precedes-version-or-title rule, the four reachable emit shapes, the duplicate-`<id>` warning, the `--no-input` auto-decline defaults, and the parse-permissive / emit-strict invariant. Also updated the Commit-workflow section's parser reference (regex → `parse_committed_ids_from_subject`). Ran `pyve run project-guide update` → "All files are up to date" (no rendered-template drift since the bundled `project-essentials.md` template has no git-push section).
+- [x] **Bumped `project_guide/version.py`** to `2.9.0`.
+- [x] **Bumped `pyproject.toml`** to `2.9.0`.
+- [x] **CHANGELOG.md** new `## [2.9.0] - 2026-05-20` entry: opening paragraph + `### Added` (bundle recognition, bundle offer, duplicate warning, `--no-input` flag) + `### Changed` (internal API return-type, parser location, docs expansion) + `### Fixed` (field bug regression).
+- [x] **Flipped story status** `[Planned]` → `[Done]` and checked off all `[ ]` items.
+
+**Version assignment:** **v2.9.0** — feature/improvement (new bundle-offer behavior, new `--no-input` flag, fix for bundled-commit recognition in the already-committed check). Minor bump per Version Cadence.
+
+**Out of scope:**
+- **Auto-bundling without prompt.** The `[Y/n]` gate is non-negotiable — accepting a bundle silently changes the shape of the commit; the developer always gets the last word.
+- **Picking a subset of the uncommitted `[Done]` stories to bundle.** Bundle offer is all-or-nothing for the uncommitted set. Cherry-picking is the developer's job via raw `git-push` after declining.
+- **Reading versions from sources other than `stories.md` headings.** Version source is unchanged from the single-story flow.
+- **Title-based heuristics on the read side.** Parser anchors on ID-token shape only; titles are never inspected when scanning git log.
+- **Renaming `_COMMIT_SUBJECT_STORY_ID_RE`-era public symbols.** The regex is internal; replacing it does not affect any documented API.
+
+---
+
 ## Future
 
 ### Audit Modes [Deferred]

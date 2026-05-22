@@ -35,7 +35,7 @@ Any future interactive prompt added to a CLI command **must** use the `should_sk
 - **Commit messages reference the story ID** in the bare form `<id>: <title>` (no `Story ` prefix — the prefix is implicit context and adds no information the `<id>:` anchor doesn't already convey). Include **`vX.Y.Z`** when this commit is the **single** version bump for that story — examples:
   - `"M.a: v2.3.0 project-essentials render hook"` (M.a owns v2.3.0)
   - `"M.c: align specs with FR-9"` (doc-only; no version in title — rides M.b's or whichever code story owns the release line)
-  - The `project-guide git-push` wrapper's `_COMMIT_SUBJECT_STORY_ID_RE` accepts both bare and legacy `Story <id>:` forms for backward compatibility with historical hand-typed commits (Story P.s), but **bare is canonical** for new commits.
+  - The `project-guide git-push` wrapper's commit-subject parser (`parse_committed_ids_from_subject` in `stories.py`; retired the single-regex `_COMMIT_SUBJECT_STORY_ID_RE` in Story P.u) accepts both bare and legacy `Story <id>:` forms for backward compatibility with historical hand-typed commits (Story P.s), but **bare is canonical** for new commits.
 - **Direct commits to main** in `code_direct` mode — no branches, no PRs.
 
 ### Config schema versioning
@@ -110,19 +110,35 @@ Auto-healing N templates under --no-input.
 
 The notice is **non-suppressible** (always emitted even with `--quiet`) so CI logs and embedding callers (pyve scaffolding, etc.) have a visible signal that file writes occurred. This is the heal-specific application of the `--no-input` contract documented earlier in this file.
 
-### `project-guide git-push` is developer-lane (added v2.7.0)
+### `project-guide git-push` is developer-lane (added v2.7.0, bundled-commit support added v2.9.0)
 
-`project-guide git-push` is a thin wrapper over [gitbetter](https://github.com/pointmatic/gitbetter)'s `git-push` that auto-derives the commit message from the most-recently-completed-and-not-yet-committed `[Done]` story heading. It is a **developer-lane convenience command** — the LLM **must not** initiate it. The approval-gate discipline rule earlier in this file ("do not propose commits, pushes, or bundling options ... do not offer 'want me to also …?' follow-ups") remains in force, and applies to this wrapper just as it does to raw `git`. The wrapper exists to shorten the developer's typing at commit time, not to give the LLM a new excuse to volunteer commits.
+`project-guide git-push` is a thin wrapper over [gitbetter](https://github.com/pointmatic/gitbetter)'s `git-push` that auto-derives the commit message from `[Done]` story headings. It is a **developer-lane convenience command** — the LLM **must not** initiate it. The approval-gate discipline rule earlier in this file ("do not propose commits, pushes, or bundling options ... do not offer 'want me to also …?' follow-ups") remains in force, and applies to this wrapper just as it does to raw `git`. The wrapper exists to shorten the developer's typing at commit time, not to give the LLM a new excuse to volunteer commits.
 
-**Heading-to-message rules:**
-- Output is `"<id>: <title>"`. The colon after the story ID is preserved — it is the anchor the already-committed check searches for in `git log --pretty=%s` via the regex `^([A-Z]\.[a-z]+):\s`.
+**Heading-to-message rules (single story):**
+- Output is `"<id>: <title>"`. The colon after the story ID is preserved — it is the anchor the already-committed check searches for in `git log --pretty=%s`.
 - Backticks (`` ` ``) in the title become single quotes.
 - Double quotes (`"`) in the title become single quotes.
 - Single quotes pass through unchanged. The wrapper invokes gitbetter via `subprocess.run([...], shell=False)`, so there is no shell-quoting concern.
 
-**Branch logic:**
-- 0 uncommitted `[Done]` stories → exit 1 "Story <last id> is already committed."
-- 1 uncommitted `[Done]` story → derive message, invoke `git-push`.
-- 2+ uncommitted `[Done]` stories → exit 1 listing the IDs; developer commits them one at a time with raw `git-push`.
+**Bundle-offer flow (P.u, v2.9.0):** when 2+ `[Done]` stories are uncommitted, the wrapper proposes a bundled commit subject and asks `[Y/n]`:
+- **Emit format:** per-story tokens joined with `", "`; each token is `<id>` or `<id>: <version>`; titles joined with `" + "` after the title boundary. Concrete shapes:
+  - All versionless → `H.a, H.b, H.c: title1 + title2 + title3`
+  - All versioned → `H.j: v0.10.0, H.k: v0.11.0 title1 + title2` (last token's `: <ver>` doubles as the title boundary)
+  - Mixed → `H.a, H.b: v1.2.3, H.c: title1 + title2 + title3`
+- **Colon rule:** a colon precedes a *version* or a *title*; it does not separate two bare IDs.
+- **Whitespace:** the assembled message is trimmed and any internal whitespace run collapsed to a single space.
+- **Title sanitization:** same backtick / double-quote rules as single-story.
+- **Decline (`n`)** → exit 1 with `"Multiple uncommitted [Done] stories: ..."` (today's manual-resolution hint).
+- **`--no-input`** → auto-decline (bundling changes the shape of the commit; that is a developer decision, not a CI default). The interactive default at the `[Y/n]` prompt is `Y`.
+
+**Bundled-commit recognition (P.u, v2.9.0):** the already-committed check parses each commit subject via `parse_committed_ids_from_subject` (in `stories.py`), which recognizes single-ID subjects (bare and `Story <id>:` legacy), legacy bundled subjects with no colons (`H.a, H.b, H.c InputSource ...`), and every canonical bundled form the wrapper itself emits. The parser is intentionally permissive on the read side and strict on the emit side. **Important:** the parser only inspects the ID-prefix shape — title text is never used to match. Story titles may contain `+` separators or any other prose without confusing the wrapper.
+
+**Duplicate-`<id>` warning (P.u, v2.9.0):** when the same bare `<id>` appears in 2+ commit subjects (regardless of version), the wrapper emits a stderr warning listing the offending subjects and asks `Continue? [Y/n]` (default `Y`). Under `--no-input`, auto-aborts with exit 1 so CI surfaces the history anomaly rather than papering over it.
+
+**Branch logic (post-P.u):**
+- 0 uncommitted `[Done]` stories → exit 1 `"Story <last id> is already committed."`
+- 1 uncommitted `[Done]` story → derive single-story message, invoke `git-push`.
+- 2+ uncommitted `[Done]` stories → propose bundled subject, prompt `[Y/n]`. Accept → invoke `git-push` with the bundled message. Decline (or `--no-input`) → exit 1 with the manual-resolution hint.
+- Duplicate `<id>` in git log → warning + prompt `Continue? [Y/n]` (defaults `Y` interactive, `n` under `--no-input`).
 
 **External CLI dependency pattern.** `git-push` is the first `project-guide` subcommand that depends on an external binary being on PATH. See `tech-spec.md` § "External CLI Dependencies" for the canonical pattern (discover via `shutil.which`, invoke via `subprocess.run(..., check=False)` with no captured output, propagate exit code). Future workflow-integration commands should follow the same shape.

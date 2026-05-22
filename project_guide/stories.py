@@ -101,6 +101,145 @@ def derive_commit_message(heading: StoryHeading) -> str:
     return f"{heading.story_id}: {cleaned_title}"
 
 
+# --- Multi-ID commit-subject parser and bundle formatter (Story P.u) --------
+#
+# The parser supersedes the single-regex `_COMMIT_SUBJECT_STORY_ID_RE` used by
+# P.k/P.s. It extracts the ordered ID list from a commit subject covering:
+#   - Single bare:     `A.a: v0.1.0 Hello World`
+#   - Single storied:  `Story A.a: v0.1.0 Hello World`  (P.s legacy)
+#   - Bundle legacy:   `H.a, H.b, H.c InputSource ...`  (no colon before title)
+#   - Bundle canonical (unversioned): `H.a, H.b, H.c: Foo bar`
+#   - Bundle versioned (per-story):   `H.a: v0.10.0, H.b: v0.11.0 sample ...`
+#   - Bundle mixed:    `H.a, H.b: v1.2.3, H.c: Foo bar`
+#   - Bundle single-trailing-version: `H.a, H.b, H.c: v1.2.3 Foo`
+#
+# Disambiguation rule preserved from P.s: a single ID without a `:` is NOT a
+# story commit (`Story J.m.2 some other text` → []). Bundles are recognized by
+# the comma separator between IDs, so the colon before the title is optional
+# in bundles only.
+
+_ID_PATTERN = r"[A-Z]\.[a-z]+(?:\.\d+)?"
+_VERSION_PATTERN = r"v\d+\.\d+\.\d+"
+
+_STORY_PREFIX_RE = re.compile(r"^Story\s+")
+_ID_RE = re.compile(rf"^({_ID_PATTERN})")
+_COLON_VERSION_RE = re.compile(rf"^:\s*({_VERSION_PATTERN})")
+_BUNDLE_SEP_RE = re.compile(r"^,\s*")
+_LEADING_VERSION_IN_TITLE_RE = re.compile(rf"^({_VERSION_PATTERN})\s+(.*)$")
+
+
+def parse_committed_ids_from_subject(line: str) -> list[str]:
+    """Return the ordered list of bare story IDs in a commit-subject line.
+
+    Returns ``[]`` when the line is not a recognized story-commit subject.
+    See module-level comment for the grammar and supported forms.
+    """
+    s = line
+    m = _STORY_PREFIX_RE.match(s)
+    if m:
+        s = s[m.end():]
+
+    m = _ID_RE.match(s)
+    if not m:
+        return []
+    ids = [m.group(1)]
+    s = s[m.end():]
+
+    first_consumed_version = False
+    m = _COLON_VERSION_RE.match(s)
+    if m:
+        first_consumed_version = True
+        s = s[m.end():]
+
+    has_bundle = False
+    while True:
+        m = _BUNDLE_SEP_RE.match(s)
+        if not m:
+            break
+        has_bundle = True
+        s = s[m.end():]
+        m = _ID_RE.match(s)
+        if not m:
+            return []
+        ids.append(m.group(1))
+        s = s[m.end():]
+        m = _COLON_VERSION_RE.match(s)
+        if m:
+            s = s[m.end():]
+
+    if not has_bundle:
+        # Single-ID form: require the ":" anchor (post-version if any) so plain
+        # prose like "Story J.m.2 some other text" does not falsely match.
+        if first_consumed_version:
+            if s == "" or s.startswith(" "):
+                return ids
+            return []
+        if s.startswith(":"):
+            return ids
+        return []
+
+    # Bundle form: optional ":" before title, then space or EOL.
+    if s.startswith(":"):
+        s = s[1:]
+    if s == "" or s[0].isspace():
+        return ids
+    return []
+
+
+def _split_leading_version(title: str) -> tuple[str | None, str]:
+    """Split a leading ``vX.Y.Z`` off a heading title.
+
+    ``StoryHeading.title`` carries the version inline at the head (e.g.,
+    ``"v0.10.0 sample_per_class filter op"``). Returns ``(version, rest)``
+    when the title starts with a version; otherwise ``(None, title)``.
+    """
+    m = _LEADING_VERSION_IN_TITLE_RE.match(title)
+    if m:
+        return m.group(1), m.group(2)
+    return None, title
+
+
+def derive_bundle_commit_message(headings: list[StoryHeading]) -> str:
+    """Compose a bundled commit subject from two or more story headings.
+
+    Format rules (Story P.u):
+      - Per-story token: ``<id>`` when the story has no version, ``<id>: <version>`` when it does.
+      - Tokens are joined with ``", "``.
+      - The title boundary uses ``": "`` after the last token, unless that
+        token already ends with ``": <version>"`` — in which case the version's
+        colon doubles as the boundary and only a single space precedes the title.
+      - Per-story titles (with the leading version stripped) are joined with ``" + "``.
+      - Backticks and double quotes in titles become single quotes (same as
+        :func:`derive_commit_message`).
+      - Final message has leading/trailing whitespace trimmed and any internal
+        whitespace run collapsed to a single space.
+
+    Callers are expected to supply at least two headings; the formatter does
+    not enforce this (a single-element input simply produces a single-token
+    bundle, which is structurally indistinguishable from the canonical
+    single-ID subject :func:`derive_commit_message` produces).
+    """
+    parts: list[tuple[str, str | None, str]] = []
+    for h in headings:
+        ver, rest = _split_leading_version(h.title)
+        cleaned = rest.replace("`", "'").replace('"', "'")
+        parts.append((h.story_id, ver, cleaned))
+
+    id_tokens = [
+        f"{sid}: {ver}" if ver else sid
+        for sid, ver, _ in parts
+    ]
+    id_list = ", ".join(id_tokens)
+
+    last_token_has_version = parts[-1][1] is not None
+    boundary = " " if last_token_has_version else ": "
+
+    titles = " + ".join(p[2] for p in parts)
+    message = id_list + boundary + titles
+    message = re.sub(r"\s+", " ", message).strip()
+    return message
+
+
 def _read_stories_summary(spec_artifacts_path: str) -> "StoriesSummary | None":
     """Parse stories.md and return a summary.
 

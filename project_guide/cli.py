@@ -42,7 +42,9 @@ from project_guide.runtime import (
 from project_guide.stories import (
     _read_done_stories,
     _read_stories_summary,
+    derive_bundle_commit_message,
     derive_commit_message,
+    parse_committed_ids_from_subject,
 )
 from project_guide.sync import (
     file_matches_template,
@@ -1693,34 +1695,26 @@ def heal(no_input: bool):
         sys.exit(2)
 
 
-# Regex matching the story-ID prefix of a commit-subject line — used to detect
-# which stories have already been committed (Story P.k). Accepts two equivalent
-# commit-subject forms:
-#   - Bare:    `J.m.2: v0.71.0 — ...`   (canonical going forward; matches
-#                                        `derive_commit_message`'s output)
-#   - Storied: `Story J.m.2: v0.71.0 — ...` (legacy / hand-typed convention
-#                                            still seen in consumer repos)
-# The non-capturing `(?:Story\s+)?` consumes the optional prefix without
-# changing the captured story-ID group. Mirrors the `[A-Z]\.[a-z]+(?:\.\d+)?`
-# shape of `_STORY_RE` in `stories.py` (the optional `.\d+` tail covers
-# sub-numbered IDs like `J.m.1`). The permissive form was added by Story P.s
-# after a field bug where a consumer's mixed-form history caused the wrapper
-# to miss `Story`-prefixed commits and emit a spurious "multiple uncommitted"
-# error.
-_COMMIT_SUBJECT_STORY_ID_RE = __import__("re").compile(
-    r"^(?:Story\s+)?([A-Z]\.[a-z]+(?:\.\d+)?):\s"
-)
+def _get_committed_story_ids() -> tuple[set[str], dict[str, list[str]]]:
+    """Scan git log and return committed story IDs plus a duplicates map.
 
+    Runs ``git log --pretty=%s`` and parses each subject via
+    :func:`parse_committed_ids_from_subject` (Story P.u), which recognizes
+    single-story subjects, the legacy ``Story <id>:`` form (P.s), and
+    bundled subjects like ``H.a, H.b, H.c InputSource ...`` or
+    ``H.a: v0.10.0, H.b: v0.11.0 sample ...``.
 
-def _get_committed_story_ids() -> set[str]:
-    """Return the set of story IDs already present as commit-subject prefixes.
+    Returns ``(committed_ids, duplicates)`` where:
 
-    Runs ``git log --pretty=%s`` and scans each subject line for the
-    ``<id>: `` prefix (e.g., ``"G.a: "``). Returns an empty set when git is
-    unavailable, the cwd is not a git repository, or the repo has no
-    commits — the wrapper treats all of those as "nothing committed yet"
-    rather than erroring on its own, leaving the eventual gitbetter
-    invocation to surface any real git failure.
+    - ``committed_ids`` is the set of every bare story ID that appeared in
+      at least one commit subject.
+    - ``duplicates`` maps each ID seen in 2+ subjects to the ordered list of
+      offending subject lines, used by ``git-push``'s duplicate-warning
+      prompt. Empty when no IDs repeat.
+
+    Returns ``(set(), {})`` when git is unavailable, the cwd is not a git
+    repository, or the repo has no commits — the wrapper treats all of those
+    as "nothing committed yet" rather than erroring on its own.
     """
     try:
         result = subprocess.run(
@@ -1730,17 +1724,19 @@ def _get_committed_story_ids() -> set[str]:
             check=False,
         )
     except (FileNotFoundError, OSError):
-        return set()
+        return set(), {}
 
     if result.returncode != 0:
-        return set()
+        return set(), {}
 
-    committed: set[str] = set()
+    occurrences: dict[str, list[str]] = {}
     for line in result.stdout.splitlines():
-        m = _COMMIT_SUBJECT_STORY_ID_RE.match(line)
-        if m:
-            committed.add(m.group(1))
-    return committed
+        for sid in parse_committed_ids_from_subject(line):
+            occurrences.setdefault(sid, []).append(line)
+
+    committed = set(occurrences.keys())
+    duplicates = {sid: subs for sid, subs in occurrences.items() if len(subs) > 1}
+    return committed, duplicates
 
 
 def _resolve_spec_artifacts_path() -> str:
@@ -1768,26 +1764,47 @@ def _resolve_spec_artifacts_path() -> str:
 
 @main.command(name="git-push")
 @click.argument("branch_name", required=False)
-def git_push(branch_name: str | None):
+@click.option(
+    '--no-input',
+    'no_input',
+    is_flag=True,
+    default=False,
+    help=(
+        'Do not read from stdin; auto-decline both the duplicate-story-ID '
+        'warning and the bundle-offer prompt (so CI never silently bundles '
+        'or papers over a history anomaly). Also auto-enabled by CI=1 or '
+        'non-TTY stdin.'
+    ),
+)
+def git_push(branch_name: str | None, no_input: bool):
     """Wrap gitbetter's `git-push` with the most-recently-completed story ID.
 
     \b
-    Derives the commit message from the last `[Done]` story heading in
-    `docs/specs/stories.md`, verifies the story has not already been
+    Derives the commit message from `[Done]` story headings in
+    `docs/specs/stories.md`, verifies the stories have not already been
     committed, then shells out to gitbetter's `git-push` to perform the
     actual push. Optional `BRANCH_NAME` passes through to gitbetter for
     branch-aware push flows.
 
     \b
+    Single uncommitted [Done] story: derives `<id>: <title>` and pushes.
+    Multiple uncommitted [Done] stories: proposes a bundled subject
+    `<id1>[: <ver1>], <id2>[: <ver2>], ... <title1> + <title2> + ...`
+    and asks `[Y/n]`. Decline → exit 1 with the manual-resolution hint.
+
+    \b
     Hard errors (exit 1):
       - No `[Done]` story in stories.md
       - The last `[Done]` story is already committed (per git-log subject prefix)
-      - Multiple `[Done]` stories are uncommitted — resolve manually with raw `git-push`
+      - Multiple uncommitted `[Done]` stories and bundle offer declined
+        (or --no-input)
+      - Duplicate story ID found in git log and continuation declined
+        (or --no-input)
       - `git-push` not on PATH (install gitbetter:
         `brew install pointmatic/tap/gitbetter`)
 
     \b
-    Heading-to-message transformation:
+    Heading-to-message transformation (single story):
       Input:  ### Story G.a: v1.2.3 New command `foo` with "Hello" [Done]
       Output: G.a: v1.2.3 New command 'foo' with 'Hello'
     Backticks and double quotes become single quotes; single quotes pass
@@ -1796,6 +1813,7 @@ def git_push(branch_name: str | None):
     This is a developer-lane convenience command. The LLM still does not
     initiate commits — the approval-gate discipline rule remains in force.
     """
+    skip_input = should_skip_input(no_input)
     spec_artifacts_path = _resolve_spec_artifacts_path()
     done_stories = _read_done_stories(spec_artifacts_path)
     stories_md_display = f"{spec_artifacts_path}/stories.md"
@@ -1816,7 +1834,11 @@ def git_push(branch_name: str | None):
         )
         sys.exit(1)
 
-    committed = _get_committed_story_ids()
+    committed, duplicates = _get_committed_story_ids()
+
+    if duplicates and not _prompt_continue_on_duplicate_ids(duplicates, skip_input):
+        sys.exit(1)
+
     uncommitted = [s for s in done_stories if s.story_id not in committed]
 
     if not uncommitted:
@@ -1830,17 +1852,18 @@ def git_push(branch_name: str | None):
         sys.exit(1)
 
     if len(uncommitted) > 1:
-        ids = ", ".join(s.story_id for s in uncommitted)
-        click.secho(
-            f"Multiple uncommitted [Done] stories: {ids}. "
-            f"Use 'git-push' directly to commit them one at a time with explicit messages.",
-            fg='red',
-            err=True,
-        )
-        sys.exit(1)
-
-    target = uncommitted[0]
-    message = derive_commit_message(target)
+        message = derive_bundle_commit_message(uncommitted)
+        if not _prompt_use_bundle_message(message, skip_input):
+            ids = ", ".join(s.story_id for s in uncommitted)
+            click.secho(
+                f"Multiple uncommitted [Done] stories: {ids}. "
+                f"Use 'git-push' directly to commit them one at a time with explicit messages.",
+                fg='red',
+                err=True,
+            )
+            sys.exit(1)
+    else:
+        message = derive_commit_message(uncommitted[0])
 
     git_push_path = shutil.which("git-push")
     if git_push_path is None:
@@ -1861,6 +1884,54 @@ def git_push(branch_name: str | None):
     # / recovery menu's real semantics reach the developer.
     result = subprocess.run(argv, check=False)
     sys.exit(result.returncode)
+
+
+def _prompt_continue_on_duplicate_ids(
+    duplicates: dict[str, list[str]],
+    skip_input: bool,
+) -> bool:
+    """Warn about duplicate story IDs in git log; return True to proceed.
+
+    Always emits the warning to stderr (the anomaly is worth surfacing even
+    in non-interactive flows). Under ``skip_input`` the prompt is replaced
+    with auto-no and we return ``False`` so CI never papers over real
+    history irregularities. Interactive default is ``Y``.
+    """
+    click.secho(
+        "Warning: duplicate story ID(s) found in git log:",
+        fg='yellow',
+        err=True,
+    )
+    for sid, subjects in sorted(duplicates.items()):
+        click.secho(f"  {sid}:", fg='yellow', err=True)
+        for subject in subjects:
+            click.secho(f"    - {subject}", fg='yellow', err=True)
+
+    if skip_input:
+        click.secho(
+            "Aborting under --no-input. Re-run interactively to confirm.",
+            fg='red',
+            err=True,
+        )
+        return False
+
+    return click.confirm("Continue?", default=True, err=True)
+
+
+def _prompt_use_bundle_message(message: str, skip_input: bool) -> bool:
+    """Propose the bundled commit subject; return True to accept.
+
+    Under ``skip_input`` returns ``False`` (no prompt) so the caller falls
+    through to the existing "use git-push directly" error path — bundling
+    changes the *shape* of the commit and is a developer decision, not a
+    CI default.
+    """
+    if skip_input:
+        return False
+
+    click.echo("Proposed bundled commit subject:", err=True)
+    click.echo(f"  {message}", err=True)
+    return click.confirm("Use this message?", default=True, err=True)
 
 
 @main.command()

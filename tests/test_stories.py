@@ -18,7 +18,9 @@ from project_guide.stories import (
     _STORY_RE,
     StoryHeading,
     _read_done_stories,
+    derive_bundle_commit_message,
     derive_commit_message,
+    parse_committed_ids_from_subject,
 )
 
 _HEADER = """\
@@ -124,18 +126,193 @@ def test_derive_commit_message_with_sub_numbered_id():
     assert derive_commit_message(heading) == "J.m.1: v0.70.0 Follow-up after J.m"
 
 
-def test_derive_commit_message_round_trip_with_cli_subject_regex():
-    """The commit-subject already-committed check (cli._COMMIT_SUBJECT_STORY_ID_RE)
+def test_derive_commit_message_round_trip_with_subject_parser():
+    """The commit-subject already-committed check (parse_committed_ids_from_subject)
     must recognize the sub-numbered ID it would produce from our own
     `derive_commit_message`. Without this, a J.m.1 commit subject would
     not register in the "committed" set, breaking the wrapper's
     duplicate-detection path even after the stories.md side is fixed.
     """
-    from project_guide.cli import _COMMIT_SUBJECT_STORY_ID_RE
-
     subject = derive_commit_message(
         StoryHeading(story_id="J.m.1", title="v0.70.0 Follow-up after J.m")
     )
-    m = _COMMIT_SUBJECT_STORY_ID_RE.match(subject)
-    assert m is not None, f"regex failed to match subject: {subject!r}"
-    assert m.group(1) == "J.m.1"
+    assert parse_committed_ids_from_subject(subject) == ["J.m.1"]
+
+
+# ---------------------------------------------------------------------------
+# parse_committed_ids_from_subject — Story P.u multi-ID parser
+# ---------------------------------------------------------------------------
+
+
+def test_parse_subject_single_bare():
+    assert parse_committed_ids_from_subject("A.a: v0.1.0 Hello World") == ["A.a"]
+
+
+def test_parse_subject_single_bare_no_version():
+    assert parse_committed_ids_from_subject("M.c: align specs with FR-9") == ["M.c"]
+
+
+def test_parse_subject_single_storied_legacy():
+    """P.s legacy form: `Story <id>: ...`."""
+    assert parse_committed_ids_from_subject(
+        "Story J.m.2: v0.71.0 — refactor"
+    ) == ["J.m.2"]
+
+
+def test_parse_subject_single_subnumbered():
+    """P.m sub-numbered IDs continue to parse."""
+    assert parse_committed_ids_from_subject(
+        "J.m.1: v0.70.0 Follow-up"
+    ) == ["J.m.1"]
+
+
+def test_parse_subject_rejects_single_id_without_colon():
+    """Disambiguation rule preserved from P.s: single ID without `:` is not
+    a story commit (prevents `Story J.m.2 some text` from matching)."""
+    assert parse_committed_ids_from_subject("Story J.m.2 some other text") == []
+    assert parse_committed_ids_from_subject("A.a Hello World") == []
+
+
+def test_parse_subject_rejects_non_story_prefixes():
+    """`Fix`/`Feat`/etc. prefixes are not absorbed by the optional `Story` group."""
+    assert parse_committed_ids_from_subject("Fix J.m.2: something") == []
+    assert parse_committed_ids_from_subject("Feat A.a: hello") == []
+
+
+def test_parse_subject_rejects_garbage():
+    assert parse_committed_ids_from_subject("") == []
+    assert parse_committed_ids_from_subject("Image corruption features planning") == []
+    assert parse_committed_ids_from_subject("commit 48c05090af3471d61fd0918962656c05a8a71776") == []
+
+
+def test_parse_subject_bundle_legacy_no_colons():
+    """Legacy bundled subject with no colons at all (real-world field example)."""
+    assert parse_committed_ids_from_subject(
+        "H.a, H.b, H.c InputSource sidecar labels + flat-image layout"
+    ) == ["H.a", "H.b", "H.c"]
+
+
+def test_parse_subject_bundle_canonical_unversioned():
+    assert parse_committed_ids_from_subject(
+        "H.a, H.b, H.c: Foo bar bing baz"
+    ) == ["H.a", "H.b", "H.c"]
+
+
+def test_parse_subject_bundle_all_versioned():
+    assert parse_committed_ids_from_subject(
+        "H.j: v0.10.0, H.k: v0.11.0 sample_per_class filter"
+    ) == ["H.j", "H.k"]
+
+
+def test_parse_subject_bundle_mixed_versions():
+    assert parse_committed_ids_from_subject(
+        "H.a, H.b: v1.2.3, H.c: Foo bar bing baz"
+    ) == ["H.a", "H.b", "H.c"]
+
+
+def test_parse_subject_bundle_single_trailing_version():
+    """Single shared version covering bare IDs (valid on parse; not formatter-emitted)."""
+    assert parse_committed_ids_from_subject(
+        "H.a, H.b, H.c: v1.2.3 Foo bar bing baz"
+    ) == ["H.a", "H.b", "H.c"]
+
+
+def test_parse_subject_bundle_storied_prefix():
+    """`Story ` prefix tolerated on bundles too."""
+    assert parse_committed_ids_from_subject(
+        "Story H.a, H.b, H.c InputSource sidecar"
+    ) == ["H.a", "H.b", "H.c"]
+
+
+def test_parse_subject_bundle_subnumbered_ids():
+    assert parse_committed_ids_from_subject(
+        "J.m.1, J.m.2 split work"
+    ) == ["J.m.1", "J.m.2"]
+
+
+# ---------------------------------------------------------------------------
+# derive_bundle_commit_message — Story P.u bundle formatter
+# ---------------------------------------------------------------------------
+
+
+def test_derive_bundle_all_versionless():
+    headings = [
+        StoryHeading(story_id="H.a", title="InputSource sidecar labels"),
+        StoryHeading(story_id="H.b", title="flat-image layout"),
+        StoryHeading(story_id="H.c", title="InputSource partitions"),
+    ]
+    assert derive_bundle_commit_message(headings) == (
+        "H.a, H.b, H.c: InputSource sidecar labels + flat-image layout + InputSource partitions"
+    )
+
+
+def test_derive_bundle_all_versioned():
+    headings = [
+        StoryHeading(story_id="H.j", title="v0.10.0 sample_per_class filter"),
+        StoryHeading(story_id="H.k", title="v0.11.0 sample_per_class_fractional filter"),
+    ]
+    # Last token already ends with ": <ver>", so no extra colon before title.
+    assert derive_bundle_commit_message(headings) == (
+        "H.j: v0.10.0, H.k: v0.11.0 sample_per_class filter + sample_per_class_fractional filter"
+    )
+
+
+def test_derive_bundle_mixed_versions():
+    headings = [
+        StoryHeading(story_id="H.a", title="Foo"),
+        StoryHeading(story_id="H.b", title="v1.2.3 Bar"),
+        StoryHeading(story_id="H.c", title="Baz"),
+    ]
+    assert derive_bundle_commit_message(headings) == (
+        "H.a, H.b: v1.2.3, H.c: Foo + Bar + Baz"
+    )
+
+
+def test_derive_bundle_sanitizes_backticks_and_double_quotes():
+    headings = [
+        StoryHeading(story_id="A.a", title='New command `foo`'),
+        StoryHeading(story_id="A.b", title='Said "hello"'),
+    ]
+    assert derive_bundle_commit_message(headings) == (
+        "A.a, A.b: New command 'foo' + Said 'hello'"
+    )
+
+
+def test_derive_bundle_preserves_plus_inside_titles():
+    """`+` inside an individual title passes through (not escaped)."""
+    headings = [
+        StoryHeading(story_id="A.a", title="A + B feature"),
+        StoryHeading(story_id="A.b", title="cleanup"),
+    ]
+    assert derive_bundle_commit_message(headings) == (
+        "A.a, A.b: A + B feature + cleanup"
+    )
+
+
+def test_derive_bundle_trims_and_collapses_whitespace():
+    """Leading/trailing whitespace stripped; internal whitespace runs collapsed."""
+    headings = [
+        StoryHeading(story_id="A.a", title="   multi    space   title   "),
+        StoryHeading(story_id="A.b", title="\t tabby \t title \t"),
+    ]
+    assert derive_bundle_commit_message(headings) == (
+        "A.a, A.b: multi space title + tabby title"
+    )
+
+
+def test_derive_bundle_round_trips_with_parser_unversioned():
+    headings = [
+        StoryHeading(story_id="A.a", title="first"),
+        StoryHeading(story_id="A.b", title="second"),
+    ]
+    msg = derive_bundle_commit_message(headings)
+    assert parse_committed_ids_from_subject(msg) == ["A.a", "A.b"]
+
+
+def test_derive_bundle_round_trips_with_parser_versioned():
+    headings = [
+        StoryHeading(story_id="A.a", title="v0.1.0 first"),
+        StoryHeading(story_id="A.b", title="v0.2.0 second"),
+    ]
+    msg = derive_bundle_commit_message(headings)
+    assert parse_committed_ids_from_subject(msg) == ["A.a", "A.b"]

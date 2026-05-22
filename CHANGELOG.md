@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.0] - 2026-05-20
+
+**`project-guide git-push` learns to read and write bundled commits (P.u).** When a developer commits multiple `[Done]` stories under one bundled subject (e.g., `H.a, H.b, H.c InputSource ...`), the wrapper now correctly recognizes all bundled IDs as committed instead of misreporting them as uncommitted. When 2+ `[Done]` stories remain uncommitted, the wrapper offers a bundled commit subject with a `[Y/n]` gate rather than forcing the developer to hand-type one. A new duplicate-`<id>` warning surfaces git-log anomalies where the same story ID appears in multiple commits.
+
+### Added
+- **P.u — Bundled-commit recognition in already-committed check.** `parse_committed_ids_from_subject` (new, in `project_guide/stories.py`) extracts the full ordered list of story IDs from a commit subject across single-ID, legacy `Story <id>:`, legacy bundle (no colons), canonical unversioned bundle (`H.a, H.b, H.c: title`), per-story-versioned bundle (`H.j: v0.10.0, H.k: v0.11.0 title`), mixed-version bundle, and single-trailing-version bundle forms. The parser is permissive on read (every `:` optional) and the formatter is strict on emit (colon precedes a version or a title, never separates two bare IDs).
+- **P.u — Bundle-offer flow.** When 2+ uncommitted `[Done]` stories exist, the wrapper proposes a bundled commit subject `<id1>[: <ver1>], <id2>[: <ver2>], ... <title1> + <title2> + ...` and prompts `Use this message? [Y/n]` (default `Y`). Accept → invoke `git-push` with the bundled message. Decline → exit 1 with the existing `"use git-push directly"` manual-resolution hint. New `derive_bundle_commit_message` formatter in `project_guide/stories.py` handles per-story version detection, backtick / double-quote sanitization (same rules as single-story), title joining with `" + "`, and whitespace trim-and-collapse on the final subject.
+- **P.u — Duplicate-`<id>` warning.** When the same bare story ID appears in 2+ commit subjects in `git log`, the wrapper emits a stderr warning listing each duplicate ID and the offending subjects, and prompts `Continue? [Y/n]` (default `Y`). The version is incidental — duplicate detection is keyed on `<id>` only, so a story shipped under two different versions still surfaces.
+- **P.u — `--no-input` flag on `git-push`.** New `--no-input/--input` option auto-declines both the bundle offer and the duplicate-`<id>` continuation prompt (also auto-enabled by `CI=1` or non-TTY stdin per the standard `--no-input` contract). Auto-no is chosen for both gates because accepting either would change the shape of a commit (or paper over a history anomaly) silently — a developer decision, not a CI default.
+
+### Changed
+- **P.u — `_get_committed_story_ids` return type.** The helper now returns `tuple[set[str], dict[str, list[str]]]` (committed-IDs set + duplicates map) instead of `set[str]`. This is an internal-only API; no public surface affected.
+- **P.u — Commit-subject parser location.** Retired `_COMMIT_SUBJECT_STORY_ID_RE` from `project_guide/cli.py` (introduced by P.k, made permissive in P.s) in favor of the structured `parse_committed_ids_from_subject` parser in `project_guide/stories.py`. Tests that referenced the regex directly have been migrated to call the parser.
+- **P.u — `project-essentials.md` `git-push` section.** Expanded with the bundle-offer flow, the colon-precedes-version-or-title rule, the duplicate-`<id>` warning, the `--no-input` defaults, and the parse-permissive / emit-strict invariant.
+
+### Fixed
+- **P.u — Field bug: bundled commits no longer misclassified as uncommitted.** Pre-P.u, a bundled commit like `H.a, H.b, H.c InputSource ...` was invisible to the single-ID regex, so all bundled stories appeared "uncommitted" on the next `git-push` invocation — the wrapper either re-proposed the oldest one or fell through to the multi-uncommitted error path. Now correctly recognized.
+
 ## [2.8.0] - 2026-05-20
 
 **Phase P closing bundle: cycle-mode LLM-workflow discipline + XP methodology grounding + untracked-by-default `go.md` policy.** Six stories shipped between v2.7.2 and v2.8.0 (P.n–P.s). The one consumer-visible behavior change is the new tracked-`go.md` heal warning and the matching `git rm --cached docs/project-guide/go.md` consumer migration (P.o); the remaining five stories are template/doc reshapes that change how the LLM behaves on the next `project-guide mode <X>` render, with no consumer migration required.

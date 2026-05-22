@@ -2719,8 +2719,10 @@ def test_git_push_errors_when_last_done_story_is_already_committed(runner, tmp_p
         assert captured == [], "git-push must not be invoked when the story is already committed"
 
 
-def test_git_push_errors_on_multiple_uncommitted_done_stories(runner, tmp_path, monkeypatch):
-    """Multi-uncommitted → exit 1 listing the IDs; git-push not invoked."""
+def test_git_push_errors_on_multiple_uncommitted_done_stories_with_no_input(runner, tmp_path, monkeypatch):
+    """Multi-uncommitted + --no-input → bundle offer auto-declined → exit 1
+    listing the IDs; git-push not invoked. (P.u: the bundle-offer prompt is
+    skipped under --no-input so CI never silently bundles.)"""
     with runner.isolated_filesystem(temp_dir=tmp_path):
         _write_stories_md(
             "### Story A.a: v0.1.0 Hello World [Done]",
@@ -2730,12 +2732,35 @@ def test_git_push_errors_on_multiple_uncommitted_done_stories(runner, tmp_path, 
         captured: list = []
         _mock_git_log_subjects(monkeypatch, subjects=[], git_push_argv_capture=captured)
 
-        result = runner.invoke(main, ['git-push'])
+        result = runner.invoke(main, ['git-push', '--no-input'])
 
         assert result.exit_code == 1
         assert "Multiple uncommitted [Done] stories" in result.output
         assert "A.a" in result.output
         assert "A.b" in result.output
+        assert captured == []
+
+
+def test_git_push_errors_on_multiple_uncommitted_when_bundle_declined(runner, tmp_path, monkeypatch):
+    """Multi-uncommitted + interactive `n` at bundle prompt → exit 1 with the
+    manual-resolution hint; git-push not invoked."""
+    import project_guide.cli as cli_module
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 Hello World [Done]",
+            "### Story A.b: v0.2.0 Second story [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(monkeypatch, subjects=[], git_push_argv_capture=captured)
+        # CliRunner stdin is non-TTY; simulate interactive shell.
+        monkeypatch.setattr(cli_module, 'should_skip_input', lambda *a, **kw: False)
+
+        result = runner.invoke(main, ['git-push'], input='n\n')
+
+        assert result.exit_code == 1
+        assert "Multiple uncommitted [Done] stories" in result.output
         assert captured == []
 
 
@@ -2897,6 +2922,285 @@ def test_git_push_errors_when_subnumbered_story_is_already_committed(runner, tmp
 # --- End Story P.k ----------------------------------------------------------
 
 
+# --- Story P.u: bundle-offer flow + bundled-commit recognition --------------
+
+
+def test_git_push_recognizes_bundled_commit_in_already_committed_check(runner, tmp_path, monkeypatch):
+    """Field-bug regression: a bundled commit subject like
+    `H.a, H.b, H.c InputSource ...` must mark all three IDs as committed.
+    Pre-P.u, the single-ID regex missed bundled subjects entirely and
+    spuriously reported the bundled stories as uncommitted."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story H.a: InputSource sidecar labels [Done]",
+            "### Story H.b: flat-image layout [Done]",
+            "### Story H.c: InputSource partitions [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(
+            monkeypatch,
+            subjects=[
+                "H.a, H.b, H.c InputSource sidecar labels + flat-image layout + InputSource partitions",
+            ],
+            git_push_argv_capture=captured,
+        )
+
+        result = runner.invoke(main, ['git-push'])
+
+        assert result.exit_code == 1
+        assert "Story H.c is already committed" in result.output
+        assert captured == []
+
+
+def test_git_push_bundle_offer_accepted_invokes_gitbetter(runner, tmp_path, monkeypatch):
+    """Multi-uncommitted + interactive `y` → git-push invoked with bundled message."""
+    import project_guide.cli as cli_module
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story H.j: v0.10.0 sample_per_class filter [Done]",
+            "### Story H.k: v0.11.0 sample_per_class_fractional filter [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(monkeypatch, subjects=[], git_push_argv_capture=captured)
+        monkeypatch.setattr(cli_module, 'should_skip_input', lambda *a, **kw: False)
+
+        result = runner.invoke(main, ['git-push'], input='y\n')
+
+        assert result.exit_code == 0, result.output
+        assert len(captured) == 1, captured
+        assert captured[0][1] == (
+            "H.j: v0.10.0, H.k: v0.11.0 "
+            "sample_per_class filter + sample_per_class_fractional filter"
+        )
+
+
+def test_git_push_bundle_offer_format_omits_version_for_versionless_stories(runner, tmp_path, monkeypatch):
+    """Stories without a leading `vX.Y.Z ` get no `: <ver>` segment in the bundle."""
+    import project_guide.cli as cli_module
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story H.a: InputSource sidecar labels [Done]",
+            "### Story H.b: flat-image layout [Done]",
+            "### Story H.c: InputSource partitions [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(monkeypatch, subjects=[], git_push_argv_capture=captured)
+        monkeypatch.setattr(cli_module, 'should_skip_input', lambda *a, **kw: False)
+
+        result = runner.invoke(main, ['git-push'], input='y\n')
+
+        assert result.exit_code == 0, result.output
+        assert captured[0][1] == (
+            "H.a, H.b, H.c: InputSource sidecar labels + flat-image layout + InputSource partitions"
+        )
+
+
+def test_git_push_bundle_offer_mixed_versions(runner, tmp_path, monkeypatch):
+    """A bundle with some versioned + some versionless stories formats correctly."""
+    import project_guide.cli as cli_module
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story H.a: Foo [Done]",
+            "### Story H.b: v1.2.3 Bar [Done]",
+            "### Story H.c: Baz [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(monkeypatch, subjects=[], git_push_argv_capture=captured)
+        monkeypatch.setattr(cli_module, 'should_skip_input', lambda *a, **kw: False)
+
+        result = runner.invoke(main, ['git-push'], input='y\n')
+
+        assert result.exit_code == 0, result.output
+        assert captured[0][1] == "H.a, H.b: v1.2.3, H.c: Foo + Bar + Baz"
+
+
+def test_git_push_bundle_offer_branch_name_pass_through(runner, tmp_path, monkeypatch):
+    """BRANCH_NAME positional still appears after the bundled message."""
+    import project_guide.cli as cli_module
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 first [Done]",
+            "### Story A.b: v0.2.0 second [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(monkeypatch, subjects=[], git_push_argv_capture=captured)
+        monkeypatch.setattr(cli_module, 'should_skip_input', lambda *a, **kw: False)
+
+        result = runner.invoke(main, ['git-push', 'feature/xyz'], input='y\n')
+
+        assert result.exit_code == 0, result.output
+        argv = captured[0]
+        assert argv[0] == "/usr/local/bin/git-push"
+        assert argv[1] == "A.a: v0.1.0, A.b: v0.2.0 first + second"
+        assert argv[2] == "feature/xyz"
+
+
+def test_git_push_bundle_offer_no_input_does_not_prompt(runner, tmp_path, monkeypatch):
+    """Under --no-input the bundle offer is auto-declined and no Y/n prompt is shown."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 first [Done]",
+            "### Story A.b: v0.2.0 second [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(monkeypatch, subjects=[], git_push_argv_capture=captured)
+
+        result = runner.invoke(main, ['git-push', '--no-input'])
+
+        assert result.exit_code == 1
+        assert "Use this message?" not in result.output
+        assert "Multiple uncommitted [Done] stories" in result.output
+        assert captured == []
+
+
+def test_git_push_duplicate_story_id_warning_interactive_continue(runner, tmp_path, monkeypatch):
+    """Same ID in 2+ commit subjects → warning + Y/n; `y` proceeds with normal flow."""
+    import project_guide.cli as cli_module
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 Hello World [Done]",
+            "### Story A.b: v0.2.0 Second [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        # A.a appears in two commit subjects → duplicate.
+        _mock_git_log_subjects(
+            monkeypatch,
+            subjects=[
+                "A.a: v0.1.0 Hello World",
+                "A.a: v0.1.1 Hello World patch",
+            ],
+            git_push_argv_capture=captured,
+        )
+        monkeypatch.setattr(cli_module, 'should_skip_input', lambda *a, **kw: False)
+
+        result = runner.invoke(main, ['git-push'], input='y\n')
+
+        # A.a is committed → A.b is the lone uncommitted; single-story flow.
+        assert result.exit_code == 0, result.output
+        assert "duplicate story ID" in result.output
+        assert "A.a" in result.output
+        assert len(captured) == 1
+        assert captured[0][1] == "A.b: v0.2.0 Second"
+
+
+def test_git_push_duplicate_story_id_warning_interactive_abort(runner, tmp_path, monkeypatch):
+    """Same ID in 2+ commit subjects → warning + Y/n; `n` exits 1 without invoking git-push."""
+    import project_guide.cli as cli_module
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 Hello World [Done]",
+            "### Story A.b: v0.2.0 Second [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(
+            monkeypatch,
+            subjects=[
+                "A.a: v0.1.0 Hello World",
+                "A.a: v0.1.1 Hello World patch",
+            ],
+            git_push_argv_capture=captured,
+        )
+        monkeypatch.setattr(cli_module, 'should_skip_input', lambda *a, **kw: False)
+
+        result = runner.invoke(main, ['git-push'], input='n\n')
+
+        assert result.exit_code == 1
+        assert "duplicate story ID" in result.output
+        assert captured == []
+
+
+def test_git_push_duplicate_story_id_warning_no_input_auto_aborts(runner, tmp_path, monkeypatch):
+    """Under --no-input the duplicate warning auto-aborts (no Y/n prompt)."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 Hello World [Done]",
+            "### Story A.b: v0.2.0 Second [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(
+            monkeypatch,
+            subjects=[
+                "A.a: v0.1.0 Hello World",
+                "A.a: v0.1.1 Hello World patch",
+            ],
+            git_push_argv_capture=captured,
+        )
+
+        result = runner.invoke(main, ['git-push', '--no-input'])
+
+        assert result.exit_code == 1
+        assert "duplicate story ID" in result.output
+        assert "Continue?" not in result.output
+        assert "Aborting under --no-input" in result.output
+        assert captured == []
+
+
+def test_git_push_duplicate_detection_treats_bundle_ids_as_distinct(runner, tmp_path, monkeypatch):
+    """A single bundled commit with multiple distinct IDs is not a duplicate."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 Hello World [Done]",
+            "### Story B.a: v0.2.0 Second [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        # Both IDs appear, but each only once across all subjects.
+        _mock_git_log_subjects(
+            monkeypatch,
+            subjects=[
+                "A.a, B.a Bundled foundation work",
+            ],
+            git_push_argv_capture=captured,
+        )
+
+        result = runner.invoke(main, ['git-push'])
+
+        assert result.exit_code == 1
+        # Both stories already committed → already-committed path, no duplicate warning.
+        assert "duplicate story ID" not in result.output
+        assert "is already committed" in result.output
+
+
+def test_git_push_bundle_offer_sanitizes_quotes(runner, tmp_path, monkeypatch):
+    """Backticks and double quotes inside bundled titles become single quotes."""
+    import project_guide.cli as cli_module
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 New command `foo` [Done]",
+            "### Story A.b: v0.2.0 Said \"hi\" [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(monkeypatch, subjects=[], git_push_argv_capture=captured)
+        monkeypatch.setattr(cli_module, 'should_skip_input', lambda *a, **kw: False)
+
+        result = runner.invoke(main, ['git-push'], input='y\n')
+
+        assert result.exit_code == 0, result.output
+        assert captured[0][1] == (
+            "A.a: v0.1.0, A.b: v0.2.0 New command 'foo' + Said 'hi'"
+        )
+
+
+# --- End Story P.u ----------------------------------------------------------
+
+
 # --- Story P.o: untracked-by-default go.md policy ---------------------------
 
 
@@ -3018,49 +3322,49 @@ def test_heal_suppresses_warning_under_no_input(runner, tmp_path, monkeypatch):
 # --- End Story P.o ----------------------------------------------------------
 
 
-# --- Story P.s: permissive commit-subject regex -----------------------------
+# --- Story P.s / P.u: commit-subject parser (single + bundle) ---------------
+#
+# P.s introduced the `Story <id>:` permissive form via a regex. P.u retired
+# that regex in favor of `parse_committed_ids_from_subject` (lives in
+# stories.py) which also handles bundled subjects. These four tests preserve
+# the original P.s coverage; the comprehensive parser test suite lives in
+# tests/test_stories.py.
 
 
-def test_commit_subject_regex_matches_story_prefix_form():
+def test_commit_subject_parser_matches_story_prefix_form():
     """Recognize the `Story <id>: ...` form (the docs-example convention)."""
-    from project_guide.cli import _COMMIT_SUBJECT_STORY_ID_RE
+    from project_guide.stories import parse_committed_ids_from_subject
 
-    m = _COMMIT_SUBJECT_STORY_ID_RE.match(
+    assert parse_committed_ids_from_subject(
         "Story J.m.2: v0.71.0 — 'QuizProvider' Protocol → 'AssessmentProvider'"
-    )
-    assert m is not None
-    assert m.group(1) == "J.m.2"
+    ) == ["J.m.2"]
 
 
-def test_commit_subject_regex_matches_bare_form():
+def test_commit_subject_parser_matches_bare_form():
     """Bare `<id>: ...` form continues to match (regression check for P.k/P.m)."""
-    from project_guide.cli import _COMMIT_SUBJECT_STORY_ID_RE
+    from project_guide.stories import parse_committed_ids_from_subject
 
-    m = _COMMIT_SUBJECT_STORY_ID_RE.match(
+    assert parse_committed_ids_from_subject(
         "J.m.2: v0.71.0 — Integrate Published Component"
-    )
-    assert m is not None
-    assert m.group(1) == "J.m.2"
+    ) == ["J.m.2"]
 
 
-def test_commit_subject_regex_matches_plain_letter_id_both_forms():
+def test_commit_subject_parser_matches_plain_letter_id_both_forms():
     """Both forms recognize plain-letter (non-sub-numbered) IDs."""
-    from project_guide.cli import _COMMIT_SUBJECT_STORY_ID_RE
+    from project_guide.stories import parse_committed_ids_from_subject
 
-    bare = _COMMIT_SUBJECT_STORY_ID_RE.match("A.a: v0.1.0 Hello World")
-    storied = _COMMIT_SUBJECT_STORY_ID_RE.match("Story A.a: v0.1.0 Hello World")
-    assert bare is not None and bare.group(1) == "A.a"
-    assert storied is not None and storied.group(1) == "A.a"
+    assert parse_committed_ids_from_subject("A.a: v0.1.0 Hello World") == ["A.a"]
+    assert parse_committed_ids_from_subject("Story A.a: v0.1.0 Hello World") == ["A.a"]
 
 
-def test_commit_subject_regex_rejects_other_prefixes():
+def test_commit_subject_parser_rejects_other_prefixes():
     """`Fix`/`Feat`/etc. prefixes are not absorbed by the optional `Story` group."""
-    from project_guide.cli import _COMMIT_SUBJECT_STORY_ID_RE
+    from project_guide.stories import parse_committed_ids_from_subject
 
-    assert _COMMIT_SUBJECT_STORY_ID_RE.match("Fix J.m.2: something") is None
-    assert _COMMIT_SUBJECT_STORY_ID_RE.match("Feat A.a: hello") is None
-    # No colon → still no match (sanity check on the existing regex).
-    assert _COMMIT_SUBJECT_STORY_ID_RE.match("Story J.m.2 some other text") is None
+    assert parse_committed_ids_from_subject("Fix J.m.2: something") == []
+    assert parse_committed_ids_from_subject("Feat A.a: hello") == []
+    # No colon → still no match (preserves the single-ID disambiguation rule).
+    assert parse_committed_ids_from_subject("Story J.m.2 some other text") == []
 
 
-# --- End Story P.s ----------------------------------------------------------
+# --- End Story P.s / P.u ----------------------------------------------------
