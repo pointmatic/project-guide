@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.10.1] - 2026-05-23
+
+**Loosen the renumber pre-condition in the `_phase-letters.md` partial template (P.w).** Field experience in a downstream project surfaced that `plan_phase` was refusing to renumber phases whose `[Planned]` headings had been committed to `stories.md` as untouched roadmap placeholders — even though no commits, CHANGELOG entries, or cross-references actually named them. The rule has been restated around *reference accretion* rather than mere presence in committed history.
+
+### Changed
+- **P.w — `_phase-letters.md` "Renumber (last resort)" pre-condition.** The rule now locks an ID iff (a) its current status is anything other than `[Planned]`, (b) any commit message names it, or (c) it is cited outside `stories.md` itself (CHANGELOG, other spec docs, PR descriptions, external tooling). A `[Planned]` heading in committed `stories.md` with none of (a)/(b)/(c) is renumberable. The rule ships with two mechanical verification commands — `git log --all --grep='<ID>'` for commit-message references, and `grep -RFn '<ID>' docs/ CHANGELOG.md --exclude=stories.md` for cross-doc references (the `--exclude=stories.md` flag is essential — without it the grep always matches the heading being checked, making the success condition unreachable). Pre-P.w the rule locked any ID appearing in committed git history regardless of status or accreted references, which produced false-positive lockouts in the field.
+
 ## [2.10.0] - 2026-05-20
 
 **`project-guide git-push` learns about header stories and out-of-sequence commits (P.v).** Two safety refinements to the bundle-offer flow shipped in v2.9.0, surfaced by dogfooded use in a downstream project: (1) "group overview" stories that have no checklist items are now treated as decorative headers and filtered out of the uncommitted-detection flow — they no longer get proposed for commit; (2) when uncommitted `[Done]` stories sit out-of-document-order with committed `[Done]` stories between them, the wrapper now exits 1 with a precise error instead of silently bundling them. A small consumer-visible semantic change: the "nothing real to commit" case is now **exit 0** instead of exit 1, because the repo being in the desired state is success.

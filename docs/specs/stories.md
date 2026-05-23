@@ -815,6 +815,39 @@ Folded-in audit follow-up (developer-directed Path 2, after the initial gate pre
 
 ---
 
+### Story P.w: v2.10.1 Loosen renumber pre-condition in `_phase-letters.md` partial template [Done]
+
+**Problem.** The renumber-as-last-resort rule in `project_guide/templates/project-guide/templates/modes/_phase-letters.md` (the partial rendered into `go.md`'s Phase/Story ID Scheme section) read: an ID is **locked** once its heading appears in **committed git history**, regardless of `[Planned]` / `[In Progress]` / `[Done]` status. Field experience in a downstream project surfaced the failure mode: when `plan_phase` needed to insert a new phase ahead of one or more `[Planned]` phases that had already been committed to `stories.md` as untouched roadmap placeholders (no work begun, no commits naming them, no cross-references), the LLM correctly read the rule as forbidding the renumber and refused to proceed — even though no references had actually accreted to the IDs being shifted. The rule overweighted "committed to disk in stories.md" and underweighted the actual harm a renumber causes (broken cross-references in commit messages, CHANGELOG entries, in-body story citations, external tooling).
+
+**Behavior (post-story).** The pre-condition is restated as "no references have accreted around the ID." An ID is **locked** iff **(a)** its current status is anything other than `[Planned]` (`[In Progress]` or `[Done]`), **(b)** any commit message names it, or **(c)** it is cited outside `stories.md` itself — `CHANGELOG.md`, other spec docs, PR descriptions, external tooling. A `[Planned]` heading sitting in committed `stories.md` as an untouched roadmap placeholder is **not** locked — being present in the file is not the same as having references accrete around it. The rule ships with two mechanical verification commands (`git log --all --grep='<ID>'` for commit-message references; `grep -RFn '<ID>' docs/ CHANGELOG.md --exclude=stories.md` for cross-references in tracked text) so the LLM has a deterministic safety check, not a judgment call. The `--exclude=stories.md` flag is essential — without it the grep always matches the heading being checked, making the "both come up empty" success condition impossible to reach.
+
+**Why these defaults.**
+
+- **Reference-accretion as the locking signal.** What actually breaks when an ID is renumbered is *external citation* of that ID. A `[Planned]` heading that nothing else references — including no commit message, since no work has begun — is safe to shift. The pre-P.w rule conflated "in the committed file" with "referenced," which led to false-positive lockouts.
+- **Three independent conditions joined by OR, not a checklist.** Any one of (a), (b), (c) being true is sufficient to lock. This matches how citations actually accrete: status flips, commits, and cross-doc mentions are independent events. The LLM does not need to weigh them; it checks each and locks on the first hit.
+- **Status check chosen over historical-status scan.** Condition (a) is "current status is anything other than `[Planned]`," not "status has ever flipped past `[Planned]`." A story that was once `[Done]` and got reverted to `[Planned]` is vanishingly rare; when it does happen, condition (b) (the commit that did the work, or the revert commit) catches it. Avoiding the history scan (`git log -p -- docs/specs/stories.md | grep ...`) keeps the verification fast and mechanical.
+- **Keep "PR descriptions" in (c) even though `code_direct` has no PRs.** The partial template ships to all consumers of project-guide, not just dogfooded-as-`code_direct` projects. Downstream projects in `code_test_first` or production modes use PRs; the rule must cover them.
+
+**Implementation:**
+- [x] **Rewrote the Renumber bullet** in `project_guide/templates/project-guide/templates/modes/_phase-letters.md` (line 36–44) — replaced the working-tree-only pre-condition with the three-condition reference-accretion rule, added the verification command block (with `--exclude=stories.md` on the grep), and added the explicit "untouched `[Planned]` placeholder ≠ locked" clarification.
+- [x] **Ran `pyve run project-guide update`** to propagate the template edit to `docs/project-guide/go.md` (the dogfooded installed copy). Heal hook auto-healed 1 template; update reported "All files are up to date".
+- [x] **Ran `pyve test`** → **581 passed** (no test changes; baseline preserved).
+- [x] **Ran `pyve testenv run ruff check project_guide/ tests/`** → **All checks passed!**
+- [x] **Bumped `project_guide/version.py`** to `2.10.1`.
+- [x] **Bumped `pyproject.toml`** to `2.10.1`.
+- [x] **CHANGELOG.md** new `## [2.10.1] - 2026-05-23` entry under `### Changed`.
+- [x] **Flipped story status** `[Planned]` → `[Done]` and checked off all `[ ]` items.
+
+**Version assignment:** **v2.10.1** — patch. Doc-only template content change at the developer's direction (deliberate `.N` line, not bundled with a preceding code story). No code path affected, no test changes, no consumer-visible CLI behavior change; the only consumer-visible effect is that LLMs reading the rendered `go.md` now have a more permissive (and more correct) renumber rule.
+
+**Out of scope:**
+- **Tests for the template content.** The partial is rendered verbatim through Jinja; there is no logic to test. The existing render-pipeline tests already verify the file is included.
+- **Programmatic enforcement of the renumber pre-condition.** The rule is LLM-readable guidance, not a CLI safety check. A future `project-guide check-renumber <ID>` command could mechanize the three-condition verification, but YAGNI until repeated field use proves the need.
+- **Re-evaluating prior locked-ID decisions in the dogfooded `stories.md`.** No existing story IDs in this repo's `stories.md` are being renumbered as part of this fix — the change is rule-text only.
+- **Tightening / loosening the `plan_phase` template's invocation of this rule.** The rule lives in the partial; `plan_phase` includes it unchanged. If `plan_phase` needs additional guidance on *when* renumber is the right tool vs. Append or Sub-number, that is a separate story.
+
+---
+
 ## Future
 
 ### Audit Modes [Deferred]

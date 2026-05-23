@@ -34,7 +34,14 @@ When a new story needs to land and the obvious sequential ID is contested (work 
    - The form is flat — no cascading like `J.m.1.1`. Maximum two levels: top-level (`J.m`) and one numeric suffix (`J.m.1`). The 3-level depth limit is hard.
 
 3. **Renumber (last resort).** Insert at an existing position by shifting later IDs by one (`A.c → A.d`, `A.d → A.e`, …) and updating every cross-reference. Used only when neither Append nor Sub-number applies and the conceptual ordering genuinely matters more than the historical ordering. One hard pre-condition:
-   - **Only valid on working-tree-only IDs.** Once a story heading appears in **committed git history** (regardless of `[Planned]` / `[In Progress]` / `[Done]` status), its ID is **locked** — renumbering would silently break references in commit messages, CHANGELOG entries, in-body story cross-references, and external tooling. `git log -- docs/specs/stories.md` is the source of truth for which IDs have been committed; verify before any renumber attempt.
+   - **Only valid on IDs around which no references have accreted.** An ID becomes **locked** as soon as any of the following is true: **(a)** its current status is anything other than `[Planned]` (i.e., `[In Progress]` or `[Done]`); **(b)** any commit message names it; **(c)** it is cited outside `stories.md` itself — in `CHANGELOG.md`, other spec docs, PR descriptions, or external tooling. An ID that merely sits in committed `stories.md` as an untouched `[Planned]` placeholder from initial roadmapping is **not** locked — being present in the file is not the same as having references accrete around it. Verify safety with:
+
+     ```bash
+     git log --all --grep='<ID>'                              # commit-message references
+     grep -RFn '<ID>' docs/ CHANGELOG.md --exclude=stories.md # cross-references in tracked text
+     ```
+
+     If both come up empty and the story's current status is `[Planned]`, the ID is renumberable. Otherwise, choose Append or Sub-number.
 
 Sub-numbering and renumber are both deliberate exceptions to the simpler "always append" rule. When in doubt, Append.
 
