@@ -1787,15 +1787,32 @@ def git_push(branch_name: str | None, no_input: bool):
     branch-aware push flows.
 
     \b
+    [Done] stories whose body contains no `- [ ]` / `- [x]` checklist items
+    are treated as decorative group-overview headers (Story P.v) and filtered
+    out of the uncommitted-detection flow — headers do not produce commits.
+
+    \b
     Single uncommitted [Done] story: derives `<id>: <title>` and pushes.
     Multiple uncommitted [Done] stories: proposes a bundled subject
     `<id1>[: <ver1>], <id2>[: <ver2>], ... <title1> + <title2> + ...`
     and asks `[Y/n]`. Decline → exit 1 with the manual-resolution hint.
 
     \b
+    Out-of-sequence detection (Story P.v): if an uncommitted [Done] story
+    precedes a committed [Done] story in stories.md document order, the
+    wrapper exits 1 with a message naming every offender. This is an
+    unambiguous error path; --no-input does not auto-yes it.
+
+    \b
+    Exit 0 (success):
+      - Push completed successfully
+      - Nothing real to commit — every commit-worthy [Done] story is in git log
+        (Story P.v; previously exit 1)
+
+    \b
     Hard errors (exit 1):
       - No `[Done]` story in stories.md
-      - The last `[Done]` story is already committed (per git-log subject prefix)
+      - Out-of-sequence [Done] stories detected (Story P.v)
       - Multiple uncommitted `[Done]` stories and bundle offer declined
         (or --no-input)
       - Duplicate story ID found in git log and continuation declined
@@ -1839,17 +1856,46 @@ def git_push(branch_name: str | None, no_input: bool):
     if duplicates and not _prompt_continue_on_duplicate_ids(duplicates, skip_input):
         sys.exit(1)
 
-    uncommitted = [s for s in done_stories if s.story_id not in committed]
+    # P.v: filter header stories (zero-checklist body) out of the commit-units
+    # set. Headers are decorative groupings of sub-numbered children and never
+    # produce a commit on their own.
+    commit_units = [s for s in done_stories if not s.is_header]
+    headers = [s for s in done_stories if s.is_header]
+
+    # P.v: out-of-sequence detection on the post-filter commit-units list.
+    # The committed prefix → uncommitted suffix invariant must hold; any
+    # uncommitted story that precedes a committed story in document order is
+    # an unambiguous error (no prompt, ignores --no-input).
+    offenders = _check_out_of_sequence(commit_units, committed)
+    if offenders:
+        _emit_out_of_sequence_error(offenders, commit_units, committed)
+        sys.exit(1)
+
+    uncommitted = [s for s in commit_units if s.story_id not in committed]
 
     if not uncommitted:
-        last = done_stories[-1]
-        click.secho(
-            f"Story {last.story_id} is already committed. "
-            f"Use 'git-push' directly for any follow-up commit.",
-            fg='red',
-            err=True,
-        )
-        sys.exit(1)
+        # P.v: nothing real to commit. Exit 0 — the repo is in the desired
+        # state. The "no [Done] story at all" path (caught above) keeps its
+        # exit-1 stories.md-authoring-problem semantics.
+        last = commit_units[-1] if commit_units else None
+        if last is not None:
+            click.echo(
+                "Nothing to commit — every real [Done] story is already in git log.",
+                err=True,
+            )
+            if headers:
+                header_ids = ", ".join(h.story_id for h in headers)
+                click.echo(
+                    f"([Done] header{'s' if len(headers) > 1 else ''} present "
+                    f"with no commit obligation: {header_ids}.)",
+                    err=True,
+                )
+        else:
+            click.echo(
+                "Nothing to commit — only [Done] header stories present.",
+                err=True,
+            )
+        sys.exit(0)
 
     if len(uncommitted) > 1:
         message = derive_bundle_commit_message(uncommitted)
@@ -1932,6 +1978,94 @@ def _prompt_use_bundle_message(message: str, skip_input: bool) -> bool:
     click.echo("Proposed bundled commit subject:", err=True)
     click.echo(f"  {message}", err=True)
     return click.confirm("Use this message?", default=True, err=True)
+
+
+def _check_out_of_sequence(
+    commit_units: list,
+    committed: set[str],
+) -> list[tuple[str, list[str]]]:
+    """Return out-of-sequence offenders as ``[(offender_id, [later_committed_ids]), ...]``.
+
+    Operates on the post-header-filter ``[Done]`` story list in document
+    order. The invariant: committed-prefix → uncommitted-suffix. An
+    uncommitted story whose index is less than the index of the last
+    committed story is out-of-sequence; for each such offender, the
+    returned list of ``later_committed_ids`` names the committed stories
+    that prove the gap.
+
+    Returns an empty list when the partition is clean.
+    """
+    last_committed_idx = -1
+    for i, s in enumerate(commit_units):
+        if s.story_id in committed:
+            last_committed_idx = i
+    if last_committed_idx < 0:
+        return []
+
+    offenders: list[tuple[str, list[str]]] = []
+    for i, s in enumerate(commit_units):
+        if i >= last_committed_idx:
+            break
+        if s.story_id in committed:
+            continue
+        later_committed = [
+            commit_units[j].story_id
+            for j in range(i + 1, len(commit_units))
+            if commit_units[j].story_id in committed
+        ]
+        offenders.append((s.story_id, later_committed))
+    return offenders
+
+
+def _emit_out_of_sequence_error(
+    offenders: list[tuple[str, list[str]]],
+    commit_units: list,
+    committed: set[str],
+) -> None:
+    """Print the out-of-sequence error block to stderr.
+
+    Lists every offender with its later-committed context, plus the
+    uncommitted stories that *would* be eligible for normal flow once the
+    out-of-sequence ones are resolved (full picture for the developer).
+    """
+    click.secho(
+        "Out-of-sequence [Done] stories detected:",
+        fg='red',
+        err=True,
+    )
+    for offender_id, later_committed in offenders:
+        click.secho(
+            f"  {offender_id} is uncommitted, but later stories are already committed:",
+            fg='red',
+            err=True,
+        )
+        for lid in later_committed:
+            click.secho(f"    - {lid}", fg='red', err=True)
+
+    offender_ids = {oid for oid, _ in offenders}
+    eligible_tail = [
+        s.story_id
+        for s in commit_units
+        if s.story_id not in committed and s.story_id not in offender_ids
+    ]
+    if eligible_tail:
+        click.echo("", err=True)
+        click.secho(
+            "Uncommitted [Done] stories in proper sequence (eligible for normal "
+            "flow once the above are resolved):",
+            fg='yellow',
+            err=True,
+        )
+        for sid in eligible_tail:
+            click.secho(f"  - {sid}", fg='yellow', err=True)
+
+    click.echo("", err=True)
+    click.secho(
+        "Commit out-of-sequence stories manually with raw git-push, or "
+        "investigate the history gap.",
+        fg='red',
+        err=True,
+    )
 
 
 @main.command()

@@ -2572,11 +2572,23 @@ def _write_stories_md(*headings: str) -> None:
     """Write `docs/specs/stories.md` with the provided story headings.
 
     Each entry must be a complete `### Story X.y: ... [Status]` line.
+    A trivial `- [x] done` checklist item is appended after every heading
+    so each story registers as a real (non-header) story under P.v's
+    header-detection heuristic. Tests that need to author a header story
+    (zero checklist items) or vary the body content should use
+    ``_write_stories_md_raw`` instead.
     """
+    decorated = "\n\n".join(f"{h}\n\n- [x] done" for h in headings)
+    _write_stories_md_raw(decorated)
+
+
+def _write_stories_md_raw(body: str) -> None:
+    """Write `docs/specs/stories.md` verbatim under the standard header."""
     stories_dir = Path("docs/specs")
     stories_dir.mkdir(parents=True, exist_ok=True)
-    body = _STORIES_HEADER + "\n\n".join(headings) + "\n"
-    (stories_dir / "stories.md").write_text(body, encoding="utf-8")
+    (stories_dir / "stories.md").write_text(
+        _STORIES_HEADER + body + "\n", encoding="utf-8"
+    )
 
 
 def _mock_git_log_subjects(monkeypatch, subjects: list[str], git_push_argv_capture: list | None = None):
@@ -2697,8 +2709,10 @@ def test_git_push_handles_doc_only_story_without_version_prefix(runner, tmp_path
         assert captured[0][1] == "M.c: align specs with FR-9"
 
 
-def test_git_push_errors_when_last_done_story_is_already_committed(runner, tmp_path, monkeypatch):
-    """Already-committed → exit 1 with the canonical stderr; git-push not invoked."""
+def test_git_push_exits_zero_when_last_done_story_is_already_committed(runner, tmp_path, monkeypatch):
+    """Already-committed → exit 0 (nothing real to commit; repo is in the
+    desired state). Story P.v changed this from exit 1 to exit 0; git-push
+    is still not invoked."""
     with runner.isolated_filesystem(temp_dir=tmp_path):
         _write_stories_md(
             "### Story A.a: v0.1.0 Hello World [Done]",
@@ -2713,10 +2727,9 @@ def test_git_push_errors_when_last_done_story_is_already_committed(runner, tmp_p
 
         result = runner.invoke(main, ['git-push'])
 
-        assert result.exit_code == 1
-        assert "Story A.a is already committed" in result.output
-        assert "git-push' directly" in result.output
-        assert captured == [], "git-push must not be invoked when the story is already committed"
+        assert result.exit_code == 0
+        assert "Nothing to commit" in result.output
+        assert captured == [], "git-push must not be invoked when there is nothing to commit"
 
 
 def test_git_push_errors_on_multiple_uncommitted_done_stories_with_no_input(runner, tmp_path, monkeypatch):
@@ -2896,10 +2909,11 @@ def test_git_push_picks_up_subnumbered_last_done_story_scenario_b(runner, tmp_pa
         assert captured[0][1] == "J.m.2: v0.70.0 Second half of the split"
 
 
-def test_git_push_errors_when_subnumbered_story_is_already_committed(runner, tmp_path, monkeypatch):
+def test_git_push_already_committed_subnumbered_takes_nothing_to_commit_path(runner, tmp_path, monkeypatch):
     """Already-committed detection must recognize sub-numbered IDs in
     commit subjects (e.g. `J.m.1: ...`), not just `J.m: ...`. Without
-    this, a sub-numbered story would be re-pushed silently."""
+    this, a sub-numbered story would be re-pushed silently. P.v: the
+    success case is now exit 0 + "nothing to commit"."""
     with runner.isolated_filesystem(temp_dir=tmp_path):
         _write_stories_md(
             "### Story J.m.1: v0.70.0 Follow-up after J.m [Done]",
@@ -2914,9 +2928,9 @@ def test_git_push_errors_when_subnumbered_story_is_already_committed(runner, tmp
 
         result = runner.invoke(main, ['git-push'])
 
-        assert result.exit_code == 1
-        assert "Story J.m.1 is already committed" in result.output
-        assert captured == [], "git-push must not be invoked when the story is already committed"
+        assert result.exit_code == 0
+        assert "Nothing to commit" in result.output
+        assert captured == [], "git-push must not be invoked when there is nothing to commit"
 
 
 # --- End Story P.k ----------------------------------------------------------
@@ -2929,7 +2943,8 @@ def test_git_push_recognizes_bundled_commit_in_already_committed_check(runner, t
     """Field-bug regression: a bundled commit subject like
     `H.a, H.b, H.c InputSource ...` must mark all three IDs as committed.
     Pre-P.u, the single-ID regex missed bundled subjects entirely and
-    spuriously reported the bundled stories as uncommitted."""
+    spuriously reported the bundled stories as uncommitted. Post-P.v,
+    "all committed" is the exit-0 nothing-to-commit path."""
     with runner.isolated_filesystem(temp_dir=tmp_path):
         _write_stories_md(
             "### Story H.a: InputSource sidecar labels [Done]",
@@ -2948,8 +2963,8 @@ def test_git_push_recognizes_bundled_commit_in_already_committed_check(runner, t
 
         result = runner.invoke(main, ['git-push'])
 
-        assert result.exit_code == 1
-        assert "Story H.c is already committed" in result.output
+        assert result.exit_code == 0
+        assert "Nothing to commit" in result.output
         assert captured == []
 
 
@@ -3151,7 +3166,8 @@ def test_git_push_duplicate_story_id_warning_no_input_auto_aborts(runner, tmp_pa
 
 
 def test_git_push_duplicate_detection_treats_bundle_ids_as_distinct(runner, tmp_path, monkeypatch):
-    """A single bundled commit with multiple distinct IDs is not a duplicate."""
+    """A single bundled commit with multiple distinct IDs is not a duplicate.
+    Both stories committed → P.v exit-0 nothing-to-commit path; no duplicate warning."""
     with runner.isolated_filesystem(temp_dir=tmp_path):
         _write_stories_md(
             "### Story A.a: v0.1.0 Hello World [Done]",
@@ -3170,10 +3186,9 @@ def test_git_push_duplicate_detection_treats_bundle_ids_as_distinct(runner, tmp_
 
         result = runner.invoke(main, ['git-push'])
 
-        assert result.exit_code == 1
-        # Both stories already committed → already-committed path, no duplicate warning.
+        assert result.exit_code == 0
         assert "duplicate story ID" not in result.output
-        assert "is already committed" in result.output
+        assert "Nothing to commit" in result.output
 
 
 def test_git_push_bundle_offer_sanitizes_quotes(runner, tmp_path, monkeypatch):
@@ -3199,6 +3214,246 @@ def test_git_push_bundle_offer_sanitizes_quotes(runner, tmp_path, monkeypatch):
 
 
 # --- End Story P.u ----------------------------------------------------------
+
+
+# --- Story P.v: header-story awareness + out-of-sequence detection ----------
+
+
+def _stories_md_with_bodies(*entries: tuple[str, str]) -> str:
+    """Build a stories.md body from `(heading, body)` pairs.
+
+    The `body` is appended verbatim after the heading. Use an empty body
+    string for a header story (no checklist items); use `"- [x] done"` for
+    a real story.
+    """
+    return "\n\n".join(
+        f"{heading}\n\n{body}" if body else heading
+        for heading, body in entries
+    )
+
+
+def test_git_push_skips_header_story_with_no_checklist(runner, tmp_path, monkeypatch):
+    """A [Done] story whose body has no `- [ ]` / `- [x]` items is treated as
+    a header. If it is the only `uncommitted` candidate, the wrapper takes
+    the P.v exit-0 nothing-to-commit path and does not invoke git-push."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md_raw(_stories_md_with_bodies(
+            ("### Story H.m: Group overview [Done]", ""),
+        ))
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(monkeypatch, subjects=[], git_push_argv_capture=captured)
+
+        result = runner.invoke(main, ['git-push'])
+
+        assert result.exit_code == 0, result.output
+        assert "Nothing to commit" in result.output
+        assert "header" in result.output.lower()
+        assert captured == []
+
+
+def test_git_push_filters_header_alongside_real_story(runner, tmp_path, monkeypatch):
+    """A header [Done] story alongside a single real uncommitted story →
+    header is filtered, single-story flow proceeds with the real story."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md_raw(_stories_md_with_bodies(
+            ("### Story H.m: Group overview [Done]", ""),
+            ("### Story H.m.1: v0.10.0 Real work [Done]", "- [x] done"),
+        ))
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(monkeypatch, subjects=[], git_push_argv_capture=captured)
+
+        result = runner.invoke(main, ['git-push'])
+
+        assert result.exit_code == 0, result.output
+        assert len(captured) == 1
+        assert captured[0][1] == "H.m.1: v0.10.0 Real work"
+
+
+def test_git_push_filters_header_then_bundles_real_stories(runner, tmp_path, monkeypatch):
+    """A header [Done] alongside 2+ real uncommitted stories → bundle offer
+    proposes only the real stories, not the header."""
+    import project_guide.cli as cli_module
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md_raw(_stories_md_with_bodies(
+            ("### Story H.m: Group overview [Done]", ""),
+            ("### Story H.m.1: v0.10.0 First child [Done]", "- [x] done"),
+            ("### Story H.m.2: v0.11.0 Second child [Done]", "- [x] done"),
+        ))
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(monkeypatch, subjects=[], git_push_argv_capture=captured)
+        monkeypatch.setattr(cli_module, 'should_skip_input', lambda *a, **kw: False)
+
+        result = runner.invoke(main, ['git-push'], input='y\n')
+
+        assert result.exit_code == 0, result.output
+        # Header H.m must not appear in the bundle subject.
+        assert "H.m," not in captured[0][1] and "H.m:" not in captured[0][1]
+        assert captured[0][1] == (
+            "H.m.1: v0.10.0, H.m.2: v0.11.0 First child + Second child"
+        )
+
+
+def test_git_push_field_bug_regression_header_plus_n1(runner, tmp_path, monkeypatch):
+    """Regression for the real field bug: pre-P.v, the wrapper proposed
+    `H.m, H.n.1: ...` as a bundle subject, even though H.m.1/H.m.2/H.m.3
+    sat committed between them in document order. Post-P.v: H.m is filtered
+    as a header; uncommitted reduces to just H.n.1; single-story flow."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md_raw(_stories_md_with_bodies(
+            ("### Story H.m: Group overview [Done]", ""),
+            ("### Story H.m.1: v0.10.0 First child [Done]", "- [x] done"),
+            ("### Story H.m.2: v0.11.0 Second child [Done]", "- [x] done"),
+            ("### Story H.m.3: v0.12.0 Third child [Done]", "- [x] done"),
+            ("### Story H.n.1: v0.13.0 Sibling work [Done]", "- [x] done"),
+        ))
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(
+            monkeypatch,
+            subjects=[
+                "H.m.1: v0.10.0 First child",
+                "H.m.2: v0.11.0 Second child",
+                "H.m.3: v0.12.0 Third child",
+            ],
+            git_push_argv_capture=captured,
+        )
+
+        result = runner.invoke(main, ['git-push'])
+
+        assert result.exit_code == 0, result.output
+        assert len(captured) == 1
+        assert captured[0][1] == "H.n.1: v0.13.0 Sibling work"
+
+
+def test_git_push_out_of_sequence_single_offender(runner, tmp_path, monkeypatch):
+    """Real (non-header) [Done] story uncommitted with later [Done] story
+    committed → out-of-sequence error, exit 1, both stories named."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 First [Done]",
+            "### Story A.b: v0.2.0 Second [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        # A.a uncommitted; A.b (later) committed.
+        _mock_git_log_subjects(
+            monkeypatch,
+            subjects=["A.b: v0.2.0 Second"],
+            git_push_argv_capture=captured,
+        )
+
+        result = runner.invoke(main, ['git-push'])
+
+        assert result.exit_code == 1
+        assert "Out-of-sequence" in result.output
+        assert "A.a" in result.output
+        assert "A.b" in result.output
+        assert captured == []
+
+
+def test_git_push_out_of_sequence_multiple_offenders(runner, tmp_path, monkeypatch):
+    """Two real uncommitted stories each with at least one committed story
+    after them → error lists every offender + their later-committed
+    context + the eligible-tail context if any."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 First (uncommitted; offender) [Done]",
+            "### Story A.b: v0.2.0 Second (committed) [Done]",
+            "### Story A.c: v0.3.0 Third (uncommitted; offender) [Done]",
+            "### Story A.d: v0.4.0 Fourth (committed) [Done]",
+            "### Story A.e: v0.5.0 Fifth (uncommitted; eligible tail) [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(
+            monkeypatch,
+            subjects=[
+                "A.b: v0.2.0 Second (committed)",
+                "A.d: v0.4.0 Fourth (committed)",
+            ],
+            git_push_argv_capture=captured,
+        )
+
+        result = runner.invoke(main, ['git-push'])
+
+        assert result.exit_code == 1
+        assert "Out-of-sequence" in result.output
+        # Both offenders named.
+        assert "A.a" in result.output
+        assert "A.c" in result.output
+        # Eligible-tail context names A.e.
+        assert "A.e" in result.output
+        assert captured == []
+
+
+def test_git_push_out_of_sequence_fires_under_no_input(runner, tmp_path, monkeypatch):
+    """Out-of-sequence is an unambiguous error path — --no-input does not
+    auto-yes / auto-no it. Always exit 1, always emit the error block."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 First [Done]",
+            "### Story A.b: v0.2.0 Second [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(
+            monkeypatch,
+            subjects=["A.b: v0.2.0 Second"],
+            git_push_argv_capture=captured,
+        )
+
+        result = runner.invoke(main, ['git-push', '--no-input'])
+
+        assert result.exit_code == 1
+        assert "Out-of-sequence" in result.output
+        assert captured == []
+
+
+def test_git_push_nothing_to_commit_names_present_headers(runner, tmp_path, monkeypatch):
+    """The exit-0 nothing-to-commit message names any [Done] header stories
+    present (so the developer understands why the header isn't being
+    proposed for commit)."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md_raw(_stories_md_with_bodies(
+            ("### Story H.m: Group overview [Done]", ""),
+            ("### Story H.m.1: v0.10.0 Real work [Done]", "- [x] done"),
+        ))
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(
+            monkeypatch,
+            subjects=["H.m.1: v0.10.0 Real work"],
+            git_push_argv_capture=captured,
+        )
+
+        result = runner.invoke(main, ['git-push'])
+
+        assert result.exit_code == 0
+        assert "Nothing to commit" in result.output
+        # The H.m header is named in the parenthetical.
+        assert "H.m" in result.output
+
+
+def test_git_push_no_done_stories_still_exits_one(runner, tmp_path, monkeypatch):
+    """The no-[Done]-headings-at-all path keeps its exit-1 stories.md-
+    authoring-problem semantics; only the all-committed case became exit 0."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md_raw(
+            "### Story A.a: v0.1.0 Hello World [Planned]\n\n- [ ] todo"
+        )
+        _mock_git_push_on_path(monkeypatch)
+
+        result = runner.invoke(main, ['git-push'])
+
+        assert result.exit_code == 1
+        assert "No completed story found" in result.output
+
+
+# --- End Story P.v ----------------------------------------------------------
 
 
 # --- Story P.o: untracked-by-default go.md policy ---------------------------

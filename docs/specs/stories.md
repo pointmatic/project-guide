@@ -722,6 +722,96 @@ Folded-in audit follow-up (developer-directed Path 2, after the initial gate pre
 - **Reading versions from sources other than `stories.md` headings.** Version source is unchanged from the single-story flow.
 - **Title-based heuristics on the read side.** Parser anchors on ID-token shape only; titles are never inspected when scanning git log.
 - **Renaming `_COMMIT_SUBJECT_STORY_ID_RE`-era public symbols.** The regex is internal; replacing it does not affect any documented API.
+- **Header-story awareness and out-of-sequence detection** in the bundle-offer flow. Deferred to Story P.v.
+
+---
+
+### Story P.v: v2.10.0 `git-push` header-story awareness and out-of-sequence detection [Done]
+
+**Problem.** Two additional friction points in the `project-guide git-push` wrapper, surfaced by dogfooding P.u's bundle-offer flow in `ml-datarefinery`:
+
+1. **Header stories are misclassified as commit units.** A common authoring pattern is a "group overview" story `### Story H.m: imagecorruptions Generation ops [Done]` followed by sub-numbered children `H.m.1`, `H.m.2`, `H.m.3` that do the actual work. The header is prose-only (no `- [ ]` / `- [x]` checklist items); the children carry the tasks and version bumps. Today's wrapper treats the header heading as a normal `[Done]` story and proposes to commit it, which is wrong — the header has no work to commit.
+2. **Out-of-sequence `[Done]` stories silently bundle.** A real field bug: when `H.m` (a header, but pre-this-story the wrapper didn't know that) appeared uncommitted alongside `H.n.1` (uncommitted) with `H.m.1`/`H.m.2`/`H.m.3` committed between them in stories.md document order, the wrapper happily proposed `H.m, H.n.1: ... + ...` as a bundle subject. The two IDs *look* in-sequence in isolation, but the document order proves they are not — older committed work sits between them.
+
+**Behavior (post-story).**
+
+- **Header detection.** A `[Done]` story is treated as a header (skipped by the uncommitted-detection flow) iff its body — the text between this `### Story` heading and the next `### Story` / `## Phase` / `## Future` / EOF — contains **zero** Markdown checklist items, i.e., no `- [ ]` and no `- [x]` lines (top-level or indented). A story with at least one checklist item, even if all items are `- [ ]`, is a real story; unchecked items are a developer-discipline concern, not a header signal. The other header variant — `### Story <id>: <title>` with no `[Done]`/`[Planned]`/`[In Progress]` status suffix at all — is already invisible to `_STORY_RE` and needs no new code path.
+  - **Scope of the filter:** git-push only. `_read_done_stories` populates a new `StoryHeading.is_header` boolean so callers can opt-in; the `status` command and other consumers continue to count `[Done]` headers in their totals (the developer chose to mark them `[Done]`; that is their semantic).
+  - **Header IDs in git log:** if a developer commits a subject like `H.m: Group overview`, the parser picks it up and `H.m` lands in the `committed` set normally. No header-aware policing on the git-log side — the wrapper does not dictate what counts as a "real" commit.
+- **Out-of-sequence detection.** After filtering headers, the post-filter `[Done]` list in stories.md document order must have all committed stories *before* all uncommitted ones (committed prefix → uncommitted suffix). Any uncommitted story whose index is **less than** the index of the last committed story is **out-of-sequence**. When out-of-sequence stories exist, exit 1 with a message that lists every offender plus the later-committed IDs that proved the gap, and (for full context) the uncommitted stories that would have been eligible for normal flow. Phase boundaries are not respected — the check operates on the flat document-order list. Example message:
+
+  ```
+  Out-of-sequence [Done] stories detected:
+    H.b is uncommitted, but later stories are already committed:
+      - H.c
+      - H.d
+
+  Uncommitted [Done] stories in proper sequence (eligible for normal flow once
+  the above are resolved):
+    - H.i
+    - H.j
+
+  Commit out-of-sequence stories manually with raw git-push, or investigate
+  the history gap.
+  ```
+
+  Under `--no-input` the out-of-sequence error still fires (no auto-yes/no — it is an unambiguous error path, not a prompt).
+- **Empty-uncommitted-after-filter graceful message.** When the only `[Done]` stories not in git are headers, the post-filter uncommitted list is empty. Today's `"Story <last id> is already committed"` message names the header heading, which is misleading. Replace with **exit 0** + message: `Nothing to commit — every real [Done] story is already in git log. (<H.m> appears as a [Done] header; headers do not produce commits.)` Exit 0 because the repo is in the state the developer wanted: nothing pending. (The `not done_stories` branch — no `[Done]` headings at all — continues to exit 1 with the existing message, since that is a stories.md authoring problem.)
+
+**Why these defaults.**
+
+- **Forgiving header signal.** Q3-clarified rule: a `[Done]` story with all `- [ ]` items and zero `- [x]` items is *not* a header — it is a real story whose developer forgot to flip checkboxes. The header signal is specifically zero items *of any kind*, which matches the prose-only authoring pattern. Failure direction: false-negative on commit prompts (real story with no checklist gets ignored) beats false-positive (header gets committed by mistake).
+- **Out-of-sequence as a hard error, not a prompt.** The bundle-offer `[Y/n]` gate is appropriate when the wrapper is confident the proposal makes sense and just wants developer consent. Out-of-sequence is the opposite: the wrapper has *evidence* that the proposal would be wrong. No prompt can salvage that — surfacing the gap and aborting is the only safe move.
+- **Exit 0 on "nothing real to commit".** A bare `git-push` invocation in a clean repo is success: the repo is in the desired state. Pre-P.v exit-1 was an artifact of treating the absence of uncommitted work as a failure to do the requested action; post-filter the more accurate framing is "the action is unnecessary."
+
+**Implementation:**
+
+- [x] **Added `is_header: bool = False` field to `StoryHeading`** in `project_guide/stories.py`. Default `False` preserves backward compat for tests and callers constructing `StoryHeading(story_id=..., title=...)` directly.
+- [x] **Rewrote `_read_done_stories`** to slice each story's body (between its heading and the next `### Story` / `## Phase` / `## Future` / EOF via `_find_story_body_end` helper + `_PHASE_BOUNDARY_RE`) and scan for checklist items via `_CHECKLIST_ITEM_RE` (`^\s*- \[[ x]\]\s`, multiline). Populates `is_header=True` when zero items are found.
+- [x] **Added `_check_out_of_sequence(commit_units, committed) -> list[tuple[str, list[str]]]`** helper in `project_guide/cli.py`. Walks the post-header-filter `[Done]` list once to find the last committed index; any uncommitted story at an earlier index is an offender, paired with the list of later-committed IDs that proved the gap. Returns `[]` when the partition is clean.
+- [x] **Added `_emit_out_of_sequence_error(offenders, commit_units, committed)`** helper to print the structured error block: per-offender header + indented later-committed IDs, then the eligible-tail context (uncommitted stories not in the offender set), then the manual-resolution hint.
+- [x] **Rewired `git_push`** between the duplicate-`<id>` warning and the single-vs-bundle branches:
+  1. Filter `done_stories` to exclude `is_header=True` → `commit_units`; capture `headers` separately for the nothing-to-commit message.
+  2. Run `_check_out_of_sequence(commit_units, committed)`; non-empty → emit error, exit 1 (always, ignores `--no-input`).
+  3. Compute `uncommitted = [s for s in commit_units if s.story_id not in committed]`.
+  4. If empty: print `"Nothing to commit — every real [Done] story is already in git log."` + parenthetical naming any headers present, exit **0**.
+  5. Else proceed to the existing single-story / bundle-offer logic.
+- [x] **Updated `git_push` docstring** to describe the header filter, out-of-sequence detection, and the new exit-0 nothing-to-commit success branch.
+- [x] **Tests in `tests/test_stories.py`** — 6 new tests covering `is_header` detection:
+  - `is_header=True` for a header (prose-only body, no checklist).
+  - `is_header=False` for all-unchecked `[Done]` (forgiving rule).
+  - `is_header=False` for at-least-one `[x]` and for mixed `[ ]`/`[x]` cases.
+  - `is_header=True` when the body ends at the next `### Story` heading (no child-checklist borrowing).
+  - `is_header=False` when only indented checklist items exist (regex `^\s*- \[[ x]\]\s` matches indented).
+  - `is_header=True` when the body ends at a `## Phase` boundary (no next-phase-story borrowing).
+- [x] **Tests in `tests/test_cli.py`** — 8 new tests covering git-push integration (extend the P.u section):
+  - Header-only `[Done]` story → exit-0 nothing-to-commit, git-push not invoked.
+  - Header alongside single real uncommitted → header filtered, real story flows through single-story path.
+  - Header alongside 2+ real uncommitted → header filtered, bundle offer proposes only the real stories.
+  - **Field-bug regression:** header + uncommitted sibling + committed children between them → header filtered, single-story flow on the sibling.
+  - Out-of-sequence with single offender → exit 1, message names offender + later-committed IDs, git-push not invoked.
+  - Out-of-sequence with multiple offenders → message lists every offender + per-offender later-committed context + the eligible-tail context.
+  - Out-of-sequence fires under `--no-input` (regression: no auto-yes/no for unambiguous errors).
+  - Nothing-to-commit message names any `[Done]` headers present in the parenthetical.
+  - No-`[Done]`-stories-at-all path still exits 1 (only the all-committed case became exit 0).
+  - Updated 4 existing tests that asserted the old exit-1 "already committed" behavior to assert the new exit-0 nothing-to-commit path.
+  - Updated test helper `_write_stories_md` to append `- [x] done` after each heading so existing tests don't inadvertently produce header stories; added `_write_stories_md_raw` for tests that need to author header / mixed-body content.
+- [x] **Ran full test suite** — `pyve test` → **581 passed** (up from 566 baseline; +15 net tests).
+- [x] **Ran lint** — `pyve testenv run ruff check project_guide/ tests/` → **All checks passed!** (Fixed two F541 f-string-without-placeholder warnings in the new exit-0 echo calls before re-running.)
+- [x] **Updated `docs/specs/project-essentials.md`** `git-push` section heading line to credit v2.10.0; expanded with the header-filter rule, the out-of-sequence partition rule, the exit-0 nothing-to-commit semantics, and rewrote the "Branch logic" bullet list to reflect the post-P.v decision tree. Ran `pyve run project-guide update` → "All files are up to date".
+- [x] **Bumped `project_guide/version.py`** to `2.10.0`.
+- [x] **Bumped `pyproject.toml`** to `2.10.0`.
+- [x] **CHANGELOG.md** new `## [2.10.0] - 2026-05-20` entry: opening paragraph + `### Added` (header filter, out-of-sequence detection) + `### Changed` (body-scan in `_read_done_stories`, `StoryHeading.is_header` field, exit semantics for all-committed, docs expansion) + `### Fixed` (two field-bug regressions: header-plus-sibling false bundle; out-of-sequence silent bundling).
+- [x] **Flipped story status** `[Planned]` → `[Done]` and checked off all `[ ]` items.
+
+**Version assignment:** **v2.10.0** — minor bump. Header-aware filtering and out-of-sequence detection are meaningfully new safety checks that prevent wrong commits, not just bug fixes to P.u's behavior. The exit-0 nothing-to-commit path is a small but consumer-visible semantic change (previously exit 1).
+
+**Out of scope:**
+- **Promoting header detection to other CLI commands** (`status`, `mode`, etc.). Scope is git-push only; the `is_header` flag is opt-in for other callers, but no consumer is rewired in this story.
+- **Header-aware reporting in the duplicate-`<id>` warning.** If a header ID like `H.m` appears in git log, it is treated as a normal commit. Future refinement could special-case headers in the duplicate warning ("H.m appears 3x — but it is a header heading; expected"), but YAGNI until the case actually arises in field use.
+- **Auto-fix suggestions for out-of-sequence stories.** The error names the offenders and tells the developer to use raw `git-push` or investigate; the wrapper does not propose splitting commits, re-ordering, or any kind of rebase. Wrapper-initiates-git-ops constraint (same one that bounded P.k, P.o, P.u) is in force.
+- **Configurable header-detection signal.** The zero-checklist-items rule is hard-coded. No `--header-marker` flag, no `is_header: true` YAML frontmatter, no alternate signals. If a project ever needs a different signal, it can override `is_header` post-hoc, but that is out of scope here.
+- **Sequence-check special-casing for phase boundaries.** The flat document-order check is intentional. A future "phase-aware partition" mode could be added if the field demands it.
 
 ---
 

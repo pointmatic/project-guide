@@ -58,9 +58,26 @@ class StoryHeading:
     ``title`` is the heading text between ``: `` and `` [Done]`` verbatim.
     The :func:`derive_commit_message` helper produces the gitbetter-ready
     commit subject from these two fields.
+
+    ``is_header`` (Story P.v) is ``True`` when the story's body contains zero
+    Markdown checklist items (no ``- [ ]`` and no ``- [x]``), indicating a
+    "group overview" / header heading rather than a real unit of work. The
+    ``git-push`` wrapper filters header stories out of its uncommitted-
+    detection flow. Default ``False`` preserves backward compatibility for
+    callers that construct ``StoryHeading`` directly without body context.
     """
     story_id: str
     title: str
+    is_header: bool = False
+
+
+# Matches a Markdown checklist line at any indent: ``- [ ] task`` or ``- [x] task``.
+_CHECKLIST_ITEM_RE = re.compile(r"^\s*- \[[ x]\]\s", re.MULTILINE)
+
+
+def _story_body_has_checklist(body: str) -> bool:
+    """Return True iff the body contains at least one ``- [ ]`` or ``- [x]`` line."""
+    return _CHECKLIST_ITEM_RE.search(body) is not None
 
 
 def _read_done_stories(spec_artifacts_path: str) -> list[StoryHeading] | None:
@@ -69,6 +86,11 @@ def _read_done_stories(spec_artifacts_path: str) -> list[StoryHeading] | None:
     Returns ``None`` when the file is absent or unreadable. Returns an empty
     list when the file exists but contains no ``[Done]`` headings (callers
     distinguish the two cases when reporting errors).
+
+    Each ``StoryHeading.is_header`` flag is populated by scanning the story's
+    body — the text between this ``### Story`` heading and the next
+    ``### Story`` / ``## Phase`` / ``## Future`` / EOF — for Markdown
+    checklist items (Story P.v).
     """
     stories_path = Path(spec_artifacts_path) / "stories.md"
     if not stories_path.exists():
@@ -78,11 +100,51 @@ def _read_done_stories(spec_artifacts_path: str) -> list[StoryHeading] | None:
     except OSError:
         return None
 
-    return [
-        StoryHeading(story_id=sid, title=title)
-        for sid, title, status in _STORY_RE.findall(text)
-        if status == "Done"
-    ]
+    # Match every story-heading line (any status); body extends from after the
+    # heading up to the next story / phase / future heading or EOF.
+    headings = list(_STORY_RE.finditer(text))
+    results: list[StoryHeading] = []
+    for i, m in enumerate(headings):
+        sid, title, status = m.group(1), m.group(2), m.group(3)
+        if status != "Done":
+            continue
+        body_start = m.end()
+        body_end = _find_story_body_end(text, body_start, headings, i)
+        body = text[body_start:body_end]
+        results.append(
+            StoryHeading(
+                story_id=sid,
+                title=title,
+                is_header=not _story_body_has_checklist(body),
+            )
+        )
+    return results
+
+
+_PHASE_BOUNDARY_RE = re.compile(r"^(?:## Phase |## Future)", re.MULTILINE)
+
+
+def _find_story_body_end(
+    text: str,
+    body_start: int,
+    headings: list,
+    heading_index: int,
+) -> int:
+    """Return the offset where the current story's body ends.
+
+    The body ends at the next ``### Story`` heading (from ``headings``) or at
+    the next ``## Phase`` / ``## Future`` heading, whichever comes first;
+    falls back to EOF.
+    """
+    next_story_start = (
+        headings[heading_index + 1].start()
+        if heading_index + 1 < len(headings)
+        else len(text)
+    )
+    m = _PHASE_BOUNDARY_RE.search(text, body_start, next_story_start)
+    if m is not None:
+        return m.start()
+    return next_story_start
 
 
 def derive_commit_message(heading: StoryHeading) -> str:

@@ -80,9 +80,9 @@ def test_read_done_stories_scenario_a_subnumber_follows_bare_letter(tmp_path):
     specs = _write(
         tmp_path,
         (
-            "### Story J.l: update remaining refs [Done]\n\n"
-            "### Story J.m: v0.69.0 Integrate component [Done]\n\n"
-            "### Story J.m.1: v0.70.0 Follow-up after J.m [Done]\n"
+            "### Story J.l: update remaining refs [Done]\n\n- [x] done\n\n"
+            "### Story J.m: v0.69.0 Integrate component [Done]\n\n- [x] done\n\n"
+            "### Story J.m.1: v0.70.0 Follow-up after J.m [Done]\n\n- [x] done\n"
         ),
     )
     headings = _read_done_stories(str(specs))
@@ -104,9 +104,9 @@ def test_read_done_stories_scenario_b_subnumber_without_bare_letter(tmp_path):
     specs = _write(
         tmp_path,
         (
-            "### Story J.l: update remaining refs [Done]\n\n"
-            "### Story J.m.1: v0.69.0 First half of the split [Done]\n\n"
-            "### Story J.m.2: v0.70.0 Second half of the split [Done]\n"
+            "### Story J.l: update remaining refs [Done]\n\n- [x] done\n\n"
+            "### Story J.m.1: v0.69.0 First half of the split [Done]\n\n- [x] done\n\n"
+            "### Story J.m.2: v0.70.0 Second half of the split [Done]\n\n- [x] done\n"
         ),
     )
     headings = _read_done_stories(str(specs))
@@ -316,3 +316,109 @@ def test_derive_bundle_round_trips_with_parser_versioned():
     ]
     msg = derive_bundle_commit_message(headings)
     assert parse_committed_ids_from_subject(msg) == ["A.a", "A.b"]
+
+
+# ---------------------------------------------------------------------------
+# is_header detection — Story P.v
+# ---------------------------------------------------------------------------
+
+
+def test_is_header_true_when_body_has_no_checklist_items(tmp_path):
+    """A [Done] story with prose-only body (no `- [ ]`, no `- [x]`) is a header."""
+    specs = _write(
+        tmp_path,
+        (
+            "### Story H.m: Group overview [Done]\n\n"
+            "This is the umbrella story for H.m.1 / H.m.2 / H.m.3. See each "
+            "child for actual task lists.\n\n"
+            "### Story H.m.1: Real work [Done]\n\n- [x] task\n"
+        ),
+    )
+    headings = _read_done_stories(str(specs))
+    assert headings is not None
+    by_id = {h.story_id: h for h in headings}
+    assert by_id["H.m"].is_header is True
+    assert by_id["H.m.1"].is_header is False
+
+
+def test_is_header_false_when_body_has_unchecked_items(tmp_path):
+    """Per Q3 (forgiving rule): a [Done] story with all unchecked items is
+    NOT a header — it is a misflagged real story. Header signal requires
+    *zero* checklist items, not "zero checked items"."""
+    specs = _write(
+        tmp_path,
+        (
+            "### Story A.a: Some real work [Done]\n\n"
+            "- [ ] forgot to flip this\n"
+            "- [ ] also forgot this\n"
+        ),
+    )
+    headings = _read_done_stories(str(specs))
+    assert headings is not None
+    assert headings[0].is_header is False
+
+
+def test_is_header_false_when_body_has_mixed_checklist(tmp_path):
+    """Standard real-story shape with a mix of `[x]` and `[ ]` items."""
+    specs = _write(
+        tmp_path,
+        (
+            "### Story A.a: Partial story [Done]\n\n"
+            "- [x] done part\n"
+            "- [ ] still TODO\n"
+        ),
+    )
+    headings = _read_done_stories(str(specs))
+    assert headings is not None
+    assert headings[0].is_header is False
+
+
+def test_is_header_respects_story_body_boundaries(tmp_path):
+    """A header followed immediately by a child story with `[x]` items must
+    not borrow the child's checklist — the body of H.m ends at H.m.1's heading."""
+    specs = _write(
+        tmp_path,
+        (
+            "### Story H.m: Header only [Done]\n"
+            "### Story H.m.1: Child has tasks [Done]\n\n- [x] task\n"
+        ),
+    )
+    headings = _read_done_stories(str(specs))
+    assert headings is not None
+    by_id = {h.story_id: h for h in headings}
+    assert by_id["H.m"].is_header is True
+    assert by_id["H.m.1"].is_header is False
+
+
+def test_is_header_counts_indented_checklist_items(tmp_path):
+    """Indented checklist items (nested under a parent task) count toward the
+    has-checklist test — they are still real work signals, not header signals."""
+    specs = _write(
+        tmp_path,
+        (
+            "### Story A.a: Nested tasks only [Done]\n\n"
+            "  - [x] indented sub-task\n"
+        ),
+    )
+    headings = _read_done_stories(str(specs))
+    assert headings is not None
+    assert headings[0].is_header is False
+
+
+def test_is_header_respects_phase_boundary(tmp_path):
+    """A header at the end of one phase must not borrow checklist items from
+    the first story of the next phase. The body ends at the `## Phase` line."""
+    specs = _write(
+        tmp_path,
+        (
+            "### Story H.m: Header only [Done]\n\n"
+            "Prose overview, no tasks.\n\n"
+            "## Phase K: Next theme\n\n"
+            "### Story K.a: Real work [Done]\n\n- [x] task\n"
+        ),
+    )
+    headings = _read_done_stories(str(specs))
+    assert headings is not None
+    by_id = {h.story_id: h for h in headings}
+    assert by_id["H.m"].is_header is True
+    assert by_id["K.a"].is_header is False

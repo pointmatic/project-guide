@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.10.0] - 2026-05-20
+
+**`project-guide git-push` learns about header stories and out-of-sequence commits (P.v).** Two safety refinements to the bundle-offer flow shipped in v2.9.0, surfaced by dogfooded use in a downstream project: (1) "group overview" stories that have no checklist items are now treated as decorative headers and filtered out of the uncommitted-detection flow — they no longer get proposed for commit; (2) when uncommitted `[Done]` stories sit out-of-document-order with committed `[Done]` stories between them, the wrapper now exits 1 with a precise error instead of silently bundling them. A small consumer-visible semantic change: the "nothing real to commit" case is now **exit 0** instead of exit 1, because the repo being in the desired state is success.
+
+### Added
+- **P.v — Header-story filter.** A `[Done]` story whose body contains zero `- [ ]` / `- [x]` checklist items is treated as a header (group-overview heading for a sub-numbered cluster like `H.m` / `H.m.1` / `H.m.2`) and filtered out of `git-push`'s uncommitted-detection flow. New `StoryHeading.is_header` field (default `False` preserves backward compat for direct constructors). The forgiving rule — zero items *of any kind*, not "zero checked items" — means a `[Done]` story with all-unchecked items is still treated as a real story; the unchecked items are a developer-discipline concern, not a header signal.
+- **P.v — Out-of-sequence detection.** After the header filter, the `[Done]` list in document order must follow a clean committed-prefix → uncommitted-suffix partition. Any uncommitted story whose document index is less than the index of the last committed story is out-of-sequence; the wrapper exits 1 with an error block listing every offender (plus their later-committed context) and the uncommitted-tail stories that would be eligible for normal flow. This is an unambiguous error path — `--no-input` does *not* auto-yes/no it.
+
+### Changed
+- **P.v — `_read_done_stories` body scan.** `project_guide/stories.py:_read_done_stories` now slices each story's body (between its `### Story` heading and the next story / phase / future heading or EOF) and scans for `- [ ]` / `- [x]` lines (regex `^\s*- \[[ x]\]\s`, multiline) to populate the new `is_header` flag.
+- **P.v — `StoryHeading` frozen dataclass gains `is_header: bool = False`.** Field has a default so existing callers and tests constructing `StoryHeading(story_id=..., title=...)` directly continue to work unchanged.
+- **P.v — `git_push` exit semantics for "all committed".** When every `[Done]` story is already in git log (post-header-filter), the wrapper now exits **0** with `"Nothing to commit — every real [Done] story is already in git log."` (plus a parenthetical naming any headers present). Pre-P.v this was exit 1 with the misleading `"Story <last id> is already committed"` text — which named the header heading when the last `[Done]` happened to be a header. The "no `[Done]` story at all" path keeps its exit-1 stories.md-authoring-problem semantics.
+- **P.v — `project-essentials.md` `git-push` section.** Expanded with the header-filter rule (zero-checklist-items signal, forgiving direction, scope limited to `git-push`), the out-of-sequence partition rule, the new exit-0 nothing-to-commit semantics, and the rationale for each.
+
+### Fixed
+- **P.v — Field bug: header story bundled with later sibling.** Pre-P.v, a stories.md shape like `H.m (header) / H.m.1 / H.m.2 / H.m.3 / H.n (header, [Planned]) / H.n.1 (uncommitted)` — with `H.m.1`/`H.m.2`/`H.m.3` already committed in git — caused the wrapper to propose `H.m, H.n.1: ...` as a bundle subject. The two IDs look in-sequence in isolation, but `H.m.1`/`H.m.2`/`H.m.3` sat committed between them in document order. Post-P.v: the header filter removes `H.m`, and the out-of-sequence check (had `H.m` been a real story) would have caught the gap.
+- **P.v — Field bug: out-of-sequence stories silently bundled.** Pre-P.v, the bundle offer assembled the uncommitted set in document order without verifying that order was actually contiguous. Now any committed-after-uncommitted gap is a hard error before the bundle offer can fire.
+
 ## [2.9.0] - 2026-05-20
 
 **`project-guide git-push` learns to read and write bundled commits (P.u).** When a developer commits multiple `[Done]` stories under one bundled subject (e.g., `H.a, H.b, H.c InputSource ...`), the wrapper now correctly recognizes all bundled IDs as committed instead of misreporting them as uncommitted. When 2+ `[Done]` stories remain uncommitted, the wrapper offers a bundled commit subject with a `[Y/n]` gate rather than forcing the developer to hand-type one. A new duplicate-`<id>` warning surfaces git-log anomalies where the same story ID appears in multiple commits.

@@ -110,7 +110,7 @@ Auto-healing N templates under --no-input.
 
 The notice is **non-suppressible** (always emitted even with `--quiet`) so CI logs and embedding callers (pyve scaffolding, etc.) have a visible signal that file writes occurred. This is the heal-specific application of the `--no-input` contract documented earlier in this file.
 
-### `project-guide git-push` is developer-lane (added v2.7.0, bundled-commit support added v2.9.0)
+### `project-guide git-push` is developer-lane (added v2.7.0, bundled-commit support added v2.9.0, header-awareness + out-of-sequence detection added v2.10.0)
 
 `project-guide git-push` is a thin wrapper over [gitbetter](https://github.com/pointmatic/gitbetter)'s `git-push` that auto-derives the commit message from `[Done]` story headings. It is a **developer-lane convenience command** — the LLM **must not** initiate it. The approval-gate discipline rule earlier in this file ("do not propose commits, pushes, or bundling options ... do not offer 'want me to also …?' follow-ups") remains in force, and applies to this wrapper just as it does to raw `git`. The wrapper exists to shorten the developer's typing at commit time, not to give the LLM a new excuse to volunteer commits.
 
@@ -135,10 +135,18 @@ The notice is **non-suppressible** (always emitted even with `--quiet`) so CI lo
 
 **Duplicate-`<id>` warning (P.u, v2.9.0):** when the same bare `<id>` appears in 2+ commit subjects (regardless of version), the wrapper emits a stderr warning listing the offending subjects and asks `Continue? [Y/n]` (default `Y`). Under `--no-input`, auto-aborts with exit 1 so CI surfaces the history anomaly rather than papering over it.
 
-**Branch logic (post-P.u):**
-- 0 uncommitted `[Done]` stories → exit 1 `"Story <last id> is already committed."`
-- 1 uncommitted `[Done]` story → derive single-story message, invoke `git-push`.
-- 2+ uncommitted `[Done]` stories → propose bundled subject, prompt `[Y/n]`. Accept → invoke `git-push` with the bundled message. Decline (or `--no-input`) → exit 1 with the manual-resolution hint.
+**Header-story filter (P.v, v2.10.0):** a `[Done]` story whose body — the text between its `### Story` heading and the next `### Story` / `## Phase` / `## Future` / EOF — contains **zero** `- [ ]` and `- [x]` checklist items is treated as a **header** (group-overview heading for a sub-numbered cluster like `H.m` / `H.m.1` / `H.m.2`). Header stories are filtered out of `git-push`'s uncommitted-detection flow — they have no work to commit. The forgiving rule (zero items *of any kind*, not "zero checked items") means a `[Done]` story with all-unchecked items is still treated as a real story: the unchecked items are a developer-discipline concern, not a header signal. Scope: `git-push` only — `_read_done_stories` populates a `StoryHeading.is_header` flag, but other consumers (e.g. `status`) still count `[Done]` headers in their totals. Header IDs that somehow appear in git log are *not* special-cased on the committed-set side; the wrapper doesn't police random commits.
+
+**Out-of-sequence detection (P.v, v2.10.0):** after the header filter, the post-filter `[Done]` list in stories.md document order must follow a clean **committed-prefix → uncommitted-suffix** partition. Any uncommitted story whose document index is less than the index of the last committed story is **out-of-sequence**. When detected, exit 1 with an error block that lists every offender (with their later-committed context) plus the uncommitted-tail stories that *would* be eligible for normal flow. Phase boundaries are not respected — the partition operates on the flat document-order list. This is an **unambiguous error path**: `--no-input` does *not* auto-yes/no it.
+
+**Nothing-to-commit success (P.v, v2.10.0):** when the post-filter uncommitted list is empty (every real `[Done]` story is already in git log), exit **0** with `Nothing to commit — every real [Done] story is already in git log.` plus a parenthetical naming any `[Done]` headers present. Pre-P.v this was exit 1 with a misleading `"Story <last id> is already committed"` message that named the header heading. The "no `[Done]` stories at all" path keeps its exit-1 stories.md-authoring-problem semantics — only the all-committed case became exit 0.
+
+**Branch logic (post-P.v):**
+- 0 `[Done]` stories at all → exit 1 `"No completed story found in <path>."` (stories.md authoring problem).
+- 0 commit-worthy uncommitted (everything committed, or only headers remain) → **exit 0** `"Nothing to commit — ..."`.
+- Out-of-sequence detected → exit 1 with the offender+context error block.
+- 1 commit-worthy uncommitted `[Done]` story → derive single-story message, invoke `git-push`.
+- 2+ commit-worthy uncommitted `[Done]` stories → propose bundled subject, prompt `[Y/n]`. Accept → invoke `git-push` with the bundled message. Decline (or `--no-input`) → exit 1 with the manual-resolution hint.
 - Duplicate `<id>` in git log → warning + prompt `Continue? [Y/n]` (defaults `Y` interactive, `n` under `--no-input`).
 
 **External CLI dependency pattern.** `git-push` is the first `project-guide` subcommand that depends on an external binary being on PATH. See `tech-spec.md` § "External CLI Dependencies" for the canonical pattern (discover via `shutil.which`, invoke via `subprocess.run(..., check=False)` with no captured output, propagate exit code). Future workflow-integration commands should follow the same shape.
