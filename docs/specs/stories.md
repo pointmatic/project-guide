@@ -848,6 +848,52 @@ Folded-in audit follow-up (developer-directed Path 2, after the initial gate pre
 
 ---
 
+### Story P.x: v2.10.2 Story-insertion priority signal and out-of-order completion guard [Done]
+
+**Problem.** Field experience in a downstream project surfaced two related LLM workflow bugs around story creation and completion, both rooted in the same scenario: an ad-hoc developer request arriving while `[Planned]` stories sit ahead in the phase queue.
+
+*The B.g incident.* A developer's project had `B.a` / `B.b` `[Done]`, `B.c` / `B.d` / `B.e` / `B.f` `[Planned]`. The developer asked the LLM to draft an ad-hoc bugs/gaps document for a dependency repo — an interrupt to the planned sequence. The LLM read the "create a story for my work" rule plus the Option 1 Append default, concluded the new story should be `B.g`, drafted the doc, and marked `B.g` `[Done]` while `B.c`–`B.f` remained untouched `[Planned]`. Two distinct bugs:
+
+1. **Insertion-position bug.** Appending at the tail was the wrong position. The ad-hoc doc-drafting work belonged *before* the planned `B.c`–`B.f` queue (conceptually it was an interruption-then-resume, not a continuation past the queue). Option 1 Append's wording — *"new work goes after the latest committed story, regardless of which earlier story conceptually motivated it"* — gave the LLM no signal to insert mid-queue, even though the developer's ad-hoc request was itself implicit signal.
+2. **Out-of-order completion bug.** Even granted the wrong position, the LLM happily marked `B.g` `[Done]` while `B.c`–`B.f` remained `[Planned]`. The cycle-mode templates implicitly assume "the next story to work on is the next-in-sequence `[Planned]` one" but never state it as a hard rule, so the LLM completed work out of document order — producing the same out-of-sequence state that P.v's `git-push` check now catches at commit time, but with no upstream prevention or recovery beat.
+
+**Behavior (post-story).** Two template edits, addressing the two bugs at their respective layers:
+
+- **Insertion-position layer (`_phase-letters.md`, Option 1 Append).** New exception paragraph appended to the Option 1 bullet: when the developer signals (explicitly *or* implicitly via an ad-hoc interrupt request) that a new story should land before existing `[Planned]` stories, insert immediately after the last `[Done]` story and renumber the `[Planned]` tail via Option 3. P.w's reference-accretion rule guarantees the renumber is safe on untouched `[Planned]` placeholders. The exception explicitly invites the LLM to ask the developer when the signal is ambiguous, rather than defaulting to the tail. Without any signal, the Append default still rules.
+- **Cycle-discipline layer (`_header-cycle.md`).** Two new paragraphs:
+  - **"Work stories in document order."** Hard rule: the next story to work on is the next-in-sequence `[Planned]` story; never a new story appended at the tail when `[Planned]` stories sit ahead of it, never a `[Planned]` story chosen out of position. Binds the LLM regardless of any developer signal — completing out of order is corrupting whether or not the developer asked for the work.
+  - **"Recovery when already out of order."** When a story has been marked `[Done]` while earlier `[Planned]` stories remain, stop and ask the developer to choose between (a) moving the completed story to its proper position via Option 3 Renumber (allowed by P.w on untouched `[Planned]` placeholders), or (b) undoing the work and restoring `[Planned]` status. Do not pick either unilaterally.
+
+**Why these defaults.**
+
+- **Two layers, one root cause.** Both bugs trace back to the B.g failure mode but live at different rule-layers: numbering (`_phase-letters.md`) and execution discipline (`_header-cycle.md`). Fixing only one leaves the other half of the failure mode intact — an LLM with perfect numbering hygiene can still complete out of order, and an LLM that won't complete out of order can still pick the wrong insertion position when asked to author a new story.
+- **Ad-hoc request as implicit signal.** The B.g incident showed that LLMs read "developer didn't say 'higher priority'" as "apply the default." Naming "ad-hoc interrupt request" as an implicit signal closes the loophole without requiring the developer to learn a magic phrase. The "ask when uncertain" beat is the safety rail — the rule prefers a clarifying question over a unilateral default-pick.
+- **Recovery rule names two options, not one.** "Undo the work" must be on the menu alongside "move the story to its proper place." Sometimes the right answer is that the out-of-order work was itself a mistake — the developer should not be forced into renumber-as-only-option just because the LLM already produced output. The rule deliberately puts the choice in the developer's hands.
+- **Cross-referencing P.v and P.w in the rule text.** The cycle-discipline rule explicitly names P.v's `git-push` check (the detection net) and P.w's reference-accretion rule (which makes the recovery renumber safe). This documents the safety-net topology — Bug 1 prevention (P.x insertion rule), Bug 2 prevention (P.x cycle rule), Bug 2 detection (P.v `git-push`), Bug 2 recovery (P.x recovery rule, P.w-enabled) — so future maintainers don't accidentally undo one layer thinking another covers the same ground.
+- **Append-not-prepend on `_phase-letters.md` Option 1.** The exception lands as a paragraph appended to the existing Option 1 bullet rather than restructuring the three-option section, preserving the "Always try Option 1 first" framing for the silent default case and minimizing churn to a section that several other documents (CHANGELOG, project-essentials, prior stories) reference structurally.
+
+**Implementation:**
+- [x] **Appended exception paragraph to Option 1 Append** in `project_guide/templates/project-guide/templates/modes/_phase-letters.md` — covers higher-priority / prerequisite / blocker / ad-hoc-interrupt signals, names Option 3 Renumber as the mechanism, cites P.w as the safety check, includes the "ask when uncertain" beat, and reasserts the Append default for the silent case.
+- [x] **Appended cycle-discipline section to `_header-cycle.md`** — two paragraphs ("Work stories in document order" + "Recovery when already out of order") with cross-references to `project-guide git-push` (P.v detection) and the reference-accretion renumber-safety rule (P.w).
+- [x] **Ran `pyve run project-guide update`** → "All files are up to date" (heal hook auto-propagated both template edits to `docs/project-guide/`).
+- [x] **Ran `pyve test`** → **581 passed** (baseline preserved).
+- [x] **Ran `pyve testenv run ruff check project_guide/ tests/`** → **All checks passed!**
+- [x] **Bumped `project_guide/version.py`** to `2.10.2`.
+- [x] **Bumped `pyproject.toml`** to `2.10.2`.
+- [x] **CHANGELOG.md** new `## [2.10.2] - 2026-05-25` entry under `### Changed`.
+- [x] **Flipped story status** `[Planned]` → `[Done]` and checked off all `[ ]` items.
+
+**Version assignment:** **v2.10.2** — patch. Doc-only template content change at developer direction. No code path affected, no test changes. Bumped as a deliberate `.N` line (not bundled with a preceding code story) per developer choice.
+
+**Out of scope:**
+- **Programmatic enforcement of the cycle-discipline rule.** The rule is LLM-readable guidance. A future check could verify "no new `[Done]` story has earlier `[Planned]` stories in document order" at story-flip time, but the existing P.v `git-push` check already catches the resulting state at commit time, and YAGNI rules until field use shows the LLM rule alone is insufficient.
+- **Retroactive audit of dogfooded `stories.md`.** No existing stories in this repo are out of order (per P.v's check on the recent commit history). The change is rule-text only.
+- **Extending the recovery rule to multi-story out-of-order cases.** The rule's "ask the developer" framing already handles N out-of-order stories without special-casing. If field experience shows the LLM needs more structured guidance for multi-story recovery, that is a separate story.
+- **A magic-phrase glossary for the priority signal.** The rule lists examples (higher priority, prerequisite, blocker, ad-hoc interrupt request) and explicitly says "or similar" plus "ask when uncertain." Enumerating every possible signal phrase would be both incomplete and over-prescriptive.
+- **Updating the cycle-mode templates' Step 2 wording** to repeat the "next-in-sequence `[Planned]`" rule. The rule lives in `_header-cycle.md`, which is included into every cycle mode at render time — no per-mode duplication needed. If a specific mode's Step 2 needs sharper guidance (e.g., `debug` mode's "investigate before authoring"), that is a separate per-mode story.
+
+---
+
 ## Future
 
 ### Audit Modes [Deferred]

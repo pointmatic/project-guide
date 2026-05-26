@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.10.2] - 2026-05-25
+
+**Story-insertion priority signal and out-of-order completion guard (P.x).** Two related LLM workflow bugs surfaced in a downstream project, both rooted in the same scenario: an ad-hoc developer request arriving while `[Planned]` stories sit ahead in the phase queue. The LLM appended the new story at the tail (wrong position — the work belonged before the queue) and then marked it `[Done]` while the earlier `[Planned]` stories remained untouched (wrong execution order). Two template edits fix the two bugs at their respective rule layers: the numbering layer (`_phase-letters.md`) gains a developer-signaled priority-insert exception to Option 1 Append, and the cycle-discipline layer (`_header-cycle.md`) gains a "Work stories in document order" rule plus a "Recovery when already out of order" rule that names both move-to-proper-position and undo-the-work as developer-choice options.
+
+### Changed
+- **P.x — `_phase-letters.md` Option 1 Append exception.** New paragraph appended to the Option 1 bullet: when the developer signals (explicitly *or* implicitly via an ad-hoc interrupt request, prerequisite, blocker, or similar) that a new story should land before existing `[Planned]` stories, insert immediately after the last `[Done]` story and renumber the `[Planned]` tail via Option 3. The exception explicitly invites the LLM to ask the developer when the signal is ambiguous, rather than defaulting to the tail. Without any signal, the Append default still rules. The renumber is safe by construction in the untouched-`[Planned]` case per the P.w (v2.10.1) reference-accretion rule.
+- **P.x — `_header-cycle.md` "Story execution order" section.** Two new paragraphs, included into every cycle mode at render time. *Work stories in document order:* the next story to work on is the next-in-sequence `[Planned]` story; never a new story appended at the tail when `[Planned]` stories sit ahead of it, never a `[Planned]` story chosen out of position. Binds regardless of any developer signal. *Recovery when already out of order:* when a story has been marked `[Done]` while earlier `[Planned]` stories remain, stop and ask the developer to choose between moving the completed story to its proper position (renumber per Option 3, P.w-enabled) or undoing the work and restoring `[Planned]` status. Do not pick either unilaterally.
+
 ## [2.10.1] - 2026-05-23
 
 **Loosen the renumber pre-condition in the `_phase-letters.md` partial template (P.w).** Field experience in a downstream project surfaced that `plan_phase` was refusing to renumber phases whose `[Planned]` headings had been committed to `stories.md` as untouched roadmap placeholders — even though no commits, CHANGELOG entries, or cross-references actually named them. The rule has been restated around *reference accretion* rather than mere presence in committed history.
