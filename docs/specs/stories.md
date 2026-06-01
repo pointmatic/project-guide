@@ -26,8 +26,6 @@ This is the authoritative cadence rule. **Do not extrapolate the bump magnitude 
 
 ---
 
-
-
 ## Phase Q: DX Improvements & Subphase Support
 
 Open-ended developer-experience phase. Two distinguishing characteristics:
@@ -43,7 +41,7 @@ Open-ended developer-experience phase. Two distinguishing characteristics:
 
 Bundled release at end-of-subphase as **v2.11.0** (minor, fully additive). Three stories, executed in document order; only `Q.c` carries the version in its title.
 
-### Story Q.a: Subphase strategy pattern — template installation [Planned]
+### Story Q.a: Subphase strategy pattern — template installation [Done]
 
 **Problem.** When a phase is too large to draft every story up front, the current `plan_phase` / `plan_production_phase` templates offer no idiomatic decomposition. Field experience drafting Pyve's Phase N (2026-06-01) surfaced the gap: the developer had to manually bootload subphase IDs (`N-1` form), heading level (`##`), monotonic story-letter continuation, multi-release exception, deferred-story breakdown, and the 3-level depth cap into every relevant LLM session. Pattern drift across sessions is guaranteed. The proposed pattern lives in [`docs/specs/subphase-strategy-for-large-phases.md`](subphase-strategy-for-large-phases.md).
 
@@ -62,14 +60,14 @@ Bundled release at end-of-subphase as **v2.11.0** (minor, fully additive). Three
 - **`_header-common.md` clarification rather than rewrite.** The scope-of-authority rule is load-bearing for `code_direct` / `code_test_first` discipline (it's what stops mid-implementation LLMs from inventing new phases). The minimum edit that opens the subphase door without weakening the phase-creation gate is one clarifying sentence. A larger rewrite would create review surface area for diminishing rule clarity.
 
 **Implementation:**
-- [ ] Edit `project_guide/templates/project-guide/templates/modes/plan-production-phase-mode.md` — insert Step 4a between current Step 4 (Generate a phase plan document) and Step 5 (Breaking-change negotiation). Update Step 7 (Add a new phase section and stories to `stories.md`) with a sentence referencing the subphase layout when Step 4a opted in.
-- [ ] Edit `project_guide/templates/project-guide/templates/modes/_phase-letters.md` — add new "Subphases (structural grouping within a phase)" section after "Story sub-letters" / before "Sub-numbered stories".
-- [ ] Edit `project_guide/templates/project-guide/templates/modes/_header-common.md` — append one sentence to the "Scope of authority — structural changes to `stories.md`" rule clarifying that subphase headings under an existing `## Phase X:` are allowed under the same authority.
-- [ ] Edit `project_guide/templates/project-guide/templates/modes/plan-phase-mode.md` — append one parenthetical sentence to Step 4 noting subphasing is available pre-1.0 but rarely needed; cross-reference `plan_production_phase` Step 4a.
-- [ ] Run `pyve run project-guide update` to propagate template edits to `docs/project-guide/` (the dogfooded installed copy).
-- [ ] Run `pyve test` — every mode template must still render without errors (parametrized regression guard in `tests/test_render.py`).
-- [ ] Run `pyve testenv run ruff check project_guide/ tests/` — clean.
-- [ ] Flip story status `[Planned]` → `[Done]` and check off tasks.
+- [x] Edit `project_guide/templates/project-guide/templates/modes/plan-production-phase-mode.md` — insert Step 4a between current Step 4 (Generate a phase plan document) and Step 5 (Breaking-change negotiation). Update Step 7 (Add a new phase section and stories to `stories.md`) with a sentence referencing the subphase layout when Step 4a opted in.
+- [x] Edit `project_guide/templates/project-guide/templates/modes/_phase-letters.md` — add new "Subphases (structural grouping within a phase)" section after "Story sub-letters" / before "Sub-numbered stories".
+- [x] Edit `project_guide/templates/project-guide/templates/modes/_header-common.md` — append one sentence to the "Scope of authority — structural changes to `stories.md`" rule clarifying that subphase headings under an existing `## Phase X:` are allowed under the same authority.
+- [x] Edit `project_guide/templates/project-guide/templates/modes/plan-phase-mode.md` — append one parenthetical sentence to Step 4 noting subphasing is available pre-1.0 but rarely needed; cross-reference `plan_production_phase` Step 4a.
+- [x] Run `pyve run project-guide update` to propagate template edits to `docs/project-guide/` (the dogfooded installed copy).
+- [x] Run `pyve test` — every mode template must still render without errors (parametrized regression guard in `tests/test_render.py`).
+- [x] Run `pyve testenv run ruff check project_guide/ tests/` — clean.
+- [x] Flip story status `[Planned]` → `[Done]` and check off tasks.
 
 **Out of scope:**
 - **Programmatic enforcement of the subphase pattern.** No `project-guide subphase add Q-2` command — the pattern is LLM-readable template guidance. YAGNI until field use shows the rule alone is insufficient.

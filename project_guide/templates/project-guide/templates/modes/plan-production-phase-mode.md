@@ -51,6 +51,23 @@ If the package version is below v1.0.0 and this is **not** the first-time crossi
    - **Anticipated version bump target**: `vX.Y.0` (minor) or `vX+1.0.0` (major), per the negotiation in step 5
    - **Out of scope**: What's deferred to future phases. **Walk through each Out-of-scope item with the developer** before committing — out-of-scope is a negotiation, not a unilateral declaration (same rule as `plan_phase`).
 
+4a. **Subphase decomposition (optional).** If the phase is large enough that drafting every story up front is infeasible, propose a subphase decomposition to the developer **before** moving on to breaking-change negotiation. Suggest subphasing when **any** of the following hold:
+
+   - The developer signals "this phase is huge" / "this is a major-version cutover" / "this involves multiple coupled re-platformings."
+   - The gap-analysis table from step 4 has more than ~7 substantively distinct rows.
+   - The technical-changes section spans more than ~4 architectural layers (new modules, new contracts, renamed core seams, …).
+   - The `anticipated_breaking_changes` list has more than ~4 substantive items.
+   - The version-bump target is `vX+1.0.0` (major) **and** the developer signals there is "polish that should not block the major."
+
+   When subphasing is chosen:
+
+   - Output a **Subphase overview** section in the phase plan document: enumerate each subphase (`<letter>-1`, `<letter>-2`, …) with a one-paragraph scope summary. For every subphase **after the first**, append an explicit "story breakdown deferred to its own `plan_production_phase` session" marker.
+   - The initial planning session drafts stories only for **Subphase 1**. Subsequent subphases' stories are drafted in their own future `plan_production_phase` invocations, kicked off immediately before that subphase's work begins. **Re-entering `plan_production_phase` mid-phase to draft a later subphase is the canonical pattern, not a misuse.**
+   - If any subphase ships a release tag separate from the phase's primary release (e.g., a polish subphase shipping a minor bump after the major), record a **multi-release exception** line in the phase plan with rationale. This is an explicit exception to the Version Cadence "one phase = one bundled release" rule; single-bundle phases remain the preferred shape.
+   - Subphase headings use `##` (peer of the `## Phase` heading). Subphase IDs use arabic numerals with a hyphen separator (`N-1`, `N-2`, …) — see `_phase-letters.md` § "Subphases" for the full ID scheme, the monotonic story-letter continuation rule, and the 3-level story-ID depth cap.
+
+   **Skip this step entirely if the phase is small/medium** — the existing single-block decomposition (Steps 5–9 below) applies as today and produces identical output. Subphasing is opt-in; the absence of a trigger is not a defect.
+
 5. **Breaking-change negotiation.** For each item in `anticipated_breaking_changes`, walk the developer through the question:
 
    > "Does this change substantively break user expectations, or is it technically-but-trivially breaking?"
@@ -67,6 +84,8 @@ If the package version is below v1.0.0 and this is **not** the first-time crossi
 6. **Present the phase plan** to the developer for approval. Iterate if needed.
 
 7. **After approval, add a new phase section and stories to `docs/specs/stories.md`** — same algorithm as `plan_phase` step 5 (next phase letter, base-26-no-zero successor scheme, insertion before `## Future`, story format). Stories within the phase run **unversioned** during work; the phase ships as one bundled release at the end (per the Version Cadence rule). Include an **integration spike** story if the phase introduces a new integration boundary. See `docs/project-guide/developer/best-practices-guide.md` § "Hello World First — Spike Early, Spike Often" for the three-flavor spike taxonomy (integration / architectural / investigation); architectural and investigation spikes enter the sequence ad-hoc per that section.
+
+   **If Step 4a opted into subphasing**, the phase section's body is laid out as: (a) a short structural preamble under the `## Phase <Letter>:` heading explaining why the phase is subphased, the story-letter monotonic-continuation rule, and any multi-release exception; (b) one `## Subphase <Letter>-N:` heading per subphase, in order; (c) stories drafted only under **Subphase 1**'s heading. Subphases beyond the first carry the scope paragraph from the phase plan plus the "story breakdown deferred to its own `plan_production_phase` session" marker — no `### Story` entries yet. Story letters continue monotonically across subphase boundaries (see `_phase-letters.md` § "Subphases").
 
 8. **Present the updated stories** to the developer for approval.
 

@@ -14,6 +14,19 @@ Within a phase, stories use lowercase letters following the same scheme: `A.a`, 
 
 Examples: `A.a`, `A.b`, …, `A.z`, `A.aa`, `A.ab`, ….
 
+### Subphases (structural grouping within a phase)
+
+When a phase is too large to draft every story in one planning session, it may be decomposed into **subphases** — structural sub-groupings within one phase. Subphases live in a separate namespace from story IDs: they group stories without participating in the story-ID scheme, and they do **not** create new phases.
+
+- **Subphase IDs** use arabic numerals with a hyphen separator: `N-1`, `N-2`, …, `N-9`, `N-10`, …. The hyphen is deliberate — it cannot collide with story IDs (`N.a`, `N.b`, …) or with sub-numbered stories (`N.m.1`, `N.m.2`, …).
+- **Subphase headings** use `##` (peer of the `## Phase <Letter>:` heading), e.g. `## Subphase N-1: <name>`. This makes them visible to the same parsers that already handle the phase-letter sequence (a grep for `^## Phase ` continues to match phases only; `^## Subphase ` is a distinct anchor).
+- **Story letters continue monotonically across subphases.** If Subphase `N-1` ends at story `N.f`, Subphase `N-2` starts at story `N.g`. Story sub-letters reset only at the **phase** boundary — never at a subphase boundary.
+- **Story breakdown is per-subphase.** The initial `plan_production_phase` session drafts stories only for Subphase 1. Subsequent subphases get their stories drafted in their own future `plan_production_phase` sessions, kicked off immediately before that subphase's work begins. Re-entering `plan_production_phase` mid-phase to draft a later subphase's stories is the canonical pattern — see `plan-production-phase-mode.md` Step 4a.
+- **3-level story-ID depth limit holds.** A story like `N.b` may still bundle into `N.b.1`, `N.b.2`, …, but never `N.b.1.1`. Subphase IDs do not consume a story-ID level — they live in a separate namespace.
+- **Multi-release exception.** A large phase may ship more than one release tag (e.g., an architectural cutover ships at the end of Subphase N-7 as `vX+1.0.0`, and a follow-on polish subphase ships at the end of Subphase N-8 as `vX+1.1.0`). This is an explicit exception to the Version Cadence "one phase = one bundled release at end-of-phase" rule and must be documented in the phase plan with rationale. Single-bundle phases remain the preferred shape; multi-release subphases exist only when some work is genuinely conceptually within the phase but should not block the primary release tag.
+
+See `plan_production_phase` Step 4a for the trigger heuristics and the structural-preamble shape inside `stories.md`.
+
 ### Sub-numbered stories
 
 A story may carry an optional numeric suffix — `J.m.1`, `J.m.2`, … — appended after the sub-letter. Sub-numbers are flat (no cascading like `J.m.1.1`) and start at `1`. Two situations use them:

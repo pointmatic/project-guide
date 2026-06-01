@@ -40,6 +40,8 @@ Before planning a new phase, the following should exist:
    - **Technical changes**: New/modified modules, dependencies, config changes (mini tech-spec.md)
    - **Out of scope**: What's deferred to future phases. **Walk through each Out-of-scope item with the developer** before committing the phase plan — confirm each item is genuinely deferrable rather than something that should be in this phase. Out-of-scope is a negotiation, not a unilateral declaration.
 
+   (For phases large enough to warrant decomposition, the **subphase pattern** described in `plan_production_phase` Step 4a applies here too — but pre-1.0 phases rarely reach that threshold; the default is to draft every story in one session.)
+
 5. Present the phase plan to the developer for approval.
 
 6. After approval, add a new phase section and stories to `docs/specs/stories.md`:
