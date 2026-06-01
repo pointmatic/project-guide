@@ -78,7 +78,7 @@ Bundled release at end-of-subphase as **v2.11.0** (minor, fully additive). Three
 
 ---
 
-### Story Q.b: Pyve v2.8.0 alignment — pyve-essentials.md refresh [Planned]
+### Story Q.b: Pyve v2.8.0 alignment — pyve-essentials.md refresh [Done]
 
 **Problem.** Project-guide's bundled `templates/artifacts/pyve-essentials.md` (auto-rendered into every consumer's `go.md` under `## Project Essentials > ### Pyve Essentials` via FR-13) references Pyve invocation patterns that pre-date Pyve v2.8.0:
 
@@ -105,17 +105,17 @@ The rest of the artifact (two-environment pattern, canonical invocation forms, `
 - **No on-disk path migration story.** Pyve handles the v2.7→v2.8 layout migration transparently the first time `pyve update` / `pyve test` / `pyve testenv …` runs in a pre-v2.8 project. Project-guide doesn't touch `.pyve/`; we just describe the post-migration shape. The user's actual disk state moves on Pyve's schedule.
 
 **Implementation:**
-- [ ] Edit `project_guide/templates/project-guide/templates/artifacts/pyve-essentials.md`:
-  - [ ] Replace `.pyve/testenv/venv/` references with `.pyve/testenvs/testenv/venv/`; add one sentence noting the generalization to `.pyve/testenvs/<name>/{venv,conda}/` for declared named envs.
-  - [ ] Add one paragraph on `[tool.pyve.testenvs]` declarative config with a pointer at `pointmatic.github.io/pyve/testing/#named-test-environments`.
-  - [ ] Replace `pyve doctor` / `pyve validate` references with `pyve check`.
-  - [ ] Add one sentence on `pyve update` as the non-destructive refresh path; distinguish from `pyve init --force` (destructive).
-- [ ] Verify `docs/specs/project-essentials.md` for dogfood-specific Pyve entries needing the same refresh (FR-6 verification). If any exist outside the bundled-artifact auto-render block, apply the same edits. If none exist (expected), record the verification result in the implementation notes and skip the per-project edit.
-- [ ] Run `pyve run project-guide update` to propagate the bundled-artifact edit to `docs/project-guide/templates/artifacts/pyve-essentials.md`; auto-render verifies the next `go.md` re-render picks it up.
-- [ ] Spot-check the rendered `### Pyve Essentials` block in `docs/project-guide/go.md` after the update to confirm the edits landed in the auto-rendered output.
-- [ ] Run `pyve test`.
-- [ ] Run `pyve testenv run ruff check project_guide/ tests/`.
-- [ ] Flip story status `[Planned]` → `[Done]` and check off tasks.
+- [x] Edit `project_guide/templates/project-guide/templates/artifacts/pyve-essentials.md`:
+  - [x] Replace `.pyve/testenv/venv/` references with `.pyve/testenvs/testenv/venv/`; add one sentence noting the generalization to `.pyve/testenvs/<name>/{venv,conda}/` for declared named envs.
+  - [x] Add one paragraph on `[tool.pyve.testenvs]` declarative config with a pointer at `pointmatic.github.io/pyve/testing/#named-test-environments`.
+  - [x] Replace `pyve doctor` / `pyve validate` references with `pyve check`. *(Verification: neither term was present in the artifact pre-edit; the new `pyve update` vs. `pyve init --force` section now cites `pyve check` as the diagnostic command and explicitly names the v2.0 removal of `pyve doctor` / `pyve validate` so an LLM reading this file no longer learns the dead names.)*
+  - [x] Add one sentence on `pyve update` as the non-destructive refresh path; distinguish from `pyve init --force` (destructive).
+- [x] Verify `docs/specs/project-essentials.md` for dogfood-specific Pyve entries needing the same refresh (FR-6 verification). *(Result: no `.pyve/testenv` paths, no `pyve doctor` / `pyve validate` / `pyve init --update` references. The line-3 note explicitly defers Pyve workflow rules to the auto-rendered artifact; the remaining Pyve mentions are passing references that do not encode invocation patterns. No per-project edit needed.)*
+- [x] Run `pyve run project-guide update` to propagate the bundled-artifact edit to `docs/project-guide/templates/artifacts/pyve-essentials.md`; auto-render verifies the next `go.md` re-render picks it up.
+- [x] Spot-check the rendered `### Pyve Essentials` block in `docs/project-guide/go.md` after the update to confirm the edits landed in the auto-rendered output.
+- [x] Run `pyve test`.
+- [x] Run `pyve testenv run ruff check project_guide/ tests/`.
+- [x] Flip story status `[Planned]` → `[Done]` and check off tasks.
 
 **Out of scope:**
 - **Full `[tool.pyve.testenvs]` schema documentation in `pyve-essentials.md`.** Project-guide does not duplicate Pyve's authoritative schema. One paragraph + link.

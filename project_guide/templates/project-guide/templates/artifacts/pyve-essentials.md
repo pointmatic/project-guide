@@ -3,12 +3,24 @@
 This project uses `pyve` with **two separate environments**. Picking the wrong invocation form often "works" but leads to subtle drift. Use the canonical forms below:
 
 - **Runtime code (the package itself):** `pyve run python ...` or `pyve run <entry-point> ...`.
-- **Tests:** `pyve test [pytest args]` — **not** `pyve run pytest`. Pytest is not installed in the main `.venv/`; it lives in the dev testenv at `.pyve/testenv/venv/`.
+- **Tests:** `pyve test [pytest args]` — **not** `pyve run pytest`. Pytest is not installed in the main `.venv/`; it lives in the dev testenv at `.pyve/testenvs/testenv/venv/`.
 - **Dev tools (ruff, mypy, pytest):** `pyve testenv run ruff check ...`, `pyve testenv run mypy ...`.
-- **Initialize the testenv (one-time):** `pyve testenv init` creates `.pyve/testenv/venv/`. Required before `pyve testenv install` or `pyve testenv run` will work — those subcommands do not auto-create the env. See [pyve `testenv` subcommand reference](https://pointmatic.github.io/pyve/usage/#testenv-subcommand).
+- **Initialize the testenv (one-time):** `pyve testenv init` creates `.pyve/testenvs/testenv/venv/`. Required before `pyve testenv install` or `pyve testenv run` will work — those subcommands do not auto-create the env. See [pyve `testenv` subcommand reference](https://pointmatic.github.io/pyve/usage/#testenv-subcommand).
 - **Install dev tools:** `pyve testenv install -r requirements-dev.txt` (after `pyve testenv init`). **Do not** run `pip install -e ".[dev]"` into the main venv — that pollutes the runtime environment with test-only dependencies and breaks the two-env isolation.
 
+Pyve v2.8.0 generalized the testenv layout to `.pyve/testenvs/<name>/{venv,conda}/` (plural, name-keyed). The default env name is `testenv`, so the default-case path stays `.pyve/testenvs/testenv/venv/`; additional named envs live alongside it. Pre-v2.8 projects migrate transparently the first time `pyve update` / `pyve test` / `pyve testenv …` runs against a v2.8+ binary.
+
 If `pytest` fails with "not found" that is the signal to use `pyve test`, not to `pip install pytest` into the wrong venv. If `pyve testenv install` or `pyve testenv run` fails complaining the env doesn't exist, run `pyve testenv init` first.
+
+#### Named test environments (`[tool.pyve.testenvs]`)
+
+Pyve v2.8.0 introduced declarative test-env configuration in `pyproject.toml` under `[tool.pyve.testenvs]`. Each named entry can pick its `backend` (`venv` / `micromamba` / `inherit`), declare its dependency source (`requirements` / `extra` / `manifest`), and opt into lazy lifecycle (`lazy = true`). The default single-`testenv` workflow above remains identical — declaring the table is opt-in awareness for projects that need multiple test envs (e.g., a `lint` env separate from `test`, or a conda-backed env for native deps).
+
+Project-guide does not duplicate Pyve's schema; one paragraph + a pointer. For the full schema and worked examples, see Pyve's [`testing.md` § "Named test environments"](https://pointmatic.github.io/pyve/testing/#named-test-environments).
+
+#### `pyve update` vs. `pyve init --force`
+
+`pyve update` is the **non-destructive** refresh path (Pyve v2.0+): preserves the env contents, refreshes Pyve-managed files (and any project-guide scaffolding pyve oversees), and is the right command for picking up a Pyve upgrade. `pyve init --force` is the **destructive** rebuild: purges and recreates the main venv. Reach for `pyve init --force` only when env contents are known-corrupt; default to `pyve update`. For diagnostics, use `pyve check` (CI-safe 0/1/2 exit codes) — Pyve v2.0 hard-removed the legacy `pyve doctor` / `pyve validate` aliases in favor of it.
 
 #### LLM-internal vs. developer-facing invocation
 
@@ -48,7 +60,7 @@ pythonpath = ["."]   # or ["src"] for src layout
 
 **Testenv editable install (required for CLI projects):**
 ```bash
-pyve testenv init                                # one-time, creates .pyve/testenv/venv/
+pyve testenv init                                # one-time, creates .pyve/testenvs/testenv/venv/
 pyve testenv run pip install -e .
 pyve testenv install -r requirements-dev.txt
 ```
