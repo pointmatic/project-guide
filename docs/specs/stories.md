@@ -126,7 +126,7 @@ The rest of the artifact (two-environment pattern, canonical invocation forms, `
 
 ---
 
-### Story Q.c: v2.11.0 Subphase Q-1 bundled release [Planned]
+### Story Q.c: v2.11.0 Subphase Q-1 bundled release [Done]
 
 **Problem.** Subphase Q-1 ships as one bundled release per the subphase phase-bundling option installed in Story Q.a. Stories Q.a and Q.b run unversioned; Q.c is the release-marker story that bumps the package and authors the CHANGELOG entry covering both.
 
@@ -139,12 +139,12 @@ The rest of the artifact (two-environment pattern, canonical invocation forms, `
 - **CHANGELOG entry covers both Q.a and Q.b.** Bundled releases get one entry, not two. The entry's prose names both work units so future readers don't have to reconstruct the bundle's contents from commit history.
 
 **Implementation:**
-- [ ] Bump `project_guide/version.py` to `2.11.0`.
-- [ ] Bump `pyproject.toml` to `2.11.0`.
-- [ ] Add `## [2.11.0] - <date>` entry to `CHANGELOG.md` with two subsections (e.g., `### Added` for the subphase pattern; `### Changed` for the Pyve v2.8.0 alignment refresh). Concise prose; reference Q.a and Q.b by story ID; cross-reference [`phase-q-dx-subphases-plan.md`](phase-q-dx-subphases-plan.md) and [`subphase-strategy-for-large-phases.md`](subphase-strategy-for-large-phases.md).
-- [ ] Run `pyve test`.
-- [ ] Run `pyve testenv run ruff check project_guide/ tests/`.
-- [ ] Flip story status `[Planned]` → `[Done]` and check off tasks.
+- [x] Bump `project_guide/version.py` to `2.11.0`.
+- [x] Bump `pyproject.toml` to `2.11.0`.
+- [x] Add `## [2.11.0] - <date>` entry to `CHANGELOG.md` with two subsections (e.g., `### Added` for the subphase pattern; `### Changed` for the Pyve v2.8.0 alignment refresh). Concise prose; reference Q.a and Q.b by story ID; cross-reference [`phase-q-dx-subphases-plan.md`](phase-q-dx-subphases-plan.md) and [`subphase-strategy-for-large-phases.md`](subphase-strategy-for-large-phases.md).
+- [x] Run `pyve test`.
+- [x] Run `pyve testenv run ruff check project_guide/ tests/`.
+- [x] Flip story status `[Planned]` → `[Done]` and check off tasks.
 
 **Out of scope:**
 - **Git tag / PyPI publish.** Per the *Approval gate discipline* rule in [project-essentials.md](project-essentials.md), the LLM does not initiate git operations or releases. The developer pushes the tag and triggers publish on their own schedule.
