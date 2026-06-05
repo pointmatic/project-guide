@@ -404,6 +404,136 @@ Mutex enforcement (`requirements ⊕ extra ⊕ manifest`) happens at config-read
 
 **Consumers.** `pyve test [--env <name>[,<name>...]]` (FR-11; M.m/M.n/M.o/M.r), `pyve testenv {init,install,purge,run,list,prune}` (FR-11; M.i/M.p), `pyve lock [--env <name>|--all]` (FR-15; M.q). Every command that accepts `<name>` validates against the union of reserved names and `[tool.pyve.testenvs.*]` keys.
 
+### FR-11b: `purpose:` Attribute + Selector Gate (Story N.d, Subphase N-1)
+
+Phase N introduces the v3 `purpose:` attribute on every declared env. Purpose is the cornerstone of the v3 env model — it lets one mechanism host test envs, utility/dev-tooling envs, run/runtime envs, and ephemeral envs without overloading "test."
+
+**Vocabulary.** Exactly one of:
+
+| Value | Meaning | Canonical command |
+|---|---|---|
+| `run` | The shipped/executed runtime env (the project's deployable surface). | `pyve env run <name> -- <cmd>` |
+| `test` | Test runners + test-only deps; addressable via `pyve test --env <name>`. | `pyve test --env <name>` |
+| `utility` | Dev/orchestration tooling (LLM/project-guide CLIs, formatters, codegen). | `pyve env run <name> -- <cmd>` |
+| `temp` | Structured, reproducible ephemeral space (not ad-hoc spikes). | `pyve env run <name> -- <cmd>` |
+
+**Declaration.** In `pyve.toml`'s `[env.<name>]` block:
+
+```toml
+[env.testenv]
+purpose = "test"
+backend = "venv"
+
+[env.web]
+purpose = "run"
+backend = "pnpm"
+
+[env.tools]
+purpose = "utility"
+backend = "venv"
+```
+
+**Default-purpose rules.** When `purpose` is not declared in `[env.<name>]`, a name-based default applies:
+
+| Env name | Default purpose |
+|---|---|
+| `testenv` | `test` |
+| `root` | `utility` |
+| otherwise | `utility` |
+
+Explicit `purpose = ...` always wins. The resolver lives at [lib/manifest.sh:manifest_resolve_purpose](../../lib/manifest.sh) and is the canonical entrypoint for purpose lookups; it works even when `manifest_load` has not been called (returns the name-based default).
+
+**Selector gate.** `pyve test --env <name>` (existing surface) restricts to envs with resolved purpose `test`. Selecting an env with any other resolved purpose hard-errors with a precise hint:
+
+```
+ERROR: Env 'tools' has purpose 'utility'; 'pyve test' is reserved for purpose='test' envs.
+ERROR: Use 'pyve env run tools -- <command>' to invoke a command in this env.
+```
+
+The gate sits in [lib/commands/test.sh:_test_run_one_env](../../lib/commands/test.sh) immediately after name validation and before the conda-backend gate.
+
+**`--env root` short-circuit.** `pyve test --env root` is handled BEFORE the gate runs (delegates straight to `run_command python -m pytest`). The gate never sees `root`, so a `root` env declared as `purpose = "utility"` (the default) does NOT trigger the gate. This preserves the v2.7+ `--env root` selector semantics; route-to-root-env is itself a "test invocation" in the user's mental model.
+
+**v2 source read-compat.** Story N.i adds a read-compat shim that synthesizes a v3-shaped manifest from v2 sources (`[tool.pyve.testenvs.*]`, `.pyve/config`) when `pyve.toml` is absent. The shim propagates `purpose = "test"` for every `[tool.pyve.testenvs.<name>]` block so v2-configured projects continue to work without migration. Until N.i lands, v2-source-only paths break the selector — tracked by `N.i-pending` skip markers in the test suite.
+
+**Consumers (this story).** `pyve test --env <name>` — the only purpose-gating selector in N.d. Future stories layer additional gates (e.g. `pyve env run <name>` may reject `test` envs in a symmetric direction; deferred to a later subphase if a need surfaces).
+
+### FR-11c: Env-as-Materialization Model + Advisory Attributes (Subphase N-2)
+
+Phase N's plugin spike (S1–S11) reframes what an env *is* and adds two advisory `[env.<name>]` attributes that ship as schema in v3.0 without enforced semantics. The framing and attributes are documented here so the canonical features doc reflects the v3 env model; the wire-level rules and accessors live in [tech-spec.md § Plugin contract architecture](tech-spec.md#plugin-contract-architecture).
+
+**Env-as-materialization (S1).** Every declared `[env.<name>]` is a **materialized dependency closure**, not a run surface. The `purpose:` attribute (FR-11b) labels what the closure is for; `backend:` declares how the closure materializes. Three backend categories are recognized:
+
+| Category | How the closure materializes | v3.0 implementations |
+|---|---|---|
+| `virtualized` | Per-project env directory; PATH-activated for project-pinned binaries. | `venv`, `micromamba` |
+| `cache-backed` | Shared user-level dep cache + project lockfile. | None in v3.0 (designed-in; candidates: Rust, Go). |
+| `check-only` | Pyve verifies presence + version; no install action. | None in v3.0 (designed-in; candidates: mobile toolchains, Docker, Homebrew). |
+
+The shift from v2's "venv-or-conda" duality to a three-category model is what lets future plugins (Node, Rust, Go, …) plug into the same composition layer (`.envrc` emission, `pyve check`, `pyve status`, `pyve purge`) without further framework changes. Each plugin's hooks declare which category its backends belong to at registration time; the framework routes `init` / `purge` / `activate` accordingly.
+
+**`languages` (S11) — advisory in v3.0.** The structured `[env.<name>].languages` attribute (string list, default `[]`) declares the language flavors the env materializes:
+
+```toml
+[env.web]
+purpose   = "run"
+backend   = "pnpm"
+languages = ["typescript", "javascript"]
+```
+
+In v3.0 the attribute is **declared but not enforced**. The only surfaced behavior is a conservative advisory warning in `pyve check`: when `languages` is declared AND the list does NOT include `"python"`, the Python plugin prints `warning: env '<name>' declares languages = [<list>] without 'python' — the Python plugin manages this env`. All other shapes (`languages = ["python"]`, `languages = ["python", "rust"]`, attribute omitted) are silent. Richer cross-checks (language-to-backend compatibility, multi-plugin coordination) defer to v3.1 or later phases.
+
+**`manual_steps` (S7) — advisory in v3.0.** The structured `[env.<name>].manual_steps` attribute (string list, default `[]`) declares one-time setup actions that pyve does **not** automate but that a contributor must perform manually:
+
+```toml
+[env.root]
+manual_steps = [
+    "Open Xcode and accept license",
+    "Configure signing identity",
+]
+```
+
+In v3.0 the attribute is **declared but not enforced** — pyve never executes or verifies these steps. The only surfaced behavior is a render at the top of `pyve check` and `pyve status`: for each env with non-empty `manual_steps`, a "Manual steps (advisory — pyve does not run these):" header (once total) followed by per-env bullets. Silent when no env declares any steps. Advisory rendering NEVER affects exit code.
+
+**No behavior change for users in v3.0.** Both attributes ship as schema additions plus the two advisory surfaces above. No env is created, modified, validated, or rejected on the basis of `languages` / `manual_steps`. The wire-level acceptance, accessor surface, and renderer placement are documented in [tech-spec.md § Plugin contract architecture](tech-spec.md#plugin-contract-architecture). v3.1 / future phases may add enforcement; this story does not commit to a specific enforcement shape.
+
+### FR-11d: Node / SvelteKit Support (Subphase N-3)
+
+Phase N ships **Node** as the second reference plugin behind the contract from FR-11c — the proof that the plugin model generalizes beyond Python. A `[plugins.node]` declaration in `pyve.toml` brings a JavaScript/TypeScript ecosystem under the same composition layer (`.envrc` emission, `pyve check` / `pyve status` / `pyve purge`) as Python. The plugin lives at [lib/plugins/node/plugin.sh](../../lib/plugins/node/plugin.sh); the full wire-level surface is in [tech-spec.md § `lib/plugins/node/plugin.sh`](tech-spec.md).
+
+- **Backends — `pnpm` / `npm` / `yarn`.** Three project-virtualized backend-providers. An explicit `backend = "pnpm"` (or `npm`/`yarn`) wins; otherwise pyve infers from the lockfile present (`pnpm-lock.yaml` / `package-lock.json` / `yarn.lock`), defaulting to `pnpm` when none exists.
+- **Runtime resolution.** Node's version manager is resolved by the precedence chain **nvm > fnm > volta > asdf > Homebrew / system PATH**, each tier honoring a `PYVE_NO_*_COMPAT` opt-out. Pyve does not install a Node runtime — it resolves whichever is active and fails loudly when none is reachable (consistent with the asdf/pyenv Non-Goal for Python).
+- **Lifecycle.** `init` installs into `node_modules/` via the resolved provider; `purge` smart-removes generated dirs (`node_modules/`, `.svelte-kit/`, `dist/`, `build/`, `.next/`) while never touching `package.json`, lockfiles, or source; `update` uses the CI-frozen install form (`pnpm install --frozen-lockfile` / `npm ci` / `yarn install --frozen-lockfile`) when `CI` is set.
+- **Activation.** The plugin's `.envrc` contribution is a single `PATH_add "node_modules/.bin"` (path-prefixed for sub-tree projects) so locally-installed tools (vitest, tsc, eslint) resolve — uniform across providers, no `export PATH=`.
+- **`test` is honest delegation.** `pyve`'s Node `test` hook runs the provider's `test` script (`pnpm test`, …); the user's `package.json` `test` script defines what "test" means (vitest, jest, playwright, …). Pyve does not impose a test runner.
+- **TypeScript advisory (S11).** When an env declares `languages` including `typescript` but `package.json` has no `typescript` dependency, `pyve check` warns — advisory only, never a failure exit.
+- **SvelteKit framework detection (advisory).** Pyve recognizes SvelteKit (`@sveltejs/kit` / `svelte.config.js`) and surfaces an env's `frameworks` attribute in `check` / `status`. Recognition is advisory metadata — SvelteKit is **not** specially provisioned beyond the standard Node lifecycle.
+- **Polyglot.** Python and Node coexist when declared at **distinct paths** (e.g. Python at `.`, Node at `src/frontend`); each plugin's hooks confine to their own sub-tree. CLI-level routing of `pyve <cmd>` across all declared plugins is the **composition layer** — see [FR-11e](#fr-11e-composition-layer-subphase-n-4).
+
+**Polyglot scaffold on `pyve init` (Subphase N-4).** When `pyve init` detects **both** a Python signal and a `package.json` at the project root, it writes a polyglot `pyve.toml` with explicit `[plugins.python]` (root; no `path`, defaults to `.`) and `[plugins.node]` blocks. Because two plugins can't both own `.` (an S4 cardinality error), Node is placed at a distinct sub-path resolved as follows:
+
+- **Convention walk.** Pyve checks the conventional Node sub-paths in order — `src/frontend`, `frontend`, `web`, `client`, `ui` — for an existing directory. Exactly one match is used and announced (`Node sub-path: <path> (using existing directory; only convention matched)`). Two or more matches prompt the user with the list (default: the first match). Zero matches prompt for a path, defaulting to `src/frontend`. The chosen path is always printed before `pyve.toml` is written.
+- **Unconventional paths — three ways to choose:**
+  1. **Type a custom path at the interactive prompt** (the 0-match and 2+-match prompts both accept any non-empty path).
+  2. **Pass `--node-path=<path>`** (or `--node-path <path>`) for fully non-interactive / scripted use — this overrides all detection and prompting.
+  3. **Edit `pyve.toml` after `init`** — change the `[plugins.node]` `path` value directly.
+- **Non-interactive fallback.** With no TTY (CI) and no `--node-path`, the resolver takes the deterministic path: the single convention match if exactly one exists, the first match if several exist, otherwise the `src/frontend` default — never blocking on a prompt.
+
+**No behavior change for existing Python users.** Node support is additive: a pure-Python project with no `[plugins.node]` declaration behaves exactly as in v2 (the implicit-Python rule never auto-loads Node). Per S11, the new surfaces are advisory.
+
+### FR-11e: Composition Layer (Subphase N-4)
+
+The composition layer is what turns one `pyve <cmd>` into a fan-out across **every** active plugin, composing the results into one coherent artifact or report. It is the CLI-level realization of the multi-plugin promise from FR-11c/d. Implementation detail lives in [tech-spec.md § "Composition layer (Subphase N-4)"](tech-spec.md); the user-facing behavior:
+
+- **Polyglot manifests on `pyve init`.** A root with both a Python signal and a `package.json` scaffolds a polyglot `pyve.toml` with `[plugins.python]` (root) and `[plugins.node]` at a prompted-or-inferred sub-path — the convention walk / `--node-path` / post-init edit mechanics in FR-11d's scaffold note.
+- **Composed `.envrc` and `.gitignore`.** `pyve init` / `pyve update` assemble every active plugin's activation snippet (`.venv/bin`, `node_modules/.bin`, …) into one managed `.envrc` section, and every plugin's ignore entries into one managed `.gitignore` section — each path-prefixed for sub-tree plugins. User-authored content outside the managed markers round-trips verbatim.
+- **Failure-safe writes (PC-2).** Composed-file writes are atomic and non-destructive: pyve composes to a temp file, backs the current file up to `.envrc.prev` / `.gitignore.prev`, and promotes with an atomic rename. If any plugin emits an unsafe snippet, the existing file is left **untouched** (no half-write, no spurious backup) and the command exits nonzero. One-step rollback is `mv -f .envrc.prev .envrc`.
+- **Aggregated `pyve check`.** One run reports a per-plugin section (path-labelled, e.g. `[node @ src/frontend]`) and rolls the per-plugin results up to a single worst-severity exit: any plugin error → exit 2 (CI-failing); warnings are advisory and non-failing.
+- **Aggregated `pyve status`.** A per-plugin read-only snapshot across all plugins; always exits 0.
+- **Aggregated `pyve purge`.** One confirmation lists what every plugin will remove, grouped by plugin; a path any plugin marks user-authored is never removed (even cross-plugin). Removal is delete-only and resumable — a failed purge can be safely re-run.
+- **No-Python noise on non-Python projects.** A Node-only project produces **zero** Python output from `check` / `status`; pyve still defaults to Python for bare directories and polyglot/project-guide projects, so the helpful "run `pyve init`" nudge is never lost where it belongs.
+- **Latency budget.** Each plugin's activation stays within ≤ 50ms p95, enforced across all three project shapes.
+
 ### FR-12: Smart Re-Initialization
 
 Handle `pyve init` on already-initialized projects.
