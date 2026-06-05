@@ -50,7 +50,7 @@ modes:
     sequence_or_cycle: sequence
     generation_type: document
     mode_template: "{{mode_templates_path}}/plan-tech-spec-mode.md"
-    next_mode: plan_stories
+    next_mode: plan_envs
     artifacts:
       - file: "{{spec_artifacts_path}}/tech-spec.md"
         action: create
@@ -59,6 +59,19 @@ modes:
     files_exist:
       - "{{spec_artifacts_path}}/concept.md"
       - "{{spec_artifacts_path}}/features.md"
+  - name: plan_envs
+    info: Define named environments and their dependencies
+    description: Guide the developer through enumerating named environments (root + test envs), backends, frameworks, packaging, and advisory fields. Authors docs/specs/env-dependencies.md from the vendored Pyve env-spec template at spec_version "3.0".
+    sequence_or_cycle: sequence
+    generation_type: document
+    mode_template: "{{mode_templates_path}}/plan-envs-mode.md"
+    next_mode: plan_stories
+    artifacts:
+      - file: "{{spec_artifacts_path}}/env-dependencies.md"
+        action: create
+    files_exist:
+      - "{{spec_artifacts_path}}/features.md"
+      - "{{spec_artifacts_path}}/tech-spec.md"
   - name: plan_stories
     info: Generate multiple phases of user stories for a new project (zero to first release)
     description: Based on the concept, features, and technical specification documents, scaffold the project, determine the implementation phases, and breakdown all that into stories.

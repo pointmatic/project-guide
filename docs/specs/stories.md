@@ -152,6 +152,127 @@ The rest of the artifact (two-environment pattern, canonical invocation forms, `
 
 ---
 
+## Subphase Q-2: `plan_envs` mode (Pyve env-spec authoring surface)
+
+Adds a new sequence mode `plan_envs` that guides the developer through enumerating named environments (root + test envs), their backends, frameworks, packaging, and advisory fields. Authors `docs/specs/env-dependencies.md` from a bundled artifact template that vendors Pyve's `env-dependencies-template.md` at `spec_version: "3.0"`. Slotted into the canonical planning sequence as `plan_tech_spec → plan_envs → plan_stories`.
+
+Driver: Pyve's v2.8 → v3.0 transition raises env topology to a discrete planning concern; the cross-repo contract from Pyve's N.ao spike (closed-vocabulary trichotomy, vendored-template invariant) is the authoritative shape consumed here. See [`phase-q-wizard-env-contract.md`](phase-q-wizard-env-contract.md) for the contract and [`phase-q-subphase-2-plan-envs-plan.md`](phase-q-subphase-2-plan-envs-plan.md) for the full Q-2 plan.
+
+Bundled release at end-of-subphase as **v2.12.0** (minor — new feature). Three stories, executed in document order; only `Q.f` carries the version in its title. **Dependency:** Q.a's subphase-pattern templates must ship (v2.11.0) before Q.d–Q.f are *worked on* — Q-2's planning happens now; Q-2's implementation waits for v2.11.0.
+
+### Story Q.d: `plan_envs` mode authoring — template, artifact, metadata wiring [Done]
+
+**Problem.** Project-guide's planning sequence today (`plan_concept` → `plan_features` → `plan_tech_spec` → `plan_stories`) leaves environment topology unaddressed. For a Pyve-managed repo — let alone a Pyve v3.0 named-env + plugin-architecture repo — the question "how many environments, with what backends, frameworks, and packaging?" is a discrete planning decision that today gets bootloaded into `plan_tech_spec` (overloading its architecture focus), dropped on `plan_stories` (decisions emerge mid-implementation), or omitted entirely (silent drift between intent and `pyve.toml`). Pyve's N.ao spike introduced `docs/specs/env-dependencies.md` as the point-in-time env-spec artifact (peer of `features.md` / `tech-spec.md`); project-guide has no bundled template, no mode that authors it, no metadata wiring that names it.
+
+**Behavior (post-story).** Three files land together — the mode is non-functional without all three. Two are new files; one is an edit.
+
+- **New: `project_guide/templates/project-guide/templates/modes/plan-envs-mode.md`.** Sequence-mode template adapted from [`phase-q-plan-envs-mode-roughdraft.md`](phase-q-plan-envs-mode-roughdraft.md). Follows the existing `plan_concept` / `plan_features` / `plan_tech_spec` shape: includes `_header-sequence.md`; states purpose; lists prerequisites (`features.md`, `tech-spec.md`); enumerates steps (read specs → determine env topology with closed-vocabulary discipline → generate `env-dependencies.md` from bundled template → present for approval → iterate → next-mode hint `plan_stories`); ends with the closed-vocabulary discipline note (values come from the bundled template's §2 glossary; unknown value is a spec violation, not a creative choice; missing mechanism is a Pyve change-request per §8, not an invention).
+- **New: `project_guide/templates/project-guide/templates/artifacts/env-dependencies.md`.** Artifact template adapted from [`phase-q-plan-envs-mode-env-dependences-artifact-roughdraft.md`](phase-q-plan-envs-mode-env-dependences-artifact-roughdraft.md). Section structure (§0 through §9) preserved; Pyve-internal path references removed (rough draft's `pyve-environment-dependencies-repo_<repo_name>.md` filename collapses to canonical `docs/specs/env-dependencies.md`); cross-references rewritten in project-guide artifact style (links to `concept.md` / `features.md` / `tech-spec.md` / `go.md`); §4.0 YAML block hard-codes `spec_version: "3.0"`; closed-vocabulary tables preserved verbatim from the rough draft. Header comment cites the vendored-template invariant: `<!-- Vendored from Pyve env-dependencies-template.md at spec_version "3.0". Closed vocabulary is Pyve-owned; project-guide refreshes via a dedicated story when Pyve bumps. See docs/specs/project-essentials.md → "Pyve env-spec vendored-template contract" for the protocol. -->`
+- **Edited: `project_guide/templates/project-guide/.metadata.yml`.** Adds `plan_envs` mode definition (name, info, description, `sequence_or_cycle: sequence`, `generation_type: document`, `mode_template: modes/plan-envs-mode.md`, `next_mode: plan_stories`, artifacts: `docs/specs/env-dependencies.md` action `create`, `files_exist: [features.md, tech-spec.md]`). Position in the file: immediately after `plan_tech_spec`, before `plan_stories`. Flips `plan_tech_spec.next_mode` from `plan_stories` to `plan_envs`.
+
+**Why these defaults.**
+
+- **Three files in one story.** The mode is non-functional with any of the three missing: metadata-only wiring with no template → render error; template-only with no metadata → mode not listed and not selectable; mode + metadata with no artifact template → Step 3 of the mode has nothing to generate from. Splitting across stories would land a half-installed mode in an interim release.
+- **Vendored-template approach over schema parsing.** Project-guide does not parse the closed vocabulary or validate `env-dependencies.md` shape at render time. The bundled template carries the vocabulary verbatim as instructional content; LLM discipline (per the closed-vocabulary note in the mode template) is what keeps `plan_envs` output conformant. Schema validation is Pyve's F6 responsibility — happens at `pyve env sync` time, not at `project-guide plan_envs` time.
+- **`spec_version: "3.0"` hard-coded.** No runtime version negotiation, no dynamic lookup of Pyve's current vocabulary. Bumps to the value come via a dedicated refresh story (the Q.b / Q-1 pattern). This keeps project-guide's coupling to Pyve at *release-pinned*, not *runtime-linked* — the same shape as `pyve-essentials.md`'s vendoring.
+- **`files_exist: [features.md, tech-spec.md]`.** The mode infers env requirements from these specs plus the codebase. Listing them as prerequisites makes the `project-guide mode` listing surface them as unmet (`✗`) when absent, preventing the LLM from running `plan_envs` against an underspecified project.
+- **`next_mode: plan_stories`.** Env decisions inform story scoping (which stories run in which env). The natural next step after env topology is implementation breakdown.
+- **Slotted in the canonical sequence (not listing-only).** Per gate confirmation: `plan_tech_spec → plan_envs → plan_stories` is the new sequence. Existing projects already past `plan_tech_spec` are unaffected; new projects pick up the env-planning step cleanly. The sequence change is technically-but-trivially breaking (advisory recommendation only; explicit-mode-name invocation continues to work unchanged).
+- **No `_header-cycle.md` consideration.** `plan_envs` is a sequence mode, not a cycle. Env decisions are point-in-time per Pyve's `spec_version`, not a continuous refinement loop. Re-running `plan_envs` regenerates the doc idempotently (per the rough draft's design).
+
+**Implementation:**
+- [x] Author `project_guide/templates/project-guide/templates/modes/plan-envs-mode.md` per the shape above. Adapt steps from [`phase-q-plan-envs-mode-roughdraft.md`](phase-q-plan-envs-mode-roughdraft.md) into project-guide's sequence-mode pattern (parallel to `plan-tech-spec-mode.md`).
+- [x] Author `project_guide/templates/project-guide/templates/artifacts/env-dependencies.md`. Adapt from [`phase-q-plan-envs-mode-env-dependences-artifact-roughdraft.md`](phase-q-plan-envs-mode-env-dependences-artifact-roughdraft.md). Preserve §0–§9 structure, closed-vocabulary tables verbatim. Remove Pyve-internal path references. Add the vendored-template header comment. Hard-code `spec_version: "3.0"` at §4.0.
+- [x] Edit `project_guide/templates/project-guide/.metadata.yml`: add `plan_envs` block between `plan_tech_spec` and `plan_stories`; flip `plan_tech_spec.next_mode` from `plan_stories` to `plan_envs`; confirm `plan_envs.next_mode: plan_stories`.
+- [x] Run `pyve run project-guide update` to propagate template + metadata edits to `docs/project-guide/` (the dogfooded installed copy).
+- [x] Run `pyve run project-guide mode plan_envs` to verify the new mode renders without errors. Inspect the rendered `go.md` for: correct step sequence, prerequisite list, closed-vocabulary discipline note, next-mode hint pointing at `plan_stories`.
+- [x] Run `pyve run project-guide mode` (no arg) to verify listing shows `plan_envs` in the "Project Planning" category between `plan_tech_spec` and `plan_stories`.
+- [x] Run `pyve test` — the parametrized render-mode test must still pass (it iterates `.metadata.yml`; the new mode is picked up automatically).
+- [x] Run `pyve testenv run ruff check project_guide/ tests/`.
+- [x] Flip story status `[Planned]` → `[Done]` and check off tasks.
+
+**Out of scope:**
+- **Pyve-side env-sync / schema validation.** Pyve's F4 (`pyve env sync`), F5 (contract-guard test), and F6 (closed-vocabulary trichotomy in `pyve_toml_helper.py`) all live in the Pyve repo. Project-guide is the authoring surface; Pyve is the consumer.
+- **Dynamic `spec_version` discovery.** No runtime template fetching, no version negotiation. Bumps via refresh stories.
+- **Validating the artifact's content at `project-guide` time.** No `project-guide check env-dependencies` integrity command. LLM discipline + Pyve's downstream validation is the loop.
+- **Backfilling `env-dependencies.md` for this dogfooded project.** Running `plan_envs` against project-guide itself is a separate concern; may land in Q-3 if Q-2 field use surfaces template gaps.
+- **`refactor_envs` cycle counterpart.** Env decisions are point-in-time per Pyve's `spec_version`, not a continuous-refinement loop. Re-run `plan_envs` if a redo is needed.
+- **Spec doc sync (`concept.md`, `features.md`, `project-essentials.md`).** Bundled into Q.e.
+- **Version bump / CHANGELOG entry.** Bundled into Q.f.
+
+---
+
+### Story Q.e: Spec doc sync — `concept.md`, `features.md`, `project-essentials.md` [Planned]
+
+**Problem.** Q.d adds the `plan_envs` mode but leaves the project's own spec documents stale. Three drift surfaces need to be addressed in one coherent edit:
+
+1. **`features.md` FR-1 modes table** lists 15 rows but is missing `plan_production_phase` (the very mode being used to plan this subphase). Post-Q-2, the count becomes 17 (existing 15 table rows + `plan_production_phase` + `plan_envs`).
+2. **`concept.md` Scope** claims "15 modes" and lists 14 modes + a future `code_production`. The list uses retired names: `project_scaffold` (current: `scaffold_project`), `code_velocity` (current: `code_direct`). Drift accumulated across phases; Q-2 is the natural moment to clean it because we're touching the mode list anyway.
+3. **`project-essentials.md` lacks the Pyve env-spec vendored-template invariant.** Q.d ships a bundled template whose vocabulary is Pyve-owned; without an explicit invariant recorded in `project-essentials.md`, future LLMs are likely to "improve" the template independently, invent vocabulary values, or fail to recognize a Pyve template bump as a refresh-story trigger.
+
+**Behavior (post-story).** Three surgical edits.
+
+- **`features.md` FR-1 modes table edit.** Add a `plan_production_phase` row (sequence; "Plan a production-grade phase post-1.0 with readiness checklist and breaking-change negotiation"). Add a `plan_envs` row (sequence; "Define named environments and their dependencies"). Refresh table-header count from "**15 total**" → "**17 total**" (or equivalent wording — confirm exact phrasing during edit).
+- **`concept.md` Scope statement edit.** Refresh mode list to current names: `scaffold_project` (not `project_scaffold`), `code_direct` (not `code_velocity`). Add `plan_envs` and `plan_production_phase` to the list. Refresh count "15 modes" → "17 modes" (preserving the "future `code_production`" mention, since that mode is still future). Same edit hygiene applied to any other count references in `concept.md` that flag during the edit.
+- **`project-essentials.md` new section.** Append after the existing `### Pyve Essentials` section a new section titled `### Pyve env-spec vendored-template contract`. Content per [`phase-q-subphase-2-plan-envs-plan.md`](phase-q-subphase-2-plan-envs-plan.md) § Q-2-FR-5:
+  - Vendored template, Pyve-owned vocabulary.
+  - Trichotomy contract (known+implemented / known+advisory / unknown→error).
+  - Refresh-story protocol (same shape as Q.b's `pyve-essentials.md` v2.8.0 alignment).
+  - Authoritative source pointer (Pyve's `docs/specs/project-guide-requests/env-dependencies-template.md`).
+  - Cross-reference: existing `### Pyve Essentials` is about Pyve *invocation*; new section is about Pyve *env-spec vocabulary*. Complementary, not overlapping.
+
+**Why these defaults.**
+
+- **Drift cleanup folded into the same story, not spun off.** Per gate confirmation: refreshing `concept.md`'s old mode names while we're already adding `plan_envs` to its list is one cognitive unit, one commit, no risk of partial coverage. Spinning a separate story would leave Q.e narrowly scoped to "add new mode" while a parallel story handled "rename old modes" — two PRs to review, two commit boundaries for related edits.
+- **`project-essentials.md` invariant lands here, not in Q.d.** Q.d's surface is "the mode works." Q.e's surface is "future LLMs reading the specs understand the cross-repo contract." Different cognitive layers; different review focus.
+- **New section, not edit of existing `### Pyve Essentials`.** The existing section is auto-rendered from `pyve-essentials.md` (FR-13) — editing it inline would create drift between the dogfooded `project-essentials.md` and the bundled artifact. The new section is project-guide-specific architectural invariant content, never auto-rendered, hand-authored.
+- **17, not 16.** Count refresh acknowledges both additions (`plan_envs` from Q.d, `plan_production_phase` from prior drift).
+
+**Implementation:**
+- [ ] Edit `docs/specs/features.md` FR-1 modes table: add `plan_production_phase` row, add `plan_envs` row, refresh count to 17.
+- [ ] Edit `docs/specs/concept.md` Scope: refresh mode names (`project_scaffold` → `scaffold_project`, `code_velocity` → `code_direct`), add `plan_envs` and `plan_production_phase`, refresh count "15 modes" → "17 modes". Preserve "future `code_production`" mention.
+- [ ] Append new `### Pyve env-spec vendored-template contract` section to `docs/specs/project-essentials.md` after the existing `### Pyve Essentials` section. Content per the Q-2-FR-5 outline above.
+- [ ] Run `pyve run project-guide update` to re-render `go.md` (the new `project-essentials.md` section flows into rendered output via the auto-render path).
+- [ ] Spot-check the rendered `### Pyve env-spec vendored-template contract` block in `docs/project-guide/go.md`.
+- [ ] Run `pyve test`.
+- [ ] Run `pyve testenv run ruff check project_guide/ tests/`.
+- [ ] Flip story status `[Planned]` → `[Done]` and check off tasks.
+
+**Out of scope:**
+- **Renaming any `.metadata.yml` mode keys.** No `project_scaffold` → `scaffold_project` rename anywhere in the metadata or template tree — that ship sailed in earlier phases; the current canonical names are already in place. Q.e is fixing stale `concept.md` references to retired names, not initiating any rename.
+- **`tech-spec.md` mode enumeration refresh.** `tech-spec.md` doesn't enumerate modes individually; the auto-render flow remains correct. Spot-checks during the edit may surface link rot worth a one-line fix, but a full sweep is out of scope.
+- **Audit of all spec docs for cross-document inconsistency.** Q.e fixes drift identified during Q-2 planning. A broader audit (every spec doc, every count, every cross-reference) is a separate concern that may land in a future Q-N subphase.
+- **CHANGELOG entry / version bump.** Bundled into Q.f.
+
+---
+
+### Story Q.f: v2.12.0 Subphase Q-2 bundled release [Planned]
+
+**Problem.** Subphase Q-2 ships as one bundled release per the subphase phase-bundling option installed in Q.a. Stories Q.d and Q.e run unversioned; Q.f is the release-marker story that bumps the package and authors the CHANGELOG entry covering both.
+
+**Behavior (post-story).** Version bumped to **v2.12.0** across the three canonical sites (`project_guide/version.py`, `pyproject.toml`, new `CHANGELOG.md` entry). The CHANGELOG entry describes Subphase Q-2's two themes as one bundled release: the `plan_envs` mode introduction (Q.d) and the spec-doc sync (Q.e).
+
+**Why this default.**
+
+- **v2.12.0 minor, not patch.** New mode + new artifact template + new architectural invariant (Pyve env-spec vendored-template contract) are *feature additions* by the Version Cadence rule (`Feature or improvement → minor`).
+- **Distinct release from Q-1's v2.11.0.** Per the subphase phase-bundling pattern installed in Q.a, each subphase decides its own release shape; Q-1 and Q-2 ship as separate minor bumps because each is a discrete shippable bundle. Subphase Q-1 = v2.11.0; Subphase Q-2 = v2.12.0.
+- **One bump, last story.** Same convention as Q.c — Q.f is the only Q-2 story with a version in its title; Q.d and Q.e run unversioned during the subphase.
+- **CHANGELOG entry covers both Q.d and Q.e.** Bundled releases get one entry. The entry's prose names both work units and cross-references [`phase-q-subphase-2-plan-envs-plan.md`](phase-q-subphase-2-plan-envs-plan.md) and [`phase-q-wizard-env-contract.md`](phase-q-wizard-env-contract.md) so future readers can reconstruct the cross-repo context.
+
+**Implementation:**
+- [ ] Bump `project_guide/version.py` to `2.12.0`.
+- [ ] Bump `pyproject.toml` to `2.12.0`.
+- [ ] Add `## [2.12.0] - <date>` entry to `CHANGELOG.md` with two subsections (e.g., `### Added` for the `plan_envs` mode + `env-dependencies.md` artifact template; `### Changed` for the spec-doc sync and the Pyve env-spec vendored-template contract invariant). Concise prose; reference Q.d and Q.e by story ID; cross-reference [`phase-q-subphase-2-plan-envs-plan.md`](phase-q-subphase-2-plan-envs-plan.md) and [`phase-q-wizard-env-contract.md`](phase-q-wizard-env-contract.md).
+- [ ] Run `pyve test`.
+- [ ] Run `pyve testenv run ruff check project_guide/ tests/`.
+- [ ] Flip story status `[Planned]` → `[Done]` and check off tasks.
+
+**Out of scope:**
+- **Git tag / PyPI publish.** Per the *Approval gate discipline* rule in [project-essentials.md](project-essentials.md), the LLM does not initiate git operations or releases. The developer pushes the tag and triggers publish on their own schedule.
+- **End-of-subphase migration to a Q-3 planning session.** Q-3 entry is a separate developer-initiated decision; Q.f is just the release marker for Q-2.
+
+---
+
 ## Future
 
 ### Audit Modes [Deferred]

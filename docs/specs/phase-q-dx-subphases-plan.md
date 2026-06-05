@@ -22,16 +22,27 @@ The phase will mix release shapes: some subphases will ship as bundled releases 
 
 **Release shape.** Bundled release at end-of-subphase as **v2.11.0** — minor bump, fully additive doc/template changes. The last story of Q-1 owns the bump (per the subphase phase-bundling option proposed in the change request).
 
-### Subphase Q-2 and beyond — to be defined
+### Subphase Q-2 — `plan_envs` mode (Pyve env-spec authoring surface)
 
-Subphase Q-2+ are intentionally undefined at this planning session. **Story breakdown deferred to their own future `plan_production_phase` sessions** — the canonical mid-phase re-invocation pattern from Step 4a of the (Q-1-installed) subphase strategy. Each future subphase will be triggered by a concrete DX need: a developer-experience pain point, a downstream consumer signal, an integration gap surfaced by field use, etc. Possible themes (non-binding, illustrative only):
+**Scope.** Add a new sequence mode `plan_envs` that guides the developer through enumerating named environments (root + test envs), their backends, frameworks, packaging, and advisory fields. Authors `docs/specs/env-dependencies.md` from a bundled artifact template that vendors Pyve's `env-dependencies-template.md` at `spec_version: "3.0"`. Slotted into the canonical planning sequence as `plan_tech_spec → plan_envs → plan_stories`.
+
+**Driver.** Pyve's transition from v2.8 (named test envs) to v3.0 (named-env + plugin architecture) raises env topology to a discrete planning concern worth its own mode. The cross-repo contract from Pyve's [N.ao spike](phase-q-wizard-env-contract.md) — closed-vocabulary trichotomy (known+implemented / known+advisory / unknown→error) and the vendored-template invariant — is the authoritative shape project-guide consumes.
+
+**Release shape.** Bundled release at end-of-subphase as **v2.12.0** — minor (new feature: new mode + new artifact). Three stories (Q.d / Q.e / Q.f) executed in document order; only Q.f carries the version in its title.
+
+**Full plan.** [`phase-q-subphase-2-plan-envs-plan.md`](phase-q-subphase-2-plan-envs-plan.md) — gap analysis, feature requirements, technical changes, breaking-change negotiation result, anticipated version bump target, out-of-scope walk, implementation strategy, acceptance criteria.
+
+### Subphase Q-3 and beyond — to be defined
+
+Subphase Q-3+ remain intentionally undefined. **Story breakdown deferred to their own future `plan_production_phase` sessions** per the (Q-1-installed) Step 4a pattern. Each future subphase will be triggered by a concrete DX need: a pain point, a downstream consumer signal, an integration gap. Possible themes (non-binding, illustrative only):
 
 - LLM workflow guidance refinements
 - Mode-template ergonomic improvements
 - Status / check / heal output polish
 - Further external-tool integration patterns (e.g., the deferred `project-guide check` integrity command from `Future`)
+- Dogfooded `env-dependencies.md` for project-guide itself (post-Q-2 follow-up if `plan_envs` field use surfaces template gaps)
 
-When a Q-2+ theme crystallizes, the developer re-invokes `project-guide mode plan_production_phase` to scope that subphase. The mode-template work just installed in Q-1 will guide the LLM to (a) recognize this is a mid-phase re-invocation, (b) add the new `## Subphase Q-N:` heading rather than a new `## Phase` heading, (c) continue story letters monotonically from where Q-1 left off.
+When a Q-3+ theme crystallizes, the developer re-invokes `project-guide mode plan_production_phase` to scope that subphase. The Q-1-installed templates will guide the LLM to (a) recognize this is a mid-phase re-invocation, (b) add the new `## Subphase Q-N:` heading rather than a new `## Phase` heading, (c) continue story letters monotonically from where the prior subphase left off.
 
 ---
 
