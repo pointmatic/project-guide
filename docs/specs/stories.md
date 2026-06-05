@@ -316,7 +316,7 @@ Bundled release at end-of-subphase as **v2.12.0** (minor — new feature). Three
 
 ---
 
-### Story Q.f: v2.12.0 Subphase Q-2 bundled release [Planned]
+### Story Q.f: v2.12.0 Subphase Q-2 bundled release [Done]
 
 **Problem.** Subphase Q-2 ships as one bundled release per the subphase phase-bundling option installed in Q.a. Stories Q.d, Q.e, Q.e.1, and Q.e.2 run unversioned; Q.f is the release-marker story that bumps the package and authors the CHANGELOG entry covering them all.
 
@@ -330,12 +330,12 @@ Bundled release at end-of-subphase as **v2.12.0** (minor — new feature). Three
 - **CHANGELOG entry covers Q.d, Q.e, Q.e.1, and Q.e.2.** Bundled releases get one entry. The entry's prose names the work units and cross-references [`phase-q-subphase-2-plan-envs-plan.md`](phase-q-subphase-2-plan-envs-plan.md) and [`phase-q-wizard-env-contract.md`](phase-q-wizard-env-contract.md) so future readers can reconstruct the cross-repo context.
 
 **Implementation:**
-- [ ] Bump `project_guide/version.py` to `2.12.0`.
-- [ ] Bump `pyproject.toml` to `2.12.0`.
-- [ ] Add `## [2.12.0] - <date>` entry to `CHANGELOG.md` with two subsections (e.g., `### Added` for the `plan_envs` mode + `env-dependencies.md` artifact template; `### Changed` for the spec-doc sync, the documentation drift sweep across planning artifacts and the MkDocs site, and the Pyve env-spec vendored-template contract invariant). Concise prose; reference Q.d, Q.e, Q.e.1, Q.e.2 by story ID; cross-reference [`phase-q-subphase-2-plan-envs-plan.md`](phase-q-subphase-2-plan-envs-plan.md) and [`phase-q-wizard-env-contract.md`](phase-q-wizard-env-contract.md).
-- [ ] Run `pyve test`.
-- [ ] Run `pyve testenv run ruff check project_guide/ tests/`.
-- [ ] Flip story status `[Planned]` → `[Done]` and check off tasks.
+- [x] Bump `project_guide/version.py` to `2.12.0`.
+- [x] Bump `pyproject.toml` to `2.12.0`.
+- [x] Add `## [2.12.0] - 2026-06-05` entry to `CHANGELOG.md` with `### Added` (the `plan_envs` mode + `env-dependencies.md` artifact template + the Pyve env-spec vendored-template contract) and `### Changed` (planning-artifact spec sync + documentation drift sweep) subsections. References Q.d, Q.e, Q.e.1, Q.e.2 by story ID; cross-references [`phase-q-subphase-2-plan-envs-plan.md`](phase-q-subphase-2-plan-envs-plan.md) and [`phase-q-wizard-env-contract.md`](phase-q-wizard-env-contract.md).
+- [x] Run `pyve test`.
+- [x] Run `pyve testenv run ruff check project_guide/ tests/`.
+- [x] Flip story status `[Planned]` → `[Done]` and check off tasks.
 
 **Out of scope:**
 - **Git tag / PyPI publish.** Per the *Approval gate discipline* rule in [project-essentials.md](project-essentials.md), the LLM does not initiate git operations or releases. The developer pushes the tag and triggers publish on their own schedule.
