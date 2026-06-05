@@ -457,6 +457,32 @@ Bundled release at end-of-subphase as **v2.12.0** (minor — new feature). Three
 
 ---
 
+### Story Q.k: Style inline prose links so visited links stay readable in dark mode [Done]
+
+**Problem.** The inline "Pyve" link in the hero description (`docs/site/index.html`) has no link styling, so it falls back to the browser's default anchor colors — unvisited blue and, critically, **visited purple**. On the dark background (`--bg-dark` / `--bg-darker`) the visited-purple is nearly unreadable. Unlike the nav, footer, and `.btn` links (which all have explicit color rules), inline prose links inside `.hero-description` were never styled. Doc-only CSS fix on the static landing page; no behavior change and **no version bump**.
+
+**Behavior (post-story).** Inline links inside `.hero-description` render in the **same color as the surrounding text** (`color: inherit`, so they match the bold secondary-text prose) with an **underline** to signal they are links, and shift to the accent teal on hover (consistent with the nav/footer link affordance). Because the rule sets `color` on the anchor with no separate `:visited` override, the unreadable default visited-purple no longer appears.
+
+**Why these defaults.**
+
+- **`color: inherit` + underline, per developer direction.** The developer asked for "same color as text, underline shows it is a link." `color: inherit` makes the link match whatever prose it sits in (here the bold secondary text), and the underline carries the link affordance. This also neutralizes the `:visited` state, which is the actual bug.
+- **`:hover` → accent.** A teal hover matches every other link on the page (nav, footer) and gives an interactive cue without making the resting state a hard-to-read color.
+- **Scoped to `.hero-description a`.** That is the only inline-prose link on the page today. Keeping the selector scoped avoids disturbing the nav / footer / `.btn` links, which already have intentional styling. Future prose link locations can adopt the same rule if needed.
+- **New tail story (`Q.k`), no version bump.** Same convention as Q.g–Q.j — post-release static-asset doc fix appended under the existing subphase heading; no package behavior change, so no version.
+
+**Implementation:**
+- [x] Add `.hero-description a { color: inherit; text-decoration: underline; }` and `.hero-description a:hover { color: var(--accent); }` to the stylesheet.
+- [x] Confirm the visited-link state no longer uses the browser-default purple (no separate `:visited` rule remains in effect; `color` applies to all link states).
+- [x] Run `pyve test` and `pyve testenv run ruff check project_guide/ tests/` (hygiene; no code change expected to affect them).
+- [x] Flip story status `[Planned]` → `[Done]` and check off tasks.
+
+**Out of scope:**
+- **Styling nav / footer / `.btn` links.** Already intentionally styled; untouched.
+- **A global prose-link rule beyond `.hero-description`.** No other inline-prose links exist on the page today; revisit if links are added to feature cards or other prose.
+- **Version bump / CHANGELOG entry.** None — doc-only CSS fix, no behavior change.
+
+---
+
 ## Future
 
 ### Audit Modes [Deferred]

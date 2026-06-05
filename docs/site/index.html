@@ -125,6 +125,17 @@
             color: var(--text-secondary);
             line-height: 1.8;
         }
+
+        /* Inline prose links: match surrounding text, underline signals the link
+           (overrides the unreadable browser-default visited-purple in dark mode) */
+        .hero-description a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        .hero-description a:hover {
+            color: var(--accent);
+        }
         
         .cta-buttons {
             display: flex;
