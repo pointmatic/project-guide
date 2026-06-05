@@ -246,7 +246,7 @@ Bundled release at end-of-subphase as **v2.12.0** (minor — new feature). Three
 
 ---
 
-### Story Q.e.1: Planning-artifact drift sweep — `concept.md`, `features.md`, `tech-spec.md` [Planned]
+### Story Q.e.1: Planning-artifact drift sweep — `concept.md`, `features.md`, `tech-spec.md` [Done]
 
 **Problem.** Q.e fixed the headline mode-list drift in `concept.md` and `features.md` but a follow-on audit (requested at the Q.e gate) surfaced further drift in the **planning artifacts** that must be current before the v2.12.0 release. These are `refactor_plan`-class documents (concept / features / tech-spec); the drift is mechanical (stale counts, retired names, an out-of-date gitignore description, an incomplete CLI command list) and right-sized for a sweep story rather than a `refactor_plan` mode switch.
 
@@ -264,13 +264,13 @@ Bundled release at end-of-subphase as **v2.12.0** (minor — new feature). Three
 - **`concept.md` count reconciliation.** Q.e deliberately left `archive_stories` off `concept.md`'s list (scope-bounded to the two new modes). This story closes that gap so the count and the enumerated items agree.
 
 **Implementation:**
-- [ ] Edit `docs/specs/concept.md` Scope: refresh the CLI command list to the current subcommand set; add `archive_stories` to the mode list; reconcile the stated mode count with the listed items.
-- [ ] Edit `docs/specs/features.md`: FR-1 acceptance "15 modes" → "17 modes" (or count-agnostic); FR-2 gitignore "(3 lines: ...)" → negation-free explicit-list description consistent with FR-14 / `tech-spec.md`.
-- [ ] Spot-check `docs/specs/tech-spec.md` for mode-count / CLI-command / gitignore drift; fix any found (no restructure).
-- [ ] Run `pyve run project-guide update` and re-render `go.md` (`project-guide mode code_direct`) so any `project-essentials`-adjacent injection stays consistent; spot-check.
-- [ ] Run `pyve test`.
-- [ ] Run `pyve testenv run ruff check project_guide/ tests/`.
-- [ ] Flip story status `[Planned]` → `[Done]` and check off tasks.
+- [x] Edit `docs/specs/concept.md` Scope: refresh the CLI command list to the current subcommand set (added `heal`, `archive-stories`, `bump-version`, `git-push`); add `archive_stories` to the mode list; reconcile the stated mode count with the listed items (17 real modes now match; `code_production` reworded as a future addition outside the count).
+- [x] Edit `docs/specs/features.md`: FR-1 acceptance "15 modes" → "17 modes"; FR-2 gitignore "(3 lines: ...)" → negation-free explicit-list description consistent with FR-14 / `tech-spec.md`.
+- [x] Spot-check `docs/specs/tech-spec.md` for mode-count / CLI-command / gitignore drift; fix any found (no restructure). *(Result: clean — no mode-count or subcommand-enumeration drift, no retired names, gitignore content already in explicit-list form, no artifact-pipeline list needing `env-dependencies.md`. No edits needed.)*
+- [x] Run `pyve run project-guide update` and re-render `go.md`. *(N/A: Q.e.1 touches only `docs/specs/{concept,features}.md` — project artifacts, not bundled templates or `project-essentials.md` — so nothing flows through `update` or the go.md `## Project Essentials` injection. Skipped as inapplicable.)*
+- [x] Run `pyve test`.
+- [x] Run `pyve testenv run ruff check project_guide/ tests/`.
+- [x] Flip story status `[Planned]` → `[Done]` and check off tasks.
 
 **Out of scope:**
 - **Documentation artifacts (`README.md`, `docs/site/`).** Owned by Q.e.2.

@@ -248,7 +248,7 @@ The system renders a single entry-point document (`go.md`) from Jinja2 templates
 1. Copy template tree from package to target directory (default: `docs/project-guide`)
 2. Render `go.md` in `default` mode
 3. Create `.project-guide.yml` with current version, target directory, metadata file path, and `default` mode
-4. Write the canonical `# project-guide` block to `.gitignore` (3 lines: ignore everything under `target_dir` except `go.md` — the LLM reads it and IDE-integrated LLMs hide gitignored files from the LLM's view; see FR-14)
+4. Write the canonical `# project-guide` block to `.gitignore` (negation-free explicit-list form: ignore every top-level entry under `target_dir` except `go.md`, plus a `<target>/**/*.bak.*` catch-all — the LLM reads `go.md` and IDE-integrated LLMs hide gitignored files from the LLM's view; see FR-14)
 5. Report number of files installed
 
 **Edge Cases:**
@@ -530,7 +530,7 @@ modes:
 7. `project-guide purge` cleanly removes all project-guide files; respects `--no-input` / `CI=1`
 8. `--no-input` and `--quiet` on `init`, `update`, `purge`, and `heal`: prompts suppressed via FR-8; FR-9 guarantees **silent stdout on success** and diagnostics on stderr; under skip-input `heal` emits the `Auto-healing N templates under --no-input.` stderr notice when writes occur
 9. `metadata_overrides` in `.project-guide.yml` patches mode fields without editing bundled metadata
-10. All 15 modes render without errors (parametrized test)
+10. All 17 modes render without errors (parametrized test)
 11. Shell completion (Tab) works for commands, flags, and mode names in bash/zsh/fish after one-line setup
 12. Works on macOS, Linux, and Windows
 13. Test coverage is ≥85%

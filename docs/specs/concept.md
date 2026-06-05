@@ -45,8 +45,8 @@ A mode-driven template system that dynamically renders a single entry-point docu
 5. Make the LLM's work transparent and accountable through structured artifacts
 
 ### Scope
-- **CLI tool**: `project-guide init`, `mode`, `status`, `update`, `override`, `unoverride`, `overrides`, `purge`
-- **17 modes**: `default`, `scaffold_project`, `plan_concept`, `plan_features`, `plan_tech_spec`, `plan_envs`, `plan_stories`, `plan_phase`, `plan_production_phase`, `code_direct`, `code_test_first`, `debug`, `document_brand`, `document_landing`, `refactor_plan`, `refactor_document`, and a future `code_production`
+- **CLI tool**: `project-guide init`, `mode`, `status`, `update`, `heal`, `override`, `unoverride`, `overrides`, `purge`, `archive-stories`, `bump-version`, `git-push`
+- **17 modes**: `default`, `scaffold_project`, `plan_concept`, `plan_features`, `plan_tech_spec`, `plan_envs`, `plan_stories`, `plan_phase`, `plan_production_phase`, `archive_stories`, `code_direct`, `code_test_first`, `debug`, `document_brand`, `document_landing`, `refactor_plan`, `refactor_document`, plus a future `code_production` (not yet implemented)
 - **Jinja2 rendering**: mode templates + header partials rendered into a single entry-point document
 - **Hash-based file sync**: content-hash comparison determines file freshness, not version numbers
 - **Override system**: lock files from updates when they contain project-specific customizations
