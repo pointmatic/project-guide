@@ -53,10 +53,10 @@ You stay in charge -- directing features, flow, and taste -- while the LLM handl
 
 ## 5. Switch Modes
 
-project-guide includes 15 development modes. Switch between them to match your current task:
+project-guide includes 17 development modes. Switch between them to match your current task:
 
 ```bash
-project-guide mode code_velocity
+project-guide mode code_direct
 project-guide mode debug
 ```
 

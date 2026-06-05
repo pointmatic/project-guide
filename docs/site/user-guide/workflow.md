@@ -84,7 +84,7 @@ When you customize a file for project-specific needs, lock it with `project-guid
 ## Next Steps
 
 - [Getting Started](../getting-started.md) - Install and initialize
-- [Modes](modes.md) - Detailed reference for all 16 modes
+- [Modes](modes.md) - Detailed reference for all 17 modes
 - [Commands Reference](commands.md) - All CLI commands
 - [Override Management](overrides.md) - Lock customized files
 - [Configuration](configuration.md) - `.project-guide.yml` reference

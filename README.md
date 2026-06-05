@@ -32,7 +32,7 @@ When you customize a file for your project, mark it as overridden so future pack
 
 ## Key Features
 - **Battle-Tested Workflows** - Crafted workflow prompts from concept through production release in one place
-- **Mode-Driven Templates** - 15 modes rendered via Jinja2 so `go.md` always matches your current task
+- **Mode-Driven Templates** - 17 modes rendered via Jinja2 so `go.md` always matches your current task
 - **Content-Hash Sync** - SHA-256 hash comparison detects changes without relying on version numbers
 - **Custom File Lock** - Lock customized files to prevent update overwrites
 - **Gentle Force Updates** - Automatic `.bak` files created if you `--force` update a custom file

@@ -98,7 +98,7 @@ _PROJECT_GUIDE_COMPLETE=fish_source project-guide | source
 After updating your shell config, restart your shell (or `source` the file). Now you can:
 
 - `project-guide <TAB>` — complete command names (`init`, `mode`, `status`, etc.)
-- `project-guide mode <TAB>` — complete mode names (`default`, `plan_concept`, `code_velocity`, etc.) — reads `.metadata.yml` from your current project
+- `project-guide mode <TAB>` — complete mode names (`default`, `plan_concept`, `code_direct`, etc.) — reads `.metadata.yml` from your current project
 - `project-guide --<TAB>` — complete flags
 
 Mode name completion is dynamic and reads the active project's `.metadata.yml`, so it works correctly even if you have custom modes.

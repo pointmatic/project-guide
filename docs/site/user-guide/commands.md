@@ -111,7 +111,7 @@ project-guide mode debug
 
 ### What It Does
 
-1. When called with no argument, lists all 15 modes grouped by category with ✓/✗/→ markers
+1. When called with no argument, lists all 17 modes grouped by category with ✓/✗/→ markers
 2. On a real TTY (unless `--no-input`/`CI=1`/non-TTY stdin), shows an interactive numbered menu
 3. When called with a mode name, switches the active mode
 4. Re-renders `go.md` to reflect the new mode's workflow

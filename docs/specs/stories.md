@@ -280,7 +280,7 @@ Bundled release at end-of-subphase as **v2.12.0** (minor — new feature). Three
 
 ---
 
-### Story Q.e.2: Documentation-artifact drift sweep — `README.md` + `docs/site` MkDocs [Planned]
+### Story Q.e.2: Documentation-artifact drift sweep — `README.md` + `docs/site` MkDocs [Done]
 
 **Problem.** The published documentation set — `README.md` and the MkDocs site under `docs/site/` — still advertises stale mode counts, uses the retired `code_velocity` name, and (in the detailed `modes.md` reference) is missing entries for `plan_envs` and `plan_production_phase`. These are `refactor_document`-class artifacts; the drift must be current before the v2.12.0 release so external readers see accurate information. The work is mechanical alignment plus two new mode-reference entries — right-sized for a sweep story rather than a `refactor_document` mode switch.
 
@@ -298,14 +298,14 @@ Bundled release at end-of-subphase as **v2.12.0** (minor — new feature). Three
 - **Split from Q.e.1.** Published-doc review (audience: external users) is a different focus from spec-doc review (audience: future LLMs/maintainers). Separate commit boundaries.
 
 **Implementation:**
-- [ ] Refresh mode counts in `README.md`, `docs/site/index.html`, `docs/site/user-guide/workflow.md`, `docs/site/user-guide/configuration.md`, `docs/site/user-guide/commands.md` to 17 (or count-agnostic wording).
-- [ ] Replace retired `code_velocity` with `code_direct` in `docs/site/getting-started.md`, `docs/site/user-guide/install-options.md`, `docs/site/user-guide/configuration.md`.
-- [ ] Add `plan_envs` and `plan_production_phase` entries to `docs/site/user-guide/modes.md`; update the New-Project flow diagram to include `plan_envs`.
-- [ ] Verify `docs/site/user-guide/commands.md` mode coverage references the new modes (or is count-agnostic).
-- [ ] Grep the full `docs/site/` tree and `README.md` for any remaining `code_velocity` / `project_scaffold` / stale mode-count strings; fix stragglers.
-- [ ] Run `pyve test`.
-- [ ] Run `pyve testenv run ruff check project_guide/ tests/`.
-- [ ] Flip story status `[Planned]` → `[Done]` and check off tasks.
+- [x] Refresh mode counts in `README.md`, `docs/site/index.html` (three occurrences), `docs/site/user-guide/workflow.md` (was "16"), `docs/site/user-guide/configuration.md`, `docs/site/user-guide/commands.md` to 17.
+- [x] Replace retired `code_velocity` with `code_direct` in `docs/site/getting-started.md`, `docs/site/user-guide/install-options.md`, `docs/site/user-guide/configuration.md`.
+- [x] Add `plan_envs` and `plan_production_phase` entries to `docs/site/user-guide/modes.md`; update the New-Project flow diagram to include `plan_envs`; update the planning-sequence intro and flip `plan_tech_spec`'s Next field to `plan_envs`.
+- [x] Verify `docs/site/user-guide/commands.md` mode coverage references the new modes (or is count-agnostic). *(Count-agnostic; the listing description needed only the count refresh.)*
+- [x] Grep the full `docs/site/` tree and `README.md` for any remaining `code_velocity` / `project_scaffold` / stale mode-count strings; fix stragglers. *(Caught two extra "15 development modes" in `index.html` body copy beyond the line-484 hit.)*
+- [x] Run `pyve test`.
+- [x] Run `pyve testenv run ruff check project_guide/ tests/`.
+- [x] Flip story status `[Planned]` → `[Done]` and check off tasks.
 
 **Out of scope:**
 - **Planning artifacts (`concept.md`, `features.md`, `tech-spec.md`).** Owned by Q.e.1.

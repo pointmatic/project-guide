@@ -13,7 +13,7 @@ version: "2.0"
 installed_version: "2.0.13"
 target_dir: "docs/project-guide"
 metadata_file: ".metadata.yml"
-current_mode: "code_velocity"
+current_mode: "code_direct"
 overrides: {}
 ```
 
@@ -43,7 +43,7 @@ The name of the metadata file used to track file state. Defaults to `.metadata.y
 
 ### `current_mode`
 
-Tracks the active development mode. Changed via the `project-guide mode` command. project-guide includes 15 modes to match different development workflows.
+Tracks the active development mode. Changed via the `project-guide mode` command. project-guide includes 17 modes to match different development workflows.
 
 ### `overrides`
 

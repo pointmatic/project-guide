@@ -32,7 +32,7 @@ project-guide mode default
 
 ### Planning Modes
 
-The planning sequence builds up the foundational documents for the project: concept → features → tech-spec → stories. Each mode produces a single artifact and points to the next.
+The planning sequence builds up the foundational documents for the project: concept → features → tech-spec → envs → stories. Each mode produces a single artifact and points to the next.
 
 #### plan_concept
 
@@ -69,7 +69,7 @@ project-guide mode plan_features
 | Field | Value |
 |-|-|
 | **Type** | Sequence |
-| **Next** | `plan_stories` |
+| **Next** | `plan_envs` |
 | **Artifacts** | `docs/specs/tech-spec.md`, `docs/specs/project-essentials.md` (initial) |
 | **Prerequisites** | `concept.md`, `features.md` |
 
@@ -79,6 +79,23 @@ After the tech-spec is approved, the mode prompts for **project-essentials** con
 
 ```bash
 project-guide mode plan_tech_spec
+```
+
+#### plan_envs
+
+| Field | Value |
+|-|-|
+| **Type** | Sequence |
+| **Next** | `plan_stories` |
+| **Artifact** | `docs/specs/env-dependencies.md` |
+| **Prerequisites** | `features.md`, `tech-spec.md` |
+
+Define the named environments a Pyve-managed repo needs — the root development environment plus one or more test environments — enumerating each environment's purpose, backend, languages, frameworks, packaging, and advisory fields.
+
+The artifact is generated from a template **vendored from Pyve** at a pinned `spec_version`, so the backend / language / framework / packaging / app_type vocabularies are a closed, Pyve-owned set: a value outside the set is a spec violation, and a missing mechanism is a Pyve change-request — never an invented value.
+
+```bash
+project-guide mode plan_envs
 ```
 
 #### plan_stories
@@ -113,6 +130,21 @@ After the new stories are approved, `plan_phase` runs a terminal step (once per 
 
 ```bash
 project-guide mode plan_phase
+```
+
+#### plan_production_phase
+
+| Field | Value |
+|-|-|
+| **Type** | Sequence |
+| **Next** | `code_direct` |
+| **Artifacts** | `docs/specs/new-phase-<name>.md`, `docs/specs/stories.md` (modify), `docs/specs/project-essentials.md` (modify, append-only) |
+| **Prerequisites** | `concept.md`, `features.md`, `tech-spec.md`, `stories.md` |
+
+The post-1.0 counterpart to `plan_phase`, **mandatory once the package version reaches v1.0.0 or beyond**. Like `plan_phase` it adds a new phase to the existing stories document, but it adds production-readiness scrutiny: a hardening-checklist walk (branch protection, `SECURITY.md`, `CONTRIBUTING.md`, Dependabot, trusted publisher, mandatory CI), per-change breaking-change negotiation, and an explicit version-bump target. Major bumps only happen through this mode's negotiation step.
+
+```bash
+project-guide mode plan_production_phase
 ```
 
 ---
@@ -282,9 +314,10 @@ default
   └─> plan_concept
         └─> plan_features
               └─> plan_tech_spec
-                    └─> plan_stories
-                          └─> scaffold_project
-                                └─> code_direct (cycle)
+                    └─> plan_envs
+                          └─> plan_stories
+                                └─> scaffold_project
+                                      └─> code_direct (cycle)
 ```
 
 ### Ongoing Project Flow
