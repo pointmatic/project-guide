@@ -112,9 +112,15 @@
             display: block;
         }
         
+        /* Left-justified hero text column; 900px matches .quick-start-grid */
+        .hero-content {
+            max-width: 900px;
+            margin: 0 auto;
+            text-align: left;
+        }
+
         .hero-description {
-            max-width: 800px;
-            margin: 2rem auto;
+            margin: 2rem 0;
             font-size: 1.1rem;
             color: var(--text-secondary);
             line-height: 1.8;
@@ -343,13 +349,15 @@
                 <img src="images/project-guide-banner-landing.png" alt="project-guide banner">
             </div>
             
-            <h1>Stay organized and in control with adaptive LLM workflow prompts</h1>
-            <div class="hero-description">
-                <p>A single rendered entry point dynamically assembles LLM instructions from 17 development modes (planning, setup, coding, debugging, documentation, refactoring, and more) using Jinja2 templates. Type "go" in the LLM chat to advance through each step. Switch modes in the CLI as needed to get the right guidance for the task at hand.</p>
-                <br>
-                <p><strong>Works for any programming language or framework. Integrated with <a href="https://pointmatic.github.io/pyve/">Pyve</a> to manage project environments.</strong></p>
-                <br>
-                <p>This is "HITLoop" (human-in-the-loop) development: you direct, the LLM executes. You stay in charge, guiding features, flow, and taste, while the LLM handles the mundane coding. The pace is "flaming agile"—an entire production-ready backend can be completed in 6-12 hours. When you customize a prompt for your project, mark it as overridden so future package updates skip it. When you want the latest workflow improvements, a simple command will sync all non-overridden prompts.</p>
+            <div class="hero-content">
+                <h1>Stay organized and in control with adaptive LLM workflow prompts</h1>
+                <div class="hero-description">
+                    <p>A single rendered entry point dynamically assembles LLM instructions from 17 development modes (planning, setup, coding, debugging, documentation, refactoring, and more) using Jinja2 templates. Type "go" in the LLM chat to advance through each step. Switch modes in the CLI as needed to get the right guidance for the task at hand.</p>
+                    <br>
+                    <p><strong>Works for any programming language or framework. Integrated with <a href="https://pointmatic.github.io/pyve/">Pyve</a> to manage project environments.</strong></p>
+                    <br>
+                    <p>This is "HITLoop" (human-in-the-loop) development: you direct, the LLM executes. You stay in charge, guiding features, flow, and taste, while the LLM handles the mundane coding. The pace is "flaming agile"—an entire production-ready backend can be completed in 6-12 hours. When you customize a prompt for your project, mark it as overridden so future package updates skip it. When you want the latest workflow improvements, a simple command will sync all non-overridden prompts.</p>
+                </div>
             </div>
             
             <div class="cta-buttons">

@@ -426,6 +426,37 @@ Bundled release at end-of-subphase as **v2.12.0** (minor — new feature). Three
 
 ---
 
+### Story Q.j: Left-justify the hero headline and description in a width-matched container [Done]
+
+**Problem.** On the landing page (`docs/site/index.html`), the hero headline and the multi-paragraph description under the banner are centered (`.hero { text-align: center }`). Centered body copy across several lines is hard to read — each line starts at a different left edge, so the eye loses the return point. The developer wants the headline and description wrapped in a container, left-justified, with the container width matching the Quick Start section's card area (`.quick-start-grid` is `max-width: 900px`) so the hero text block visually aligns with the content below it. Doc-only CSS/markup change on the static landing page; no behavior change and **no version bump**.
+
+**Behavior (post-story).** The hero headline (`<h1>`) and the `.hero-description` paragraphs are wrapped in a new `.hero-content` container that is `max-width: 900px`, horizontally centered in the hero, and **left-aligned**. The description fills that container width (no longer capped at 800px and centered), so its left edge lines up with the headline. The 900px width matches `.quick-start-grid`'s `max-width`, so the hero text column aligns with the Quick Start cards below.
+
+- **Banner image** stays full container width (unchanged).
+- **CTA buttons** stay centered (unchanged) — the request covers the headline and text, not the button row.
+
+**Why these defaults.**
+
+- **`max-width: 900px` to match the cards.** `.quick-start-grid` caps at 900px; reusing that value makes the hero text column and the Quick Start card area share the same content width, which is what "match the width of the cards" asks for.
+- **Wrap only `<h1>` + `.hero-description` in `.hero-content`.** Keeping the banner and CTA row outside the new container preserves their existing full-width / centered treatment, so the change is scoped to exactly the text the developer flagged.
+- **Drop `.hero-description`'s `max-width: 800px` / `margin: … auto`.** Inside a left-aligned 900px container, the old `800px` + `auto` margins would re-center the paragraph and break the flush-left alignment with the headline; switching to `margin: 2rem 0` and full width keeps the left edges aligned.
+- **New tail story (`Q.j`), no version bump.** Same convention as Q.g–Q.i — post-release static-asset doc fix appended under the existing subphase heading; no package behavior change, so no version.
+
+**Implementation:**
+- [x] Add a `.hero-content` CSS rule: `max-width: 900px; margin: 0 auto; text-align: left;` (comment notes 900px matches `.quick-start-grid`).
+- [x] Update `.hero-description`: removed the `max-width: 800px` cap and changed `margin: 2rem auto` → `margin: 2rem 0` so it fills the container and left-aligns.
+- [x] Wrap the hero `<h1>` and `<div class="hero-description">` in `<div class="hero-content"> … </div>` in the markup. *(Banner and CTA row left outside the wrapper, unchanged.)*
+- [x] Run `pyve test` and `pyve testenv run ruff check project_guide/ tests/`. *(586 passed; ruff clean.)*
+- [x] Flip story status `[Planned]` → `[Done]` and check off tasks.
+
+**Out of scope:**
+- **Moving or restyling the CTA button row.** It stays centered as-is.
+- **Banner image changes.** Stays full container width.
+- **Broader hero/typography redesign or responsive-breakpoint rework** beyond what the container + left-justify requires.
+- **Version bump / CHANGELOG entry.** None — doc-only CSS fix, no behavior change.
+
+---
+
 ## Future
 
 ### Audit Modes [Deferred]
