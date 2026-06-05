@@ -24,9 +24,9 @@ Stay organized and in control with adaptive LLM workflow prompts
 
 ### Friendly Brief Description (follows one-liner)
 
-Install project-guide in any repository with `pip install project-guide`, run `project-guide init`, then tell your LLM to "Read `@project-guide.md` (works in many coding tools), or give itthe full path at`docs/project-guide/go-project-guide.md`." The `go-project-guide` prompt provides the LLM with a structured workflow. You just say "go" and the LLM handles each step, pausing for you to review code, test, and commit changes. You stay in charge—guiding features, flow, and taste while the LLM handles the typing.
+A single rendered entry point dynamically assembles instructions from 17 development modes (planning, setup, coding, debugging, documentation, refactoring, and more) using Jinja2 templates. Type "go" in the LLM chat to advance through each step. Switch modes in the CLI as needed to get the right guidance for the task at hand. 
 
-This is "HITLoop" (human-in-the-loop) development: you direct, the LLM executes. The pace is "flaming agile"—an entire production-ready backend can be completed in 6-12 hours. When you customize a prompt for your project, mark it as overridden so future package updates skip it. When you want the latest workflow improvements, run `project-guide update` to sync all non-overridden prompts. 
+This is "HITLoop" (human-in-the-loop) development: you direct, the LLM executes. You stay in charge, guiding features, flow, and taste, while the LLM handles the mundane coding. The pace is "flaming agile"—an entire production-ready backend can be completed in 6-12 hours. When you customize a prompt for your project, mark it as overridden so future package updates skip it. When you want the latest workflow improvements, a simple command will sync all non-overridden prompts. 
 
 ## Two-clause Technical Description
 
