@@ -7,7 +7,7 @@
 [![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://pointmatic.github.io/project-guide/)
 [![codecov](https://codecov.io/gh/pointmatic/project-guide/graph/badge.svg)](https://codecov.io/gh/pointmatic/project-guide)
 
-A Python CLI tool that installs, renders, and synchronizes battle-tested LLM workflow prompts across projects using mode-driven Jinja2 templates, with content-hash sync and project-specific overrides to keep documentation consistent while preserving customizations.
+A Python-friendly CLI tool that installs, renders, and synchronizes battle-tested LLM workflow prompts across projects using mode-driven Jinja2 templates, with content-hash sync and project-specific overrides to keep documentation consistent while preserving customizations.
 
 ## Why project-guide?
 
@@ -17,7 +17,7 @@ The `go.md` prompt provides the LLM with a structured workflow:
 - Handles the typing so you can stay focused on the big picture
 
 ### How It Works
-- Install project-guide in any repository
+- Install project-guide in any repository (language-agnostic)
 - Initialize the Project-Guide system
 - (optional) Set the project mode (plan, code, debug, etc.)
 - Tell your LLM to read `docs/project-guide/go.md` (in your IDE, or however you prefer)
@@ -113,8 +113,10 @@ The LLM follows the instructions, asks clarifying questions, and generates artif
 project-guide mode plan_concept      # Define problem & solution
 project-guide mode plan_features     # Define requirements
 project-guide mode plan_tech_spec    # Define architecture
+project-guide mode plan_envs         # Define named environments & dependencies
 project-guide mode plan_stories      # Break into stories
-project-guide mode plan_phase        # Add a new phase to stories
+project-guide mode plan_phase        # Add a new phase to stories (pre-1.0)
+project-guide mode plan_production_phase # Add a new phase to stories (post-1.0, with readiness checklist)
 project-guide mode scaffold_project  # Scaffold license, manifest, README, CHANGELOG
 project-guide mode code_direct       # Implement stories fast
 project-guide mode code_test_first   # TDD red-green-refactor
@@ -154,7 +156,7 @@ Current mode: code_direct
   ✓  7  code_test_first            Generate code with a test-first approach
   ...
 
-Select mode [1-15, Enter to cancel]:
+Select mode [1-17, Enter to cancel]:
 ```
 
 ### 5. Update files
@@ -508,13 +510,14 @@ metadata_overrides:             # optional — per-project mode field patches
 
 ### Project Planning Modes
 
-One-time-per-project work — the four spec documents that establish the project before any code lands.
+One-time-per-project work — the five spec documents that establish the project before any code lands.
 
 | Mode | Command | Output |
 |------|---------|--------|
 | **Concept** | `project-guide mode plan_concept` | `docs/specs/concept.md` |
 | **Features** | `project-guide mode plan_features` | `docs/specs/features.md` |
 | **Tech Spec** | `project-guide mode plan_tech_spec` | `docs/specs/tech-spec.md` + `docs/specs/project-essentials.md` (initial population) |
+| **Environments** | `project-guide mode plan_envs` | `docs/specs/env-dependencies.md` |
 | **Stories** | `project-guide mode plan_stories` | `docs/specs/stories.md` |
 
 ### Coding Modes

@@ -343,6 +343,37 @@ Bundled release at end-of-subphase as **v2.12.0** (minor — new feature). Three
 
 ---
 
+### Story Q.g: README mode-listing completeness fix (post-v2.12.0 doc follow-up) [Done]
+
+**Problem.** The Q.e.2 documentation sweep refreshed `README.md`'s mode *count* to 17 and added the new `plan_envs` / `plan_production_phase` entries to the MkDocs `docs/site/user-guide/modes.md` reference — but it never updated `README.md`'s own two mode catalogs. The result, shipped in v2.12.0, is an internal inconsistency: the README advertises "17 modes" while its listings enumerate only 14. Q.e.2's straggler grep searched for retired names and stale counts, not for *absent* mode entries, so the omissions slipped through. This is a **doc-only** fix with no behavior change and (per developer direction) **no version bump** — it rides into the repo as a standalone documentation correction.
+
+**Behavior (post-story).** Every current mode is represented in `README.md`'s listings, consistent with the stated count of 17 and with the `.metadata.yml` mode set.
+
+- **Quick Start §3 "Switch modes as you progress" block.** Add `plan_envs` (between `plan_tech_spec` and `plan_stories`) and `plan_production_phase` (adjacent to `plan_phase`) command lines, each with a one-line comment matching the block's style. (`default` is intentionally omitted from this "switch as you progress" block, as it was before.)
+- **"Available Modes" → Project Planning table.** Add a `plan_envs` row (`docs/specs/env-dependencies.md`); update the section preamble "the **four** spec documents" → "**five**" to account for `env-dependencies.md`. (`plan_production_phase` is already present in the Release Planning table, so only `plan_envs` is missing from the catalogs.)
+- **Interactive-menu example.** `Select mode [1-15, …]` → `[1-17, …]`.
+
+**Why this default.**
+
+- **New tail story (`Q.g`), not a reopened/renumbered Q.e.3.** Subphase Q-2 already shipped (v2.12.0, Q.f) and is committed. Inserting a sub-numbered `Q.e.3` would place it in document order *before* the committed Q.f, producing exactly the out-of-sequence state `project-guide git-push` flags. A new monotonic letter appended at the tail is the correct shape for genuinely post-release work, and no `[Planned]` stories sit ahead of it.
+- **Appended under Subphase Q-2, no new subphase heading.** `code_direct` may append stories under an existing `## Subphase` heading but may not create new subphase/phase headings (that is `plan_production_phase`'s job). This fix is Q-2-deliverable cleanup, so it belongs under Q-2; a Q-3 subphase is not warranted for a one-file doc correction.
+- **No version bump.** Doc-only, no behavior change, per developer direction. The README correction simply travels with the repo; the next release that bumps for code reasons will already include it.
+
+**Implementation:**
+- [x] Edit `README.md` Quick Start §3 switch block: add `plan_envs` and `plan_production_phase` command lines in position with style-matching comments.
+- [x] Edit `README.md` "Available Modes" → Project Planning: add the `plan_envs` row; change the preamble "four spec documents" → "five".
+- [x] Edit `README.md` interactive-menu example: `[1-15, …]` → `[1-17, …]`.
+- [x] Grep `README.md` to confirm all 17 `.metadata.yml` modes appear at least once in the listings (allowing the intentional `default` omission from the switch block). *(All 17 present; `plan_phase` correctly distinct from `plan_production_phase`.)*
+- [x] Run `pyve test` and `pyve testenv run ruff check project_guide/ tests/` (hygiene; no code change expected to affect them). *(586 passed; ruff clean.)*
+- [x] Flip story status `[Planned]` → `[Done]` and check off tasks.
+
+**Out of scope:**
+- **Re-auditing `docs/site/` for the same gap.** The MkDocs `modes.md` reference already received the new entries in Q.e.2; this story is the README-only follow-up. A fresh full-site completeness audit is a separate concern.
+- **Version bump / CHANGELOG entry.** None — doc-only, no behavior change, per developer direction.
+- **`default` in the Quick Start switch block.** Intentionally omitted, consistent with the block's existing shape.
+
+---
+
 ## Future
 
 ### Audit Modes [Deferred]
