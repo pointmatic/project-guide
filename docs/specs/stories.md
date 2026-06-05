@@ -374,6 +374,31 @@ Bundled release at end-of-subphase as **v2.12.0** (minor — new feature). Three
 
 ---
 
+### Story Q.h: Fix self-referential "Read Documentation" button on the landing page [Done]
+
+**Problem.** The "Read Documentation" CTA button on the MkDocs landing page (`docs/site/index.html`) is broken: its `href` points at the site root `https://pointmatic.github.io/project-guide/`. The MkDocs nav declares `Home: index.html` (`mkdocs.yml`), so the site root **is** the landing page itself — clicking "Read Documentation" reloads the landing page instead of entering the docs. Every other "go to docs" link on the page targets `.../getting-started/` (the nav "Docs" link and the footer "Getting Started" link), so the CTA is the lone self-referential outlier. Doc-only fix on a static asset; no behavior change and **no version bump**.
+
+**Behavior (post-story).** The CTA button navigates into the actual documentation at `https://pointmatic.github.io/project-guide/getting-started/`, consistent with the nav "Docs" link and the footer "Getting Started" link. Its label is also changed from "Read Documentation" to **"Get Started"** (per developer direction) — clearer call-to-action that matches the `getting-started/` destination.
+
+**Why this default.**
+
+- **Target `getting-started/`, not a bare docs root.** There is no separate docs index distinct from this landing page (`Home: index.html` maps the root to it), so the first real documentation page is `getting-started/`. Matching the two existing working links keeps all three "enter the docs" affordances pointing at the same place.
+- **New tail story (`Q.h`), no version bump.** Same rationale as Q.g — Subphase Q-2 has shipped and is committed; this is a genuinely post-release doc fix appended at the tail under the existing subphase heading. Static-asset bug fix with no package behavior change carries no version, per the established doc-fix convention.
+- **`code_direct`, not `debug`.** The root cause is immediately evident from the markup (self-referential `href`); no reproduce/isolate exploration is needed, so the `debug` cycle is not warranted.
+
+**Implementation:**
+- [x] Edit `docs/site/index.html`: change the CTA button `href` from `https://pointmatic.github.io/project-guide/` to `https://pointmatic.github.io/project-guide/getting-started/`, and relabel it from "Read Documentation" to "Get Started".
+- [x] Grep `docs/site/index.html` to confirm no remaining bare-site-root links masquerading as docs links (the GitHub / PyPI CTAs are correct as-is).
+- [x] Run `pyve test` and `pyve testenv run ruff check project_guide/ tests/` (hygiene; no code change expected to affect them).
+- [x] Flip story status `[Planned]` → `[Done]` and check off tasks.
+
+**Out of scope:**
+- **Broader landing-page link audit / redesign.** Only the one broken CTA is in scope; the nav, footer, and other CTAs are correct.
+- **`mkdocs.yml` nav restructure** (e.g., adding a distinct docs landing page separate from `index.html`). The fix targets the existing `getting-started/` entry point; rethinking the home/docs split is a separate concern.
+- **Version bump / CHANGELOG entry.** None — doc-only static-asset fix, no behavior change.
+
+---
+
 ## Future
 
 ### Audit Modes [Deferred]
