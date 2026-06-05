@@ -202,7 +202,7 @@ Bundled release at end-of-subphase as **v2.12.0** (minor — new feature). Three
 
 ---
 
-### Story Q.e: Spec doc sync — `concept.md`, `features.md`, `project-essentials.md` [Planned]
+### Story Q.e: Spec doc sync — `concept.md`, `features.md`, `project-essentials.md` [Done]
 
 **Problem.** Q.d adds the `plan_envs` mode but leaves the project's own spec documents stale. Three drift surfaces need to be addressed in one coherent edit:
 
@@ -229,14 +229,14 @@ Bundled release at end-of-subphase as **v2.12.0** (minor — new feature). Three
 - **17, not 16.** Count refresh acknowledges both additions (`plan_envs` from Q.d, `plan_production_phase` from prior drift).
 
 **Implementation:**
-- [ ] Edit `docs/specs/features.md` FR-1 modes table: add `plan_production_phase` row, add `plan_envs` row, refresh count to 17.
-- [ ] Edit `docs/specs/concept.md` Scope: refresh mode names (`project_scaffold` → `scaffold_project`, `code_velocity` → `code_direct`), add `plan_envs` and `plan_production_phase`, refresh count "15 modes" → "17 modes". Preserve "future `code_production`" mention.
-- [ ] Append new `### Pyve env-spec vendored-template contract` section to `docs/specs/project-essentials.md` after the existing `### Pyve Essentials` section. Content per the Q-2-FR-5 outline above.
-- [ ] Run `pyve run project-guide update` to re-render `go.md` (the new `project-essentials.md` section flows into rendered output via the auto-render path).
-- [ ] Spot-check the rendered `### Pyve env-spec vendored-template contract` block in `docs/project-guide/go.md`.
-- [ ] Run `pyve test`.
-- [ ] Run `pyve testenv run ruff check project_guide/ tests/`.
-- [ ] Flip story status `[Planned]` → `[Done]` and check off tasks.
+- [x] Edit `docs/specs/features.md` FR-1 modes table: add `plan_production_phase` row, add `plan_envs` row, refresh count to 17.
+- [x] Edit `docs/specs/concept.md` Scope: refresh mode names (`project_scaffold` → `scaffold_project`, `code_velocity` → `code_direct`), add `plan_envs` and `plan_production_phase`, refresh count "15 modes" → "17 modes". Preserve "future `code_production`" mention.
+- [x] Append new `### Pyve env-spec vendored-template contract` section to `docs/specs/project-essentials.md` after the existing `### Pyve Essentials` section. Content per the Q-2-FR-5 outline above. *(Note: `### Pyve Essentials` is auto-rendered into `go.md` from the bundled artifact, not present in `project-essentials.md` itself, so the new section was appended at the end of the file; the cross-reference still resolves correctly in the rendered `go.md`.)*
+- [x] Run `pyve run project-guide update` to re-render `go.md` (the new `project-essentials.md` section flows into rendered output via the auto-render path). *(`update` refreshes static files; `go.md`'s `## Project Essentials` injection is re-rendered by `project-guide mode`, which was re-run to refresh the file.)*
+- [x] Spot-check the rendered `### Pyve env-spec vendored-template contract` block in `docs/project-guide/go.md`.
+- [x] Run `pyve test`.
+- [x] Run `pyve testenv run ruff check project_guide/ tests/`.
+- [x] Flip story status `[Planned]` → `[Done]` and check off tasks.
 
 **Out of scope:**
 - **Renaming any `.metadata.yml` mode keys.** No `project_scaffold` → `scaffold_project` rename anywhere in the metadata or template tree — that ship sailed in earlier phases; the current canonical names are already in place. Q.e is fixing stale `concept.md` references to retired names, not initiating any rename.
@@ -246,23 +246,93 @@ Bundled release at end-of-subphase as **v2.12.0** (minor — new feature). Three
 
 ---
 
+### Story Q.e.1: Planning-artifact drift sweep — `concept.md`, `features.md`, `tech-spec.md` [Planned]
+
+**Problem.** Q.e fixed the headline mode-list drift in `concept.md` and `features.md` but a follow-on audit (requested at the Q.e gate) surfaced further drift in the **planning artifacts** that must be current before the v2.12.0 release. These are `refactor_plan`-class documents (concept / features / tech-spec); the drift is mechanical (stale counts, retired names, an out-of-date gitignore description, an incomplete CLI command list) and right-sized for a sweep story rather than a `refactor_plan` mode switch.
+
+**Behavior (post-story).** Every planning-artifact reference to mode counts, mode names, the CLI command set, and the gitignore block shape is accurate against the current `.metadata.yml` (17 real modes + future `code_production`) and current behavior.
+
+- **`concept.md` Scope (line ~48–49).** CLI command list refreshed to include the commands shipped since it was last touched (`heal`, `git-push`, `archive-stories`, `completion`, plus existing `init`/`mode`/`status`/`update`/`override`/`unoverride`/`overrides`/`purge`). Mode list completed to include `archive_stories` (currently omitted); count reconciled so the stated number matches the listed items.
+- **`features.md` FR-1 acceptance (line ~533).** "All 15 modes render without errors" → "All 17 modes render without errors" (or count-agnostic wording).
+- **`features.md` FR-2 gitignore (line ~251).** "(3 lines: ...)" description updated to the **negation-free explicit-list form** (v2.7.1 / P.l), matching the FR-14 detail later in the same file and `tech-spec.md` § gitignore.
+- **`tech-spec.md`.** Spot-check confirmed largely current (gitignore / heal / git-push content already reflects the latest behavior). Fix any count or command-list drift discovered during the edit; a full restructure is out of scope.
+
+**Why this default.**
+
+- **Sweep story, not `refactor_plan` mode.** The drift is find-and-align mechanical work, not a feature-driven rewrite or legacy migration (the cases `refactor_plan` exists for). A mode switch mid-release is heavier than the work warrants.
+- **Split from Q.e.2 along the artifact-class boundary.** Planning artifacts (this story) vs. published documentation artifacts (Q.e.2) are reviewed with different focus and map to the `refactor_plan` / `refactor_document` division. Two clean commit boundaries beat one mega-diff spanning both.
+- **`concept.md` count reconciliation.** Q.e deliberately left `archive_stories` off `concept.md`'s list (scope-bounded to the two new modes). This story closes that gap so the count and the enumerated items agree.
+
+**Implementation:**
+- [ ] Edit `docs/specs/concept.md` Scope: refresh the CLI command list to the current subcommand set; add `archive_stories` to the mode list; reconcile the stated mode count with the listed items.
+- [ ] Edit `docs/specs/features.md`: FR-1 acceptance "15 modes" → "17 modes" (or count-agnostic); FR-2 gitignore "(3 lines: ...)" → negation-free explicit-list description consistent with FR-14 / `tech-spec.md`.
+- [ ] Spot-check `docs/specs/tech-spec.md` for mode-count / CLI-command / gitignore drift; fix any found (no restructure).
+- [ ] Run `pyve run project-guide update` and re-render `go.md` (`project-guide mode code_direct`) so any `project-essentials`-adjacent injection stays consistent; spot-check.
+- [ ] Run `pyve test`.
+- [ ] Run `pyve testenv run ruff check project_guide/ tests/`.
+- [ ] Flip story status `[Planned]` → `[Done]` and check off tasks.
+
+**Out of scope:**
+- **Documentation artifacts (`README.md`, `docs/site/`).** Owned by Q.e.2.
+- **Archived stories under `docs/specs/.archive/`.** Frozen historical records — never edited; their retired-name references (`code_velocity`, `project_scaffold`) are correct in their historical context.
+- **Substantive content rewrites.** This is drift alignment, not a `refactor_plan`-grade restructure.
+- **CHANGELOG entry / version bump.** Bundled into Q.f.
+
+---
+
+### Story Q.e.2: Documentation-artifact drift sweep — `README.md` + `docs/site` MkDocs [Planned]
+
+**Problem.** The published documentation set — `README.md` and the MkDocs site under `docs/site/` — still advertises stale mode counts, uses the retired `code_velocity` name, and (in the detailed `modes.md` reference) is missing entries for `plan_envs` and `plan_production_phase`. These are `refactor_document`-class artifacts; the drift must be current before the v2.12.0 release so external readers see accurate information. The work is mechanical alignment plus two new mode-reference entries — right-sized for a sweep story rather than a `refactor_document` mode switch.
+
+**Behavior (post-story).** Every published-documentation reference to mode counts and mode names is accurate, and the detailed mode reference documents all current modes.
+
+- **Counts → 17.** `README.md` ("15 modes"), `docs/site/index.html` ("15 modes"), `docs/site/user-guide/workflow.md` ("16 modes"), `configuration.md` ("15 modes"), `commands.md` ("15 modes") all refreshed (prefer count-agnostic wording where it reads naturally, else the accurate number).
+- **Retired name → `code_direct`.** `docs/site/getting-started.md`, `docs/site/user-guide/install-options.md`, `docs/site/user-guide/configuration.md` (the `current_mode:` example) updated from `code_velocity`.
+- **`docs/site/user-guide/modes.md` new entries.** Add a `plan_envs` entry under Planning Modes (between `plan_tech_spec` and `plan_stories`) and a `plan_production_phase` entry; update the New-Project flow diagram to include `plan_envs` in the `plan_tech_spec → plan_envs → plan_stories` sequence. Verify the mode count/grouping line is consistent.
+- **`docs/site/user-guide/commands.md`.** Ensure the mode-listing description and any enumerated mode examples include the new modes (or remain count-agnostic).
+
+**Why this default.**
+
+- **Sweep story, not `refactor_document` mode.** Same rationale as Q.e.1: mechanical alignment + two reference entries, not a feature-driven documentation rewrite. A mode switch right before release is over-provisioned.
+- **`modes.md` carries real content, not just find-replace.** The two missing mode entries are genuine additions; bundling them with the count/name fixes keeps the whole published mode story consistent in one pass.
+- **Split from Q.e.1.** Published-doc review (audience: external users) is a different focus from spec-doc review (audience: future LLMs/maintainers). Separate commit boundaries.
+
+**Implementation:**
+- [ ] Refresh mode counts in `README.md`, `docs/site/index.html`, `docs/site/user-guide/workflow.md`, `docs/site/user-guide/configuration.md`, `docs/site/user-guide/commands.md` to 17 (or count-agnostic wording).
+- [ ] Replace retired `code_velocity` with `code_direct` in `docs/site/getting-started.md`, `docs/site/user-guide/install-options.md`, `docs/site/user-guide/configuration.md`.
+- [ ] Add `plan_envs` and `plan_production_phase` entries to `docs/site/user-guide/modes.md`; update the New-Project flow diagram to include `plan_envs`.
+- [ ] Verify `docs/site/user-guide/commands.md` mode coverage references the new modes (or is count-agnostic).
+- [ ] Grep the full `docs/site/` tree and `README.md` for any remaining `code_velocity` / `project_scaffold` / stale mode-count strings; fix stragglers.
+- [ ] Run `pyve test`.
+- [ ] Run `pyve testenv run ruff check project_guide/ tests/`.
+- [ ] Flip story status `[Planned]` → `[Done]` and check off tasks.
+
+**Out of scope:**
+- **Planning artifacts (`concept.md`, `features.md`, `tech-spec.md`).** Owned by Q.e.1.
+- **Archived stories under `docs/specs/.archive/`.** Frozen historical records.
+- **MkDocs build/deploy or theme changes.** Content alignment only; no `mkdocs.yml` structure or CI workflow changes.
+- **Landing-page redesign or brand-copy rewrite.** `brand-descriptions.md` and `index.html` prose beyond the stale count are untouched.
+- **CHANGELOG entry / version bump.** Bundled into Q.f.
+
+---
+
 ### Story Q.f: v2.12.0 Subphase Q-2 bundled release [Planned]
 
-**Problem.** Subphase Q-2 ships as one bundled release per the subphase phase-bundling option installed in Q.a. Stories Q.d and Q.e run unversioned; Q.f is the release-marker story that bumps the package and authors the CHANGELOG entry covering both.
+**Problem.** Subphase Q-2 ships as one bundled release per the subphase phase-bundling option installed in Q.a. Stories Q.d, Q.e, Q.e.1, and Q.e.2 run unversioned; Q.f is the release-marker story that bumps the package and authors the CHANGELOG entry covering them all.
 
-**Behavior (post-story).** Version bumped to **v2.12.0** across the three canonical sites (`project_guide/version.py`, `pyproject.toml`, new `CHANGELOG.md` entry). The CHANGELOG entry describes Subphase Q-2's two themes as one bundled release: the `plan_envs` mode introduction (Q.d) and the spec-doc sync (Q.e).
+**Behavior (post-story).** Version bumped to **v2.12.0** across the three canonical sites (`project_guide/version.py`, `pyproject.toml`, new `CHANGELOG.md` entry). The CHANGELOG entry describes Subphase Q-2's themes as one bundled release: the `plan_envs` mode introduction (Q.d), the spec-doc sync (Q.e), and the full documentation drift sweep across planning artifacts and the published MkDocs site (Q.e.1, Q.e.2).
 
 **Why this default.**
 
 - **v2.12.0 minor, not patch.** New mode + new artifact template + new architectural invariant (Pyve env-spec vendored-template contract) are *feature additions* by the Version Cadence rule (`Feature or improvement → minor`).
 - **Distinct release from Q-1's v2.11.0.** Per the subphase phase-bundling pattern installed in Q.a, each subphase decides its own release shape; Q-1 and Q-2 ship as separate minor bumps because each is a discrete shippable bundle. Subphase Q-1 = v2.11.0; Subphase Q-2 = v2.12.0.
 - **One bump, last story.** Same convention as Q.c — Q.f is the only Q-2 story with a version in its title; Q.d and Q.e run unversioned during the subphase.
-- **CHANGELOG entry covers both Q.d and Q.e.** Bundled releases get one entry. The entry's prose names both work units and cross-references [`phase-q-subphase-2-plan-envs-plan.md`](phase-q-subphase-2-plan-envs-plan.md) and [`phase-q-wizard-env-contract.md`](phase-q-wizard-env-contract.md) so future readers can reconstruct the cross-repo context.
+- **CHANGELOG entry covers Q.d, Q.e, Q.e.1, and Q.e.2.** Bundled releases get one entry. The entry's prose names the work units and cross-references [`phase-q-subphase-2-plan-envs-plan.md`](phase-q-subphase-2-plan-envs-plan.md) and [`phase-q-wizard-env-contract.md`](phase-q-wizard-env-contract.md) so future readers can reconstruct the cross-repo context.
 
 **Implementation:**
 - [ ] Bump `project_guide/version.py` to `2.12.0`.
 - [ ] Bump `pyproject.toml` to `2.12.0`.
-- [ ] Add `## [2.12.0] - <date>` entry to `CHANGELOG.md` with two subsections (e.g., `### Added` for the `plan_envs` mode + `env-dependencies.md` artifact template; `### Changed` for the spec-doc sync and the Pyve env-spec vendored-template contract invariant). Concise prose; reference Q.d and Q.e by story ID; cross-reference [`phase-q-subphase-2-plan-envs-plan.md`](phase-q-subphase-2-plan-envs-plan.md) and [`phase-q-wizard-env-contract.md`](phase-q-wizard-env-contract.md).
+- [ ] Add `## [2.12.0] - <date>` entry to `CHANGELOG.md` with two subsections (e.g., `### Added` for the `plan_envs` mode + `env-dependencies.md` artifact template; `### Changed` for the spec-doc sync, the documentation drift sweep across planning artifacts and the MkDocs site, and the Pyve env-spec vendored-template contract invariant). Concise prose; reference Q.d, Q.e, Q.e.1, Q.e.2 by story ID; cross-reference [`phase-q-subphase-2-plan-envs-plan.md`](phase-q-subphase-2-plan-envs-plan.md) and [`phase-q-wizard-env-contract.md`](phase-q-wizard-env-contract.md).
 - [ ] Run `pyve test`.
 - [ ] Run `pyve testenv run ruff check project_guide/ tests/`.
 - [ ] Flip story status `[Planned]` → `[Done]` and check off tasks.

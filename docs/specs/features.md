@@ -218,7 +218,7 @@ The system renders a single entry-point document (`go.md`) from Jinja2 templates
 4. `target_dir` is passed as a Jinja2 context variable
 5. Undefined variables render as placeholders (lenient mode), not errors
 
-**Modes (15 total):**
+**Modes (17 total):**
 
 | Mode | Type | Description |
 |-|-|-|
@@ -227,8 +227,10 @@ The system renders a single entry-point document (`go.md`) from Jinja2 templates
 | `plan_concept` | sequence | Define problem and solution space |
 | `plan_features` | sequence | Define feature requirements |
 | `plan_tech_spec` | sequence | Define technical specification |
+| `plan_envs` | sequence | Define named environments and their dependencies |
 | `plan_stories` | sequence | Break down into implementation stories |
 | `plan_phase` | sequence | Add a new feature phase to an existing project |
+| `plan_production_phase` | sequence | Plan a production-grade phase post-1.0 with readiness checklist and breaking-change negotiation |
 | `archive_stories` | sequence | Archive completed stories.md and start fresh for next phase |
 | `code_direct` | cycle | Fast coding workflow with commit-per-story |
 | `code_test_first` | cycle | Test-driven development workflow |
