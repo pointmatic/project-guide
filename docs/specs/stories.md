@@ -399,6 +399,33 @@ Bundled release at end-of-subphase as **v2.12.0** (minor — new feature). Three
 
 ---
 
+### Story Q.i: Fix vertical misalignment of the filled CTA button on the landing page [Done]
+
+**Problem.** On the landing page (`docs/site/index.html`), the filled "View on GitHub" button's label sits ~2px higher than the two outlined buttons ("Install from PyPI", "Get Started") — visibly off-center in the CTA row. Root cause is a box-model mismatch: `.btn-secondary` carries a `2px solid` border while `.btn-primary` has none. With `box-sizing: border-box` but no explicit `height`, the border still adds to the outer box, so the outlined buttons are 4px taller. The `.cta-buttons` flex row has no `align-items` set (defaults to `stretch`), so the shorter filled button is stretched to match — but its single line of label text isn't re-centered, leaving it near the top of the taller box. Doc-only CSS fix on the static landing page; no behavior change and **no version bump**.
+
+**Behavior (post-story).** All three CTA buttons have identical box height and vertically-centered labels.
+
+- Add `border: 2px solid transparent;` to `.btn-primary` so the filled button's box matches `.btn-secondary`'s bordered box exactly (4px taller box, transparent so no visible outline), eliminating the height/centering discrepancy.
+
+**Why this default.**
+
+- **Transparent border over `align-items: center`.** Adding a transparent border makes the actual box heights equal — the robust fix — rather than only re-centering labels within unequal boxes. It also keeps the hover `transform: translateY(-2px)` lift consistent across all buttons. (`align-items: center` would mask the symptom but leave the boxes different heights.)
+- **`.btn-primary` only, not the `.btn` base.** `.btn-secondary` already declares its own `2px solid var(--accent)` border; adding a transparent border to the base `.btn` would be overridden there anyway, so the minimal, clearest change is on `.btn-primary`.
+- **New tail story (`Q.i`), no version bump.** Same convention as Q.g / Q.h — post-release static-asset doc fix appended under the existing subphase heading; no package behavior change, so no version.
+
+**Implementation:**
+- [x] Edit `docs/site/index.html`: add `border: 2px solid transparent;` to the `.btn-primary` rule.
+- [x] Confirm the three CTA buttons now share identical box height (markup review: `.btn-primary` now carries a 2px transparent border matching `.btn-secondary`'s 2px solid border).
+- [x] Run `pyve test` and `pyve testenv run ruff check project_guide/ tests/`. *(586 passed; ruff clean.)*
+- [x] Flip story status `[Planned]` → `[Done]` and check off tasks.
+
+**Out of scope:**
+- **Broader CSS / responsive audit of the landing page.** Only the CTA-row alignment is in scope.
+- **Switching the flex row to `align-items: center`.** The transparent-border fix is preferred; revisit only if a future layout change needs it.
+- **Version bump / CHANGELOG entry.** None — doc-only CSS fix, no behavior change.
+
+---
+
 ## Future
 
 ### Audit Modes [Deferred]

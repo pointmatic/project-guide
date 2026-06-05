@@ -24,7 +24,9 @@ Stay organized and in control with adaptive LLM workflow prompts
 
 ### Friendly Brief Description (follows one-liner)
 
-A single rendered entry point dynamically assembles instructions from 17 development modes (planning, setup, coding, debugging, documentation, refactoring, and more) using Jinja2 templates. Type "go" in the LLM chat to advance through each step. Switch modes in the CLI as needed to get the right guidance for the task at hand. 
+A single rendered entry point dynamically assembles LLM instructions from 17 development modes (planning, setup, coding, debugging, documentation, refactoring, and more) using Jinja2 templates. Type "go" in the LLM chat to advance through each step. Switch modes in the CLI as needed to get the right guidance for the task at hand. 
+
+**Works for any programming language or framework.**
 
 This is "HITLoop" (human-in-the-loop) development: you direct, the LLM executes. You stay in charge, guiding features, flow, and taste, while the LLM handles the mundane coding. The pace is "flaming agile"—an entire production-ready backend can be completed in 6-12 hours. When you customize a prompt for your project, mark it as overridden so future package updates skip it. When you want the latest workflow improvements, a simple command will sync all non-overridden prompts. 
 
