@@ -483,6 +483,148 @@ Bundled release at end-of-subphase as **v2.12.0** (minor — new feature). Three
 
 ---
 
+## Subphase Q-3: Pyve-managed-hosting cross-repo contract
+
+Pins four cross-repo contracts that let Pyve host project-guide as a globally-shimmed tool in its toolchain venv, and adds pyve-managed-hosting awareness to project-guide's user-facing surfaces. Driver: Pyve's planned move from per-project `pip install project-guide` to a single toolchain-venv install with a `~/.local/bin/project-guide` shim (Pyve Story N.aw). See [`phase-q-pyve-toolchain-hosting.md`](phase-q-pyve-toolchain-hosting.md) for the contract and [`phase-q-subphase-3-pyve-hosting-plan.md`](phase-q-subphase-3-pyve-hosting-plan.md) for the full Q-3 plan.
+
+Three of the four contracts already hold in code (install-location independence, `--version` stability, `.project-guide.yml` marker stability) — Q.l pins them as tested contracts. The fourth is genuinely new: branching template and CLI-output content on `pyve_installed` (Q.m), with a defensive `project-guide heal` warning when a legacy project-local install lingers (also Q.m, mirroring the P.o `go.md`-tracked warning pattern).
+
+Bundled release at end-of-subphase as **v2.13.0** (minor — new behavior + new published contract surface). Three stories executed in document order; only `Q.n` carries the version in its title. **Story-letter continuity:** Q-2 closed at `Q.f` (v2.12.0), then `Q.g`–`Q.k` landed as post-release `code_direct` doc-fix tail stories under Q-2. Q-3 picks up at `Q.l` per the monotonic-continuation rule in `_phase-letters.md`. **No upstream dependency** — Q-1 (v2.11.0) and Q-2 (v2.12.0) have both shipped; Q-3 implementation can begin immediately after approval.
+
+### Story Q.l: Cross-repo contract pinning — tests + documentation [Done]
+
+**Problem.** Three of the four cross-repo contracts in [`phase-q-pyve-toolchain-hosting.md`](phase-q-pyve-toolchain-hosting.md) already hold in code but are not pinned by tests or published as documented contracts. Code-grounding audit confirms:
+
+- **Install-location independence.** `Path.cwd()` is used uniformly across [cli.py:209](../../project_guide/cli.py), [cli.py:794–796](../../project_guide/cli.py), [cli.py:1035](../../project_guide/cli.py), [runtime.py:142](../../project_guide/runtime.py). Nothing reads from the package install location for per-project state.
+- **`--version` surface.** Wired at [cli.py:89](../../project_guide/cli.py) via Click's `@click.version_option(version=__version__)`. Standard Click format (`"project-guide, version X.Y.Z"`) — pinnable.
+- **`.project-guide.yml` marker.** Filename hard-coded in `Config.load()` / `Config.save()`; written at project root; carries `installed_version` and `target_dir` plus other Schema-2.0 fields.
+
+Pyve Story N.aw will pin a minimum project-guide version once Q-3 ships; tests pinning the contract surface are what make that pin meaningful. Without tests + documented contracts, the three behaviors could drift in a future story without anyone noticing the cross-repo breakage until Pyve's CI flags it.
+
+**Behavior (post-story).** Three test surfaces + two documentation surfaces.
+
+- **Test: install-location independence.** `CliRunner().isolated_filesystem()` invokes `project-guide init` from a temp cwd; asserts `(tmp / ".project-guide.yml").exists()` and `(tmp / "docs/project-guide/go.md").exists()`; asserts no writes to the package install location. Same shape for `update` and `mode`.
+- **Test: `--version` output format.** Invokes `project-guide --version`, asserts output matches `r"project-guide, version \d+\.\d+\.\d+\n?"`. The regex *is* the cross-repo contract Pyve pins against; changing the format requires a coordinated breaking change.
+- **Test: `.project-guide.yml` marker shape.** After `init`, asserts the file is named exactly `.project-guide.yml` (no rename, no extension drift) at project root; `yaml.safe_load()` of its contents yields a dict containing **at minimum** `version` (schema), `installed_version`, `target_dir`, `current_mode`. Asserted-field set is the cross-repo subset — additional fields (`pyve_version`, `metadata_overrides`, …) may exist; their absence is not a contract violation.
+- **Doc: `features.md` Cross-Repo Contracts section.** New subsection enumerating the four contracts with their guarding tests (or "implementation only — no test" for Q.m's awareness case).
+- **Doc: `project-essentials.md` Pyve cross-repo contracts section.** Appended after the (Q-2-installed) "Pyve env-spec vendored-template contract" section. Documents the four contracts as architectural invariants. Two new Q-3 invariants beyond features.md: **(a) any rename of `.project-guide.yml` or removal of the contract fields is a coordinated breaking change** requiring a paired Pyve story; **(b) pyve detection is cached in `.project-guide.yml`'s `pyve_version` field at init time and not re-run at every CLI invocation** — `status`, help, template branches, and the heal defensive guard read the cached value, keeping commands cheap and predictable.
+
+**Why these defaults.**
+
+- **Q.l lands before Q.m.** Q.l pins already-correct behavior; Q.m adds new pyve-aware behavior. Pinning the foundation first means Q.m's new code can lean on the documented contract surface (e.g., Q.m's status footer reads `config.pyve_version`, which Q.l's marker-shape test pins as a stable field).
+- **Three tests, three contracts.** Each contract maps to exactly one test; no test asserts multiple contracts. Keeps failure attribution unambiguous.
+- **Regex over exact-string match for `--version`.** The exact-string approach (assert `output == "project-guide, version 2.13.0\n"`) would force every version bump to update the test. The regex pins the *shape* — what Pyve actually depends on — and tolerates the version number.
+- **Required-field subset, not full schema, for `.project-guide.yml`.** Pyve pins against `installed_version` + `target_dir` (per the contract doc). Asserting the full Schema-2.0 field set would over-couple the test to internal evolution.
+- **Two documentation homes, not one.** `features.md` documents the contract as a functional surface (what's promised); `project-essentials.md` documents it as an architectural invariant (what future LLMs must respect). Different reader audiences; both edits are small.
+
+**Implementation:**
+- [x] Author the three contract-pinning tests in a new `tests/test_cross_repo_contract.py`. *(One test per contract: install-location independence, `--version` format, `.project-guide.yml` marker shape.)*
+- [x] Append "Cross-Repo Contracts" section to `docs/specs/features.md` enumerating all four contracts (the three pinned here + the pyve-managed-hosting awareness implemented in Q.m, documented in Q.l for completeness).
+- [x] Append new "Pyve cross-repo contracts" section to `docs/specs/project-essentials.md` after the existing "Pyve env-spec vendored-template contract" section. Include invariants (a) and (b).
+- [x] Run `pyve run project-guide update` to re-render `go.md` (the project-essentials.md addition flows through auto-render).
+- [x] Spot-check the rendered new section in `docs/project-guide/go.md`.
+- [x] Run `pyve test` — all new tests pass; existing suite remains green (589 passed, +3).
+- [x] Run `pyve testenv run ruff check project_guide/ tests/`. *(Clean.)*
+- [x] Flip story status `[Planned]` → `[Done]` and check off tasks.
+
+**Implementation note — `--version` test shape.** The `--version` contract is pinned in two robust pieces rather than a single literal-string match. Click 8.3's `version_option` memoizes the program name in a closure `nonlocal` on the *first* `--version` call in the process, so whichever test runs `--version` first pins the prog token for the whole session (`test_cli.py` does, as `"main"`) — CliRunner's `prog_name` cannot reliably read back `project-guide` in-process, and the testenv ships no console script for a subprocess check. The test therefore pins (a) the version-number **format** via `--version` (the part Pyve parses) and (b) the **program name** via the `pyproject.toml` `[project.scripts]` entry point (`project-guide = "project_guide.cli:main"`), which is the real source of the shipped binary's name. Together these pin the full `project-guide, version X.Y.Z` contract without depending on Click internals.
+
+**Out of scope:**
+- **Pyve-side minimum-version pin.** Pyve Story N.aw will pin `project-guide ≥ vX.Y.Z` after Q-3 ships; that edit lives in the Pyve repo.
+- **Schema test of `.project-guide.yml`'s full field set.** Q.l asserts the cross-repo subset only; full-schema testing is `tests/test_config.py`'s job (existing round-trip tests cover it).
+- **Test pinning Click's exit codes.** Already covered by existing CLI tests; no new assertion needed for Q.l.
+- **CLI/template changes.** Bundled into Q.m.
+- **Version bump / CHANGELOG entry.** Bundled into Q.n.
+
+---
+
+### Story Q.m: Pyve-managed-hosting awareness — templates, README, status footer, heal warning [Planned]
+
+**Problem.** `pyve_installed` is detected at `init` time ([cli.py:251–262](../../project_guide/cli.py)) and cached in `.project-guide.yml`, but its only consumer is `render.py:_read_pyve_essentials()` (auto-renders `pyve-essentials.md` into `go.md`). The flag is **not** consumed by:
+
+- Onboarding install advice in the rendered `go.md` ([`_header-common.md`:6](../../project_guide/templates/project-guide/templates/modes/_header-common.md) says "After installing project-guide (`pip install project-guide`)..." unconditionally).
+- The developer-reference page ([`developer/project-guide.md`:7](../../project_guide/templates/project-guide/developer/project-guide.md) — same shape, plus a pre-existing `project-guides` typo).
+- The top-level [`README.md`](../../README.md) install section.
+- `project-guide status` output (no footer naming the host).
+- `project-guide heal` drift checks (no detection of a local-install footgun when pyve is the canonical host).
+
+Under Pyve's toolchain-venv hosting (Pyve Story N.aw), `pip install project-guide` is wrong advice for users with pyve installed — the user runs `pyve self install` and pyve manages the install path. If a user adopts pyve-managed hosting *after* having previously run `pip install project-guide` into a project-local venv, both installs coexist; `which project-guide` resolves to whichever is first on `PATH`, and behavior diverges silently with version drift.
+
+**Behavior (post-story).** Five surfaces gain pyve-awareness; all five are gated on the already-cached `pyve_installed` detection.
+
+- **`_header-common.md`** branches the onboarding line on `pyve_installed`:
+  - True: `"Pyve manages project-guide for you. From your project root, run `project-guide init` to scaffold the docs, then instruct your LLM as follows..."`
+  - False: existing pip-install advice preserved.
+- **`developer/project-guide.md`** branches the same way. Also fixes the existing `project-guides` typo inline.
+- **`README.md`** gains a "Installation via pyve (recommended)" section above the existing pip-install section. One short paragraph: "If you use [pyve](https://pointmatic.github.io/pyve/), let pyve install project-guide globally for you — `pyve self install` provisions project-guide in pyve's toolchain venv and creates a `~/.local/bin/project-guide` shim. Otherwise, `pip install project-guide` per the section below." Standalone pip-install advice preserved.
+- **`project-guide status` footer.** When `config.pyve_version is not None`, append a dim one-line footer: `"Managed by pyve v<version> (detected at init time)."` Matches the existing dim "Run 'project-guide update' to sync" hint convention. **No runtime re-detection** — reads cached config per Q.l's invariant (b).
+- **`project-guide heal` defensive local-install warning.** When `config.pyve_version is not None` AND the running project-guide's `importlib.metadata.distribution("project-guide")` install location resolves to a descendant of `Path.cwd()` (e.g., under `<cwd>/.venv/`, `<cwd>/.pyve/envs/<name>/`) → emit stderr warning:
+  ```
+  ⚠ Local project-guide install detected at <path>.
+    Pyve is configured to manage project-guide globally.
+    Remove the local install with: pip uninstall project-guide
+  ```
+  Heal's auto-hook (P.b/c) carries the warning to every `project-guide` invocation including `--help` / `--version` until the user resolves it. **Silent-when-clean preserved** — heal stays silent on this axis when no local install is detected. **No auto-uninstall** — same wrapper-initiates-side-effects discipline as P.k / P.o.
+
+**Why these defaults.**
+
+- **`heal`, not `status`, for the local-install warning.** Mirrors the P.o `go.md`-tracked warning pattern exactly — `heal` detects a state requiring a user-initiated `pip`/`git` operation, emits a warning, never auto-fixes. Two advantages over a status-only surface: (i) per-invocation visibility via the auto-hook (the user sees it until they resolve it, not just when they remember to run `status`); (ii) precedent symmetry (heal already warns about another `pip`/`git`-resolvable state, namely tracked `go.md`; adding the local-install warning to the same surface keeps heal's job coherent).
+- **`status` footer stays separate from `heal` warning.** Different signals at different lifecycle points: status footer is informational (one-time read-out of cached host state when the user deliberately checks); heal warning is defensive (per-invocation diagnostic of a drift state requiring user action). They surface different things; both stay.
+- **Cached pyve detection, no runtime re-run.** Status reads `config.pyve_version`; heal's local-install check reads `config.pyve_version`. Neither re-invokes `pyve --version` per call. Trade-off: a user who installs pyve *after* `project-guide init` won't see the awareness until they re-run `init --force` (or a future `project-guide refresh-detection` surface — YAGNI today). Trade-off recorded in Q.l's `project-essentials.md` invariant (b).
+- **Template branches via existing `pyve_installed` Jinja variable.** `render.py` already threads `pyve_installed` to the Jinja context. The branches use the existing variable — no new render-pipeline plumbing.
+- **Typo fix folded into Q.m, not spun off.** `project-guides` → `project-guide` in `developer/project-guide.md` is a one-character drift fix in the same file we're already touching. Spinning it off would be churn.
+- **README "recommended" framing, not "deprecated" framing.** The pip-install path is the canonical fallback for standalone users with no pyve. Calling it "deprecated" would alarm those users unnecessarily; "via pyve (recommended)" + "Otherwise, pip install" reads cleanly.
+
+**Implementation:**
+- [ ] Edit `project_guide/templates/project-guide/templates/modes/_header-common.md` — Jinja-branch the onboarding line on `pyve_installed`.
+- [ ] Edit `project_guide/templates/project-guide/developer/project-guide.md` — same branch; fix `project-guides` typo.
+- [ ] Edit `README.md` — add "Installation via pyve (recommended)" section above existing pip-install section.
+- [ ] Edit `project_guide/cli.py` `status` command — append pyve-detected footer when `config.pyve_version is not None`.
+- [ ] Edit `project_guide/cli.py` heal drift-detection path (`_apply_heal()` and/or the auto-hook detection surface) — add the local-install detection + stderr warning. Pattern follows the existing P.o `go.md`-tracked warning.
+- [ ] Add tests in `tests/test_cli.py` (or extend Q.l's contract test file): template-branch renders correctly with `pyve_installed=True` and `pyve_installed=False`; status footer appears when pyve detected; heal local-install warning appears when running from a project-local path with pyve detected; heal stays silent when no local install detected (silent-when-clean preserved).
+- [ ] Run `pyve run project-guide update` to propagate template edits to `docs/project-guide/`.
+- [ ] Spot-check rendered `go.md` for both branches by toggling cached `pyve_version` in `.project-guide.yml` and re-rendering.
+- [ ] Run `pyve test`.
+- [ ] Run `pyve testenv run ruff check project_guide/ tests/`.
+- [ ] Flip story status `[Planned]` → `[Done]` and check off tasks.
+
+**Out of scope:**
+- **Runtime pyve re-detection.** Status and heal both read cached `config.pyve_version`. A `project-guide refresh-detection` subcommand is YAGNI until field use surfaces the cache-staleness footgun.
+- **Auto-`pip uninstall`.** Heal warns; user removes. Same discipline as P.k git-push and P.o `go.md` tracking.
+- **Help-text expansion.** No `project-guide --help` text changes. Onboarding is surfaced via rendered `go.md` (template branches) and README. Help text stays terse.
+- **Detection of conflicting pyve-managed installs across multiple toolchain venvs.** Pyve owns the toolchain-venv path policy; project-guide trusts it.
+- **`docs/specs/cross-repo-contracts.md` as a dedicated file.** Contracts live in `features.md` (functional) and `project-essentials.md` (invariant) per Q.l's design.
+- **Version bump / CHANGELOG entry.** Bundled into Q.n.
+
+---
+
+### Story Q.n: v2.13.0 Subphase Q-3 bundled release [Planned]
+
+**Problem.** Subphase Q-3 ships as one bundled release per the subphase phase-bundling option installed in Q.a. Stories Q.l and Q.m run unversioned; Q.n is the release-marker story that bumps the package and authors the CHANGELOG entry covering both.
+
+**Behavior (post-story).** Version bumped to **v2.13.0** across the three canonical sites (`project_guide/version.py`, `pyproject.toml`, new `CHANGELOG.md` entry). The CHANGELOG entry describes Subphase Q-3's two themes as one bundled release: the cross-repo contract pinning (Q.l) and the pyve-managed-hosting awareness (Q.m).
+
+**Why this default.**
+
+- **v2.13.0 minor, not patch.** Pyve-managed-hosting awareness is new behavior (template branches + status footer + heal local-install warning); newly-published cross-repo contracts are a feature surface pyve pins against. Both are *feature additions* by the Version Cadence rule (`Feature or improvement → minor`).
+- **Distinct release from Q-1's v2.11.0 and Q-2's v2.12.0.** Per the subphase phase-bundling pattern installed in Q.a, each subphase decides its own release shape; Q-3 ships as a separate minor bump because it's a discrete shippable bundle.
+- **One bump, last story.** Same convention as Q.c / Q.f — Q.n is the only Q-3 story with a version in its title.
+- **CHANGELOG entry covers both Q.l and Q.m** and cross-references [`phase-q-subphase-3-pyve-hosting-plan.md`](phase-q-subphase-3-pyve-hosting-plan.md) and [`phase-q-pyve-toolchain-hosting.md`](phase-q-pyve-toolchain-hosting.md) so future readers can reconstruct the cross-repo context (Pyve Story N.aw is the consuming-side counterpart).
+
+**Implementation:**
+- [ ] Bump `project_guide/version.py` to `2.13.0`.
+- [ ] Bump `pyproject.toml` to `2.13.0`.
+- [ ] Add `## [2.13.0] - <date>` entry to `CHANGELOG.md` with two subsections (e.g., `### Added` for pyve-managed-hosting awareness + cross-repo contract publication; `### Changed` for the developer-reference typo fix). Concise prose; reference Q.l and Q.m by story ID; cross-reference [`phase-q-subphase-3-pyve-hosting-plan.md`](phase-q-subphase-3-pyve-hosting-plan.md) and [`phase-q-pyve-toolchain-hosting.md`](phase-q-pyve-toolchain-hosting.md).
+- [ ] Run `pyve test`.
+- [ ] Run `pyve testenv run ruff check project_guide/ tests/`.
+- [ ] Flip story status `[Planned]` → `[Done]` and check off tasks.
+
+**Out of scope:**
+- **Git tag / PyPI publish.** Per the *Approval gate discipline* rule in [project-essentials.md](project-essentials.md), the LLM does not initiate git operations or releases. The developer pushes the tag and triggers publish on their own schedule.
+- **End-of-subphase migration to a Q-4 planning session.** Q-4 entry is a separate developer-initiated decision; Q.n is just the release marker for Q-3.
+
+---
+
 ## Future
 
 ### Audit Modes [Deferred]

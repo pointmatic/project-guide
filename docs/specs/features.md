@@ -427,6 +427,21 @@ Tab completion for `project-guide` commands, flags, and mode names in bash, zsh,
 
 ---
 
+## Cross-Repo Contracts
+
+project-guide is designed to be hosted by **Pyve** as a globally-shimmed tool in Pyve's toolchain venv (a single install on `PATH` via `~/.local/bin/project-guide`, rather than a per-project `pip install`). That hosting model depends on four behavioral contracts that Pyve pins against. Three already hold and are guarded by tests; the fourth is the pyve-managed-hosting awareness behavior. Any change to a contract surface is a **coordinated breaking change** requiring a paired Pyve story.
+
+| # | Contract | Guarantee | Guarding test |
+|---|----------|-----------|---------------|
+| 1 | **Install-location independence** | `init`, `update`, and `mode` read templates from the package install location but write per-project state only to the current working directory; nothing writes back into the shared install. | `tests/test_cross_repo_contract.py::test_per_project_state_written_to_cwd_not_package_location` |
+| 2 | **`--version` output format** | `project-guide --version` emits exactly `project-guide, version X.Y.Z` (standard Click format). The shape — not the version number — is the contract Pyve parses. | `tests/test_cross_repo_contract.py::test_version_output_format_is_cross_repo_contract` |
+| 3 | **`.project-guide.yml` marker shape** | The project-root marker is named exactly `.project-guide.yml` and always carries at least `version`, `installed_version`, `target_dir`, and `current_mode`. Additional fields may exist; their absence is not a violation. | `tests/test_cross_repo_contract.py::test_project_guide_yml_marker_shape` |
+| 4 | **Pyve-managed-hosting awareness** | When pyve is detected (cached `pyve_version` in `.project-guide.yml`), templates and CLI output reflect the pyve-managed-hosting context; `heal` warns when a legacy project-local install lingers under pyve hosting. | Implementation only (FR — see Subphase Q-3 / Q.m); behavior, not a pinned-format contract. |
+
+Changing the `.project-guide.yml` filename, removing any of the contract fields, or altering the `--version` format requires a coordinated change with Pyve. See `docs/specs/project-essentials.md` → "Pyve cross-repo contracts" for the architectural invariants and [`phase-q-pyve-toolchain-hosting.md`](phase-q-pyve-toolchain-hosting.md) for the cross-repo contract source.
+
+---
+
 ## Configuration
 
 ### `.project-guide.yml` Schema

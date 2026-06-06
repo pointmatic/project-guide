@@ -32,17 +32,27 @@ The phase will mix release shapes: some subphases will ship as bundled releases 
 
 **Full plan.** [`phase-q-subphase-2-plan-envs-plan.md`](phase-q-subphase-2-plan-envs-plan.md) — gap analysis, feature requirements, technical changes, breaking-change negotiation result, anticipated version bump target, out-of-scope walk, implementation strategy, acceptance criteria.
 
-### Subphase Q-3 and beyond — to be defined
+### Subphase Q-3 — Pyve-managed-hosting cross-repo contract
 
-Subphase Q-3+ remain intentionally undefined. **Story breakdown deferred to their own future `plan_production_phase` sessions** per the (Q-1-installed) Step 4a pattern. Each future subphase will be triggered by a concrete DX need: a pain point, a downstream consumer signal, an integration gap. Possible themes (non-binding, illustrative only):
+**Scope.** Pin four cross-repo contracts that let Pyve host project-guide as a globally-shimmed tool in its toolchain venv (Pyve Story N.aw), and add pyve-managed-hosting awareness to project-guide's user-facing surfaces (template install-advice, README, `status` footer, `heal` local-install drift warning).
+
+**Driver.** Pyve's planned move from per-project `pip install project-guide` (into each project's Python env) to a single toolchain-venv install with a `~/.local/bin/project-guide` shim. Three of the four contracts already hold in code (install-location independence, `--version` stability, `.project-guide.yml` marker stability) — Q-3 pins them as tested contracts so Pyve can pin a minimum project-guide version. The fourth is genuinely new: branching template and CLI-output content on `pyve_installed` so the user sees pyve-managed-hosting guidance when pyve is the host, and a defensive `heal` warning when a legacy project-local install lingers.
+
+**Release shape.** Bundled release at end-of-subphase as **v2.13.0** — minor (new behavior + new published contract surface). Three stories (Q.l / Q.m / Q.n) executed in document order; only Q.n carries the version in its title. (Letters Q.g–Q.k were taken by post-Q-2-release `code_direct` doc-fix tail stories; Q-3 picks up at the next monotonic letter Q.l.)
+
+**Full plan.** [`phase-q-subphase-3-pyve-hosting-plan.md`](phase-q-subphase-3-pyve-hosting-plan.md) — gap analysis, feature requirements, technical changes, breaking-change negotiation result, anticipated version bump target, out-of-scope walk, implementation strategy, acceptance criteria.
+
+### Subphase Q-4 and beyond — to be defined
+
+Subphase Q-4+ remain intentionally undefined. **Story breakdown deferred to their own future `plan_production_phase` sessions** per the (Q-1-installed) Step 4a pattern. Each future subphase will be triggered by a concrete DX need: a pain point, a downstream consumer signal, an integration gap. Possible themes (non-binding, illustrative only):
 
 - LLM workflow guidance refinements
 - Mode-template ergonomic improvements
-- Status / check / heal output polish
+- Status / check / heal output polish beyond Q-3's scope
 - Further external-tool integration patterns (e.g., the deferred `project-guide check` integrity command from `Future`)
 - Dogfooded `env-dependencies.md` for project-guide itself (post-Q-2 follow-up if `plan_envs` field use surfaces template gaps)
 
-When a Q-3+ theme crystallizes, the developer re-invokes `project-guide mode plan_production_phase` to scope that subphase. The Q-1-installed templates will guide the LLM to (a) recognize this is a mid-phase re-invocation, (b) add the new `## Subphase Q-N:` heading rather than a new `## Phase` heading, (c) continue story letters monotonically from where the prior subphase left off.
+When a Q-4+ theme crystallizes, the developer re-invokes `project-guide mode plan_production_phase` to scope that subphase. The Q-1-installed templates will guide the LLM to (a) recognize this is a mid-phase re-invocation, (b) add the new `## Subphase Q-N:` heading rather than a new `## Phase` heading, (c) continue story letters monotonically from where the prior subphase left off.
 
 ---
 
