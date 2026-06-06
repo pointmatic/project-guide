@@ -45,6 +45,14 @@ When you customize a file for your project, mark it as overridden so future pack
 
 ## Installation
 
+### Via pyve (recommended)
+
+If you use [pyve](https://pointmatic.github.io/pyve/), let pyve install project-guide globally for you — `pyve self install` provisions project-guide in pyve's toolchain venv and creates a `~/.local/bin/project-guide` shim. Otherwise, install with `pip` (or `pipx`) per the sections below.
+
+```bash
+pyve self install
+```
+
 ### Via pip
 
 ```bash

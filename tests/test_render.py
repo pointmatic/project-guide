@@ -2270,3 +2270,52 @@ def test_plan_production_phase_in_mode_listing():
 
 
 # --- End Story O.p ----------------------------------------------------------
+
+
+# --- Story Q.m: pyve-aware onboarding line in _header-common.md --------------
+
+def test_header_common_pyve_branch_when_pyve_detected():
+    """With pyve detected, go.md's onboarding line uses the pyve-managed wording."""
+    import yaml
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        runner.invoke(main, ['init'])
+        cfg = yaml.safe_load(Path('.project-guide.yml').read_text())
+        cfg['pyve_version'] = '1.2.3'
+        Path('.project-guide.yml').write_text(yaml.dump(cfg))
+
+        result = runner.invoke(main, ['mode', 'default'])
+        assert result.exit_code == 0
+        content = Path('docs/project-guide/go.md').read_text(encoding='utf-8')
+
+    assert 'Pyve manages project-guide for you' in content
+    assert 'After installing project-guide (`pip install project-guide`)' not in content
+
+
+def test_header_common_pip_branch_when_pyve_absent():
+    """With pyve absent, go.md's onboarding line keeps the pip-install wording."""
+    import yaml
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        runner.invoke(main, ['init'])
+        cfg = yaml.safe_load(Path('.project-guide.yml').read_text())
+        cfg['pyve_version'] = None
+        Path('.project-guide.yml').write_text(yaml.dump(cfg))
+
+        result = runner.invoke(main, ['mode', 'default'])
+        assert result.exit_code == 0
+        content = Path('docs/project-guide/go.md').read_text(encoding='utf-8')
+
+    assert 'After installing project-guide (`pip install project-guide`)' in content
+    assert 'Pyve manages project-guide for you' not in content
+
+
+# --- End Story Q.m ----------------------------------------------------------

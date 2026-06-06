@@ -538,7 +538,7 @@ Pyve Story N.aw will pin a minimum project-guide version once Q-3 ships; tests p
 
 ---
 
-### Story Q.m: Pyve-managed-hosting awareness — templates, README, status footer, heal warning [Planned]
+### Story Q.m: Pyve-managed-hosting awareness — templates, README, status footer, heal warning [Done]
 
 **Problem.** `pyve_installed` is detected at `init` time ([cli.py:251–262](../../project_guide/cli.py)) and cached in `.project-guide.yml`, but its only consumer is `render.py:_read_pyve_essentials()` (auto-renders `pyve-essentials.md` into `go.md`). The flag is **not** consumed by:
 
@@ -576,17 +576,17 @@ Under Pyve's toolchain-venv hosting (Pyve Story N.aw), `pip install project-guid
 - **README "recommended" framing, not "deprecated" framing.** The pip-install path is the canonical fallback for standalone users with no pyve. Calling it "deprecated" would alarm those users unnecessarily; "via pyve (recommended)" + "Otherwise, pip install" reads cleanly.
 
 **Implementation:**
-- [ ] Edit `project_guide/templates/project-guide/templates/modes/_header-common.md` — Jinja-branch the onboarding line on `pyve_installed`.
-- [ ] Edit `project_guide/templates/project-guide/developer/project-guide.md` — same branch; fix `project-guides` typo.
-- [ ] Edit `README.md` — add "Installation via pyve (recommended)" section above existing pip-install section.
-- [ ] Edit `project_guide/cli.py` `status` command — append pyve-detected footer when `config.pyve_version is not None`.
-- [ ] Edit `project_guide/cli.py` heal drift-detection path (`_apply_heal()` and/or the auto-hook detection surface) — add the local-install detection + stderr warning. Pattern follows the existing P.o `go.md`-tracked warning.
-- [ ] Add tests in `tests/test_cli.py` (or extend Q.l's contract test file): template-branch renders correctly with `pyve_installed=True` and `pyve_installed=False`; status footer appears when pyve detected; heal local-install warning appears when running from a project-local path with pyve detected; heal stays silent when no local install detected (silent-when-clean preserved).
-- [ ] Run `pyve run project-guide update` to propagate template edits to `docs/project-guide/`.
-- [ ] Spot-check rendered `go.md` for both branches by toggling cached `pyve_version` in `.project-guide.yml` and re-rendering.
-- [ ] Run `pyve test`.
-- [ ] Run `pyve testenv run ruff check project_guide/ tests/`.
-- [ ] Flip story status `[Planned]` → `[Done]` and check off tasks.
+- [x] Edit `project_guide/templates/project-guide/templates/modes/_header-common.md` — Jinja-branch the onboarding line on `pyve_installed` (this template is rendered into `go.md`, so the `{% if %}` works).
+- [x] Edit `project_guide/templates/project-guide/developer/project-guide.md` — host-agnostic install line + `project-guides`→`project-guide` typo fix. *(Adaptation: this `developer/` file is copied verbatim by `sync.py`, **not** Jinja-rendered, so a runtime branch is impossible — instead the line now names both install paths (pyve `pyve self install` / `pip install project-guide`). Also corrected the stale `docs/guides/project-guide.md` → `docs/project-guide/go.md` read target in the same sentence.)*
+- [x] Edit `README.md` — add "Via pyve (recommended)" section above the existing pip-install section.
+- [x] Edit `project_guide/cli.py` `status` command — append the pyve-detected footer when `config.pyve_version is not None`. *(Footer uses `_pyve_version_token()` to extract the bare version from the raw `pyve --version` string so it reads `Managed by pyve v2.6.2 …` rather than doubling the `pyve` prefix.)*
+- [x] Edit `project_guide/cli.py` heal/auto-hook detection — add `_warn_if_local_install_under_pyve()`, wired into both `_run_pre_invoke_hook` and the `heal` command (beside `_warn_if_go_md_tracked`), following the P.o pattern. *(Refinement: detection requires the running package to be under cwd **and** inside a `site-packages` segment, so an editable source checkout — project-guide's own dogfood repo — is not flagged as a removable local install.)*
+- [x] Add tests: `test_render.py` covers the `_header-common.md` branch for `pyve_installed=True`/`False`; `test_cli.py` covers the status footer (present/absent) and the heal local-install warning (fires for a site-packages install under pyve; silent for an editable checkout; silent when pyve absent).
+- [x] Run `pyve run project-guide update` to propagate template edits to `docs/project-guide/`.
+- [x] Spot-check rendered `go.md` for both branches. *(Render tests verify both deterministically; this repo's `go.md` — pyve detected — shows the pyve-managed branch with no raw Jinja leakage.)*
+- [x] Run `pyve test` — 596 passed (+7).
+- [x] Run `pyve testenv run ruff check project_guide/ tests/` — clean.
+- [x] Flip story status `[Planned]` → `[Done]` and check off tasks.
 
 **Out of scope:**
 - **Runtime pyve re-detection.** Status and heal both read cached `config.pyve_version`. A `project-guide refresh-detection` subcommand is YAGNI until field use surfaces the cache-staleness footgun.

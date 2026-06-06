@@ -1258,6 +1258,17 @@ def status(verbose):
         for file_name in all_files:
             click.secho(f"  ✓ {file_name}", fg='green')
 
+    # --- Pyve-managed-hosting footer (Story Q.m) ---
+    # Reads the cached detection from config; no runtime re-run of `pyve
+    # --version` (cross-repo invariant (b) in project-essentials.md).
+    if config.pyve_version is not None:
+        click.echo()
+        click.secho(
+            f"Managed by pyve v{_pyve_version_token(config.pyve_version)} "
+            "(detected at init time).",
+            dim=True,
+        )
+
 
 @main.command()
 @click.option('--files', multiple=True, help='Specific files to update')
@@ -1536,6 +1547,75 @@ def _warn_if_go_md_tracked(config: Config) -> None:
     )
 
 
+def _pyve_version_token(pyve_version: str) -> str:
+    """Extract the bare version number from the cached ``pyve_version`` string.
+
+    ``pyve_version`` stores the raw ``pyve --version`` stdout (e.g.
+    ``"pyve version 2.6.2"``). Return the first whitespace-separated token that
+    starts with a digit (``"2.6.2"``); fall back to the whole string when no
+    such token exists, so callers always get something printable.
+    """
+    for token in pyve_version.split():
+        if token and token[0].isdigit():
+            return token
+    return pyve_version
+
+
+def _running_install_path() -> Path:
+    """Filesystem location of the running ``project_guide`` package.
+
+    Factored out as a tiny helper so tests can monkeypatch it to simulate a
+    project-local install without standing up a real venv.
+    """
+    return Path(__file__).resolve().parent
+
+
+def _warn_if_local_install_under_pyve(config: Config) -> None:
+    """Warn (stderr, non-fatal) when a project-local install coexists with pyve.
+
+    Story Q.m: under pyve's toolchain-venv hosting (Pyve Story N.aw) pyve
+    manages a single global project-guide install. If a project also carries a
+    *local* pip install (e.g. under ``<cwd>/.venv/`` or
+    ``<cwd>/.pyve/envs/<name>/``), ``which project-guide`` resolves to whichever
+    is first on ``PATH`` and behavior diverges silently with version drift. The
+    warning surfaces the footgun with a copyable ``pip uninstall`` command; the
+    user removes it on their own schedule — never auto-run, same
+    wrapper-initiates-side-effects discipline as the P.o ``go.md`` warning.
+
+    Detection: the running package lives under ``Path.cwd()`` **and** inside a
+    ``site-packages`` directory (a real installed copy). The ``site-packages``
+    guard deliberately excludes an editable source checkout (whose ``__file__``
+    is the source tree directly under cwd, as in project-guide's own dogfood
+    repo) — that is a development setup, not the footgun this warns about.
+
+    Silent when pyve was not detected at init time, when no qualifying local
+    install is present (the steady state), under the recursion guard env var,
+    or under ``--no-input`` / CI / non-TTY stdin — mirroring
+    :func:`_warn_if_go_md_tracked`.
+    """
+    if os.environ.get(_HEAL_GUARD_ENV) == "1":
+        return
+    if should_skip_input():
+        return
+    if config.pyve_version is None:
+        return
+
+    install_path = _running_install_path()
+    cwd = Path.cwd().resolve()
+    if not install_path.is_relative_to(cwd):
+        return
+    if "site-packages" not in install_path.parts:
+        return  # editable source checkout, not a pip-installed local copy
+
+    click.secho(
+        f"⚠ Local project-guide install detected at {install_path}.\n"
+        "  Pyve is configured to manage project-guide globally.\n"
+        "  Remove the local install with: pip uninstall project-guide",
+        fg='yellow',
+        err=True,
+    )
+
+
 def _run_pre_invoke_hook() -> None:
     """Group-level hook: heal first, then let the requested subcommand run.
 
@@ -1570,6 +1650,7 @@ def _run_pre_invoke_hook() -> None:
         return
 
     _warn_if_go_md_tracked(config)
+    _warn_if_local_install_under_pyve(config)
 
     try:
         updated, _skipped, _current, missing = sync_files(config, dry_run=True)
@@ -1661,6 +1742,7 @@ def heal(no_input: bool):
         sys.exit(3)
 
     _warn_if_go_md_tracked(config)
+    _warn_if_local_install_under_pyve(config)
 
     # Drift detection via dry-run sync; overrides are intentionally not drift.
     try:

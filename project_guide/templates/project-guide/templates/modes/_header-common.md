@@ -3,7 +3,7 @@ This document provides step-by-step instructions for an LLM to assist a human de
 ## How to Use Project-Guide
 
 ### For Developers
-After installing project-guide (`pip install project-guide`) and running `project-guide init`, instruct your LLM as follows in the chat interface: 
+{% if pyve_installed %}Pyve manages project-guide for you. From your project root, run `project-guide init` to scaffold the docs, then instruct your LLM as follows in the chat interface: {% else %}After installing project-guide (`pip install project-guide`) and running `project-guide init`, instruct your LLM as follows in the chat interface: {% endif %}
 
 ```
 Read `{{ target_dir }}/go.md`

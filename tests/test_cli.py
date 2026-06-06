@@ -3623,3 +3623,106 @@ def test_commit_subject_parser_rejects_other_prefixes():
 
 
 # --- End Story P.s / P.u ----------------------------------------------------
+
+
+# --- Story Q.m: pyve-managed-hosting awareness ------------------------------
+
+def test_status_shows_pyve_footer_when_detected(runner, tmp_path):
+    """status appends a dim 'Managed by pyve v<version>' footer when pyve cached.
+
+    The footer reads the cached config value (no runtime re-detection) and
+    extracts the bare version token from the raw `pyve --version` string.
+    """
+    import yaml
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        runner.invoke(main, ['init'])
+        cfg = yaml.safe_load(Path('.project-guide.yml').read_text())
+        cfg['pyve_version'] = 'pyve version 2.6.2'
+        Path('.project-guide.yml').write_text(yaml.dump(cfg))
+
+        result = runner.invoke(main, ['status'])
+        assert result.exit_code == 0
+        assert 'Managed by pyve v2.6.2 (detected at init time).' in result.output
+
+
+def test_status_omits_pyve_footer_when_not_detected(runner, tmp_path):
+    """status shows no pyve footer when pyve was not detected at init time."""
+    import yaml
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        runner.invoke(main, ['init'])
+        cfg = yaml.safe_load(Path('.project-guide.yml').read_text())
+        cfg['pyve_version'] = None
+        Path('.project-guide.yml').write_text(yaml.dump(cfg))
+
+        result = runner.invoke(main, ['status'])
+        assert result.exit_code == 0
+        assert 'Managed by pyve' not in result.output
+
+
+def test_heal_warns_on_local_install_under_pyve(runner, tmp_path, monkeypatch):
+    """heal warns when a project-local (site-packages) install coexists with pyve."""
+    import yaml
+
+    import project_guide.cli as cli_module
+    monkeypatch.delenv('PROJECT_GUIDE_HEALING', raising=False)
+    monkeypatch.setattr(cli_module, 'should_skip_input', lambda *a, **kw: False)
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        runner.invoke(main, ['init'])
+        cfg = yaml.safe_load(Path('.project-guide.yml').read_text())
+        cfg['pyve_version'] = 'pyve version 2.6.2'
+        Path('.project-guide.yml').write_text(yaml.dump(cfg))
+
+        # Simulate a pip-installed local copy under the project root.
+        fake = Path.cwd() / '.venv/lib/python3.12/site-packages/project_guide'
+        monkeypatch.setattr(cli_module, '_running_install_path', lambda: fake.resolve())
+
+        result = runner.invoke(main, ['heal'])
+        assert 'Local project-guide install detected' in result.output
+        assert 'pip uninstall project-guide' in result.output
+
+
+def test_heal_silent_on_editable_checkout_under_pyve(runner, tmp_path, monkeypatch):
+    """No warning for an editable source checkout (no site-packages segment)."""
+    import yaml
+
+    import project_guide.cli as cli_module
+    monkeypatch.delenv('PROJECT_GUIDE_HEALING', raising=False)
+    monkeypatch.setattr(cli_module, 'should_skip_input', lambda *a, **kw: False)
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        runner.invoke(main, ['init'])
+        cfg = yaml.safe_load(Path('.project-guide.yml').read_text())
+        cfg['pyve_version'] = 'pyve version 2.6.2'
+        Path('.project-guide.yml').write_text(yaml.dump(cfg))
+
+        # Editable checkout: package dir directly under cwd, no site-packages.
+        fake = Path.cwd() / 'project_guide'
+        monkeypatch.setattr(cli_module, '_running_install_path', lambda: fake.resolve())
+
+        result = runner.invoke(main, ['heal'])
+        assert 'Local project-guide install detected' not in result.output
+
+
+def test_heal_silent_on_local_install_when_pyve_absent(runner, tmp_path, monkeypatch):
+    """No warning when pyve was not detected, even with a local site-packages install."""
+    import yaml
+
+    import project_guide.cli as cli_module
+    monkeypatch.delenv('PROJECT_GUIDE_HEALING', raising=False)
+    monkeypatch.setattr(cli_module, 'should_skip_input', lambda *a, **kw: False)
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        runner.invoke(main, ['init'])
+        cfg = yaml.safe_load(Path('.project-guide.yml').read_text())
+        cfg['pyve_version'] = None
+        Path('.project-guide.yml').write_text(yaml.dump(cfg))
+
+        fake = Path.cwd() / '.venv/lib/python3.12/site-packages/project_guide'
+        monkeypatch.setattr(cli_module, '_running_install_path', lambda: fake.resolve())
+
+        result = runner.invoke(main, ['heal'])
+        assert 'Local project-guide install detected' not in result.output
+
+
+# --- End Story Q.m ----------------------------------------------------------
