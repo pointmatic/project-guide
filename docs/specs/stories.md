@@ -598,7 +598,7 @@ Under Pyve's toolchain-venv hosting (Pyve Story N.aw), `pip install project-guid
 
 ---
 
-### Story Q.n: v2.13.0 Subphase Q-3 bundled release [Planned]
+### Story Q.n: v2.13.0 Subphase Q-3 bundled release [Done]
 
 **Problem.** Subphase Q-3 ships as one bundled release per the subphase phase-bundling option installed in Q.a. Stories Q.l and Q.m run unversioned; Q.n is the release-marker story that bumps the package and authors the CHANGELOG entry covering both.
 
@@ -612,12 +612,12 @@ Under Pyve's toolchain-venv hosting (Pyve Story N.aw), `pip install project-guid
 - **CHANGELOG entry covers both Q.l and Q.m** and cross-references [`phase-q-subphase-3-pyve-hosting-plan.md`](phase-q-subphase-3-pyve-hosting-plan.md) and [`phase-q-pyve-toolchain-hosting.md`](phase-q-pyve-toolchain-hosting.md) so future readers can reconstruct the cross-repo context (Pyve Story N.aw is the consuming-side counterpart).
 
 **Implementation:**
-- [ ] Bump `project_guide/version.py` to `2.13.0`.
-- [ ] Bump `pyproject.toml` to `2.13.0`.
-- [ ] Add `## [2.13.0] - <date>` entry to `CHANGELOG.md` with two subsections (e.g., `### Added` for pyve-managed-hosting awareness + cross-repo contract publication; `### Changed` for the developer-reference typo fix). Concise prose; reference Q.l and Q.m by story ID; cross-reference [`phase-q-subphase-3-pyve-hosting-plan.md`](phase-q-subphase-3-pyve-hosting-plan.md) and [`phase-q-pyve-toolchain-hosting.md`](phase-q-pyve-toolchain-hosting.md).
-- [ ] Run `pyve test`.
-- [ ] Run `pyve testenv run ruff check project_guide/ tests/`.
-- [ ] Flip story status `[Planned]` → `[Done]` and check off tasks.
+- [x] Bump `project_guide/version.py` to `2.13.0`.
+- [x] Bump `pyproject.toml` to `2.13.0`.
+- [x] Add `## [2.13.0] - 2026-06-05` entry to `CHANGELOG.md` with `### Added` (cross-repo contract tests + docs, pyve-managed-hosting awareness, defensive local-install warning) and `### Changed` (the `developer/project-guide.md` host-agnostic/typo/path fix) subsections. References Q.l and Q.m; cross-references the Q-3 plan and the cross-repo contract doc.
+- [x] Run `pyve test` — 596 passed.
+- [x] Run `pyve testenv run ruff check project_guide/ tests/` — clean.
+- [x] Flip story status `[Planned]` → `[Done]` and check off tasks.
 
 **Out of scope:**
 - **Git tag / PyPI publish.** Per the *Approval gate discipline* rule in [project-essentials.md](project-essentials.md), the LLM does not initiate git operations or releases. The developer pushes the tag and triggers publish on their own schedule.

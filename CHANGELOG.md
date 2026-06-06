@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.13.0] - 2026-06-05
+
+**Subphase Q-3 bundled release: Pyve-managed-hosting cross-repo contract + awareness.** Subphase Q-3 of Phase Q pins the four cross-repo contracts that let Pyve host project-guide as a globally-shimmed tool in its toolchain venv (Pyve Story N.aw), and teaches project-guide's user-facing surfaces to reflect pyve-managed hosting. Three contracts already held in code and are now guarded by tests (Q.l); the fourth — branching content on whether pyve is detected, plus a defensive local-install warning — is the new behavior (Q.m). Stories Q.l/Q.m ran unversioned during work; Q.n marks the release boundary. The minor bump reflects the new behavior and the newly-published contract surface. Plan: [`docs/specs/phase-q-subphase-3-pyve-hosting-plan.md`](docs/specs/phase-q-subphase-3-pyve-hosting-plan.md); cross-repo contract: [`docs/specs/phase-q-pyve-toolchain-hosting.md`](docs/specs/phase-q-pyve-toolchain-hosting.md).
+
+### Added
+- **Q.l — Cross-repo contract tests.** New `tests/test_cross_repo_contract.py` pins three contracts Pyve depends on: **install-location independence** (`init`/`update`/`mode` write only to the cwd, never the package install location), the **`--version` output format**, and the **`.project-guide.yml` marker shape** (filename + the `version` / `installed_version` / `target_dir` / `current_mode` field subset).
+- **Q.l — Cross-repo contract documentation.** New "Cross-Repo Contracts" section in `features.md` (functional enumeration with guarding tests) and a "Pyve cross-repo contracts" section in `project-essentials.md` (architectural invariants: renames/field-removals/`--version`-format changes are coordinated breaking changes requiring a paired Pyve story; pyve detection is cached at init time, never re-run per invocation).
+- **Q.m — Pyve-managed-hosting awareness.** When pyve is detected (cached `pyve_version`), the rendered `go.md` onboarding line (`_header-common.md`) uses pyve-managed wording instead of `pip install`; `project-guide status` appends a dim `Managed by pyve vX.Y.Z (detected at init time).` footer (read from cache, no runtime re-detection); and `README.md` gains a "Via pyve (recommended)" install section.
+- **Q.m — Defensive local-install warning.** `project-guide heal` (and the auto-hook) warn on stderr when a project-local `site-packages` install of project-guide coexists with pyve-managed hosting, with a copyable `pip uninstall project-guide` command. Never auto-removes (same wrapper-initiates-side-effects discipline as the P.o `go.md` warning); an editable source checkout is deliberately not flagged.
+
+### Changed
+- **Q.m — `developer/project-guide.md` install line.** Reworded to be host-agnostic (names both `pyve self install` and `pip install project-guide`), fixed the `project-guides` typo, and corrected a stale `docs/guides/project-guide.md` read target to `docs/project-guide/go.md`.
+
 ## [2.12.0] - 2026-06-05
 
 **Subphase Q-2 bundled release: `plan_envs` mode + full documentation drift sweep.** Subphase Q-2 of Phase Q adds a new `plan_envs` sequence mode that guides the developer through enumerating a Pyve-managed repo's named environments (root + test envs, with closed-vocabulary attributes), authoring `docs/specs/env-dependencies.md` from a template vendored from Pyve at `spec_version: "3.0"`. Stories Q.d/Q.e/Q.e.1/Q.e.2 ran unversioned during work; Q.f marks the release boundary. The minor bump is driven by the new opt-in mode and artifact template. Plan and rationale: [`docs/specs/phase-q-subphase-2-plan-envs-plan.md`](docs/specs/phase-q-subphase-2-plan-envs-plan.md); cross-repo contract: [`docs/specs/phase-q-wizard-env-contract.md`](docs/specs/phase-q-wizard-env-contract.md).
