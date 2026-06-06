@@ -625,6 +625,36 @@ Under Pyve's toolchain-venv hosting (Pyve Story N.aw), `pip install project-guid
 
 ---
 
+### Story Q.o: Refactor user-facing docs (Pyve integration coverage + staleness sweep) [Done]
+
+**Problem.** A documentation audit (post-Q-3) found the user-facing docs under-represent project-guide's now-tight Pyve integration and carry accumulated staleness. The `refactor_document`-class surfaces (README, the MkDocs site under `docs/site/`, and `brand-descriptions.md`) need a coordinated refresh. (The planning-artifact gaps — `concept.md` has zero Pyve presence, `tech-spec.md` lacks the Q.l/Q.m code surfaces, `features.md` could use a first-class FR — are **out of scope here**; they belong to a separate `refactor_plan` session.) Doc-only; **no version bump** (rides the next code-story release per Version Cadence).
+
+**Gaps identified.**
+- **Pyve integration under-documented:** `status` pyve footer and `heal` local-install warning absent from README and `commands.md`; `pyve self install` absent from `install-options.md`; `pyve_version` absent from `configuration.md`; the landing page mentions Pyve only in a single hero clause; README's Why/Key Features don't headline the relationship.
+- **Stale test metrics:** "129 tests"/"131 tests", "7 test files", "91% coverage" across `index.html`, `testing.md`, `contributing.md`. Current reality: **596 tests, 12 test files, 90% coverage**.
+- **`bump-version` command undocumented** in both README and `commands.md`.
+
+**Behavior (post-story).** Every targeted user-facing doc reflects the current Pyve integration and current metrics. `brand-descriptions.md` wording is developed **interactively** with the developer (per the session decision) rather than auto-generated.
+
+**Checklist (one task per document; skip any confirmed already-current during its per-document cycle):**
+- [x] Refactor `README.md` — headlined the Pyve relationship in Key Features + intro; added `status` pyve footer, `heal` local-install warning, and the `bump-version` command to the command reference; added "Why a single global install?" context; refreshed config example + update-step note.
+- [x] Refactor `docs/site/index.html` — added a Pyve-integration feature card; fixed "131 tests with 91% coverage" → 596 tests / 90%.
+- [x] Refactor `docs/site/getting-started.md` — added the pyve install path (recommended); rest audited current.
+- [x] Refactor `docs/site/user-guide/install-options.md` — added "Install via pyve (recommended)"; disambiguated the two "recommended" labels.
+- [x] Refactor `docs/site/user-guide/configuration.md` — documented `pyve_version`, `test_first`, and `metadata_overrides`; refreshed stale `installed_version` example.
+- [x] Refactor `docs/site/user-guide/commands.md` — documented the `status` pyve footer, the `heal` warnings, the `bump-version` command, and (added) the missing `git-push` command; overview "nine" → "twelve commands".
+- [x] Refactor `docs/site/developer-guide/testing.md` — refreshed metrics (596 / 12 files / 90%), rebuilt the per-file table, and converted bare `pytest`/`ruff`/`mypy` to `pyve` forms.
+- [x] Refactor `docs/site/developer-guide/contributing.md` — refreshed metrics + per-file tree; converted setup/test/lint invocations to `pyve` forms.
+- [x] Refactor `docs/specs/brand-descriptions.md` — added Pyve messaging (Benefits bullet, Feature Card #3, Technical Description, keywords) developed interactively; reordered install priority Pyve-first per developer direction; fixed title, command count, `jinja2` dep, `go.md` filename, typo, and `docs/site/` path. Brand-casing convention (Pyve/Project-Guide vs `pyve`/`project-guide`) applied to new content.
+- [x] Final audit pass — `development.md` fully converted from venv/pyenv + bare-`pytest` workflow to `pyve` two-env model (incl. 12-file tests tree); `modes.md` / `workflow.md` / `overrides.md` / `about/*` confirmed current; `mkdocs.yml` nav unchanged (no new pages).
+
+**Out of scope:**
+- **`concept.md` / `features.md` / `tech-spec.md`.** Planning artifacts — a separate `refactor_plan` session.
+- **Version bump / CHANGELOG entry.** None — doc-only, per session decision Q3.
+- **New MkDocs pages or nav restructure.** Content refresh of existing pages only; `mkdocs.yml` touched only if an existing page's content demands it.
+
+---
+
 ## Future
 
 ### Audit Modes [Deferred]

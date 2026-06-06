@@ -1,13 +1,23 @@
 # Installation
 
-project-guide can be installed using pip, pipx, or from source.
+project-guide can be installed via pyve (recommended), pip, pipx, or from source.
 
 ## Requirements
 
 - Python 3.11 or higher
-- pip or pipx package manager
+- pyve, pip, or pipx package manager
 
 project-guide depends on Jinja2 for its mode-driven templating system. This is installed automatically as a dependency.
+
+## Install via pyve (recommended)
+
+If you use [pyve](https://pointmatic.github.io/pyve/), let pyve install and manage Project-Guide globally for you:
+
+```bash
+pyve self install
+```
+
+`pyve self install` provisions project-guide in pyve's toolchain venv and creates a `~/.local/bin/project-guide` shim, so a single install on your `PATH` serves every project — no per-project `pip install` needed. project-guide keeps all per-project state in each project's `.project-guide.yml` and `docs/project-guide/` tree, so the shared install is never written to. When pyve is detected at `init` time, project-guide's onboarding, `status`, and `heal` output adapt to pyve-managed hosting.
 
 ## Install via pip
 
@@ -19,9 +29,9 @@ pip install project-guide
 
 This installs project-guide and its dependencies (including Jinja2) in your current Python environment.
 
-## Install via pipx (Recommended)
+## Install via pipx (recommended for standalone CLI use)
 
-For system-wide CLI access without affecting your project's dependencies, use pipx:
+If you don't use pyve, pipx is the best way to get system-wide CLI access without affecting your project's dependencies:
 
 ```bash
 pipx install project-guide

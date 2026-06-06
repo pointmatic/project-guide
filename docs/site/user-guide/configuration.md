@@ -10,10 +10,12 @@ The `.project-guide.yml` file is created automatically when you run `project-gui
 
 ```yaml
 version: "2.0"
-installed_version: "2.0.13"
+installed_version: "2.13.0"
 target_dir: "docs/project-guide"
 metadata_file: ".metadata.yml"
 current_mode: "code_direct"
+test_first: false
+pyve_version: "2.6.2"        # null if pyve is not installed
 overrides: {}
 ```
 
@@ -45,6 +47,14 @@ The name of the metadata file used to track file state. Defaults to `.metadata.y
 
 Tracks the active development mode. Changed via the `project-guide mode` command. project-guide includes 17 modes to match different development workflows.
 
+### `test_first`
+
+The default coding approach. `false` (the default) starts coding in `code_direct` mode; `true` prefers `code_test_first` (test-driven development). Set at `init` via the `--test-first` flag.
+
+### `pyve_version`
+
+The version of [pyve](https://pointmatic.github.io/pyve/) detected at `init` time, or `null` if pyve was not installed. When set, project-guide adapts to pyve-managed hosting — the rendered `go.md` onboarding, the `project-guide status` footer, and the `project-guide heal` local-install check all read this cached value (pyve is not re-detected on every command). If you install pyve after running `init`, re-run `project-guide init --force` to refresh the detection.
+
 ### `overrides`
 
 A mapping of template paths to override metadata. Managed automatically by the `override` and `unoverride` commands.
@@ -64,6 +74,16 @@ Override fields:
 - `reason` -- Why the override was created
 - `locked_version` -- The package version when the override was set
 - `last_updated` -- When the override was last modified
+
+### `metadata_overrides`
+
+An optional mapping for per-project patches to individual mode fields, without editing the bundled `.metadata.yml`. Only `next_mode`, `files_exist`, `info`, and `description` are patchable; unmentioned fields are left unchanged.
+
+```yaml
+metadata_overrides:
+  plan_stories:
+    next_mode: scaffold_project
+```
 
 ## Zero Configuration
 

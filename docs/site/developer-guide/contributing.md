@@ -42,7 +42,9 @@ For template improvements or new features:
 
 3. **Set up development environment**
    ```bash
-   pip install -e ".[dev,docs]"
+   pyve run pip install -e .                       # main env: editable install
+   pyve testenv init                               # create the dev testenv
+   pyve testenv install -r requirements-dev.txt    # pytest, ruff, mypy
    ```
 
 4. **Make your changes**
@@ -52,13 +54,13 @@ For template improvements or new features:
 
 5. **Run tests**
    ```bash
-   pytest
+   pyve test
    ```
 
 6. **Run linters**
    ```bash
-   ruff check .
-   mypy project_guide
+   pyve testenv run ruff check project_guide tests
+   pyve testenv run mypy project_guide
    ```
 
 7. **Commit your changes**
@@ -90,10 +92,10 @@ For template improvements or new features:
 ### Testing
 
 - Write tests for new features
-- Maintain or improve test coverage (minimum 85%, currently 91%)
-- Use pytest for testing
+- Maintain or improve test coverage (minimum 85%, currently 90%)
+- Run tests with `pyve test` (pytest lives in the dev testenv)
 - Test edge cases and error conditions
-- 129 tests across 7 test files
+- 596 tests across 12 test files
 
 ### Documentation
 
@@ -133,14 +135,19 @@ project-guide/
 │               ├── modes/      # Mode templates (*.md)
 │               ├── artifacts/  # Artifact templates (*.md)
 │               └── go.md       # Go template
-├── tests/                      # Test suite (129 tests, 91% coverage)
-│   ├── test_cli.py             # CLI command tests (~60 tests)
-│   ├── test_sync.py            # Sync logic tests (~22 tests)
-│   ├── test_integration.py     # Integration tests (~6 tests)
-│   ├── test_render.py          # Render tests (~20 tests)
-│   ├── test_metadata.py        # Metadata tests (~9 tests)
-│   ├── test_config.py          # Configuration tests (~7 tests)
-│   └── test_purge.py           # Purge command tests (~5 tests)
+├── tests/                      # Test suite (596 tests, 90% coverage)
+│   ├── test_cli.py             # CLI command tests (~200)
+│   ├── test_render.py          # Render tests, incl. per-mode (~170)
+│   ├── test_actions.py         # Deterministic actions / archive (~53)
+│   ├── test_runtime.py         # Runtime helpers (~52)
+│   ├── test_stories.py         # Story parsing / git-push messages (~35)
+│   ├── test_sync.py            # Sync logic tests (~25)
+│   ├── test_config.py          # Configuration tests (~19)
+│   ├── test_metadata.py        # Metadata tests (~18)
+│   ├── test_archive_stories_mode.py  # archive_stories mode (~8)
+│   ├── test_integration.py     # Integration tests (~6)
+│   ├── test_purge.py           # Purge command tests (~5)
+│   └── test_cross_repo_contract.py   # Pyve cross-repo contracts (~3)
 ├── docs/                       # Documentation
 │   └── site/                   # MkDocs documentation
 └── pyproject.toml              # Package configuration
@@ -166,20 +173,20 @@ project-guide/
 ### Run All Tests
 
 ```bash
-pytest
+pyve test
 ```
 
 ### Run Specific Tests
 
 ```bash
-pytest tests/test_cli.py
-pytest tests/test_cli.py::test_init_command
+pyve test tests/test_cli.py
+pyve test tests/test_cli.py::test_init_in_empty_directory
 ```
 
 ### Check Coverage
 
 ```bash
-pytest --cov=project_guide --cov-report=html
+pyve test --cov=project_guide --cov-report=html
 open htmlcov/index.html
 ```
 
@@ -187,13 +194,13 @@ open htmlcov/index.html
 
 ```bash
 # Check code style
-ruff check .
+pyve testenv run ruff check project_guide tests
 
 # Type checking
-mypy project_guide
+pyve testenv run mypy project_guide
 
 # Format code
-ruff format .
+pyve testenv run ruff format project_guide tests
 ```
 
 ## Building Documentation

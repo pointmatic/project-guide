@@ -1,4 +1,4 @@
-# descriptions.md — project-guide
+# brand-descriptions.md — project-guide
 
 Canonical source of truth for all descriptive language used across the `project-guide` project. All consumer files (README.md, docs/index.html, pyproject.toml, features.md) should draw from these definitions.
 
@@ -38,24 +38,25 @@ A Python CLI tool that installs, swaps, and synchronizes battle-tested LLM workf
 
 - **Battle-Tested Workflows** - Crafted workflow prompts from concept through production release in one place
 - **Adaptive** — Switch project between plan, code, and debug modes to get the right instructions for each task
+- **Pyve Integration** — First-class Pyve support: global install, named-environment planning, and Pyve-aware onboarding, `status`, and `heal` drift warnings
 - **Version Management** — Track and update all prompt docs in a project with a single command
 - **Customization Lock** - Lock customized prompts to prevent update overwrites
 - **Gentle Force Updates** — Automatic `.bak` files created if you `--force` update a custom prompt document
-- **CLI Interface** — Eight intuitive commands for all operations
+- **CLI Interface** — Twelve intuitive commands for all operations
 - **Zero Configuration** — Works with sensible defaults out of the box
 - **Cross-Platform** — Runs on macOS, Linux, and Windows with Python 3.11+
 - **Well Tested** — Comprehensive test coverage for reliability
-- **Lightweight** — Minimal dependencies (click, pyyaml, packaging) for fast installation
+- **Lightweight** — Minimal dependencies (click, jinja2, pyyaml, packaging) for fast installation
 
 ## Technical Description
 
-Project-Guide is a Python CLI tool that solves the problem of keeping LLM workflow documentation synchronized with an opinionated source of truthacross multiple projects. Just install the PyPI package with `pip` in any repository and start planning and coding with the LLM. It packages canonical versions of LLM prompts and provides commands to install, update, and manage them in a `docs/project-guide` directory in any project repo. 
+Project-Guide is a Python CLI tool that solves the problem of keeping LLM workflow documentation synchronized with an opinionated source of truth across multiple projects. Install the Pyve virtual-environment manager first (via Homebrew), and Pyve will prompt to install Project-Guide from `pip` into Pyve's global toolchain — a single install on `PATH` that serves every project. You can also `pip install project-guide` directly in any repository. Either way, start planning and coding with the LLM. Project-Guide dynamically renders canonical "modes" of LLM prompts and provides commands to install, update, and manage them in a `docs/project-guide` directory in any project repo.
 
-The tool tracks which package versions were installed for each guide, allows a project to lock specific guides when customized, and provides clear status reporting. It uses a simple YAML configuration file (`.project-guide.yml`) to store project-specific settings and override metadata. The package is distributed via PyPI and can be installed with `pip` locally or `pipx` for system-wide CLI access.
+The tool tracks which package versions were installed for each guide, allows a project to lock specific guides when customized, and provides clear status reporting. It uses a simple YAML configuration file (`.project-guide.yml`) to store project-specific settings and override metadata. When Pyve hosts Project-Guide, all per-project state stays in the project (never the shared install), and Project-Guide adapts its onboarding, `status`, and `heal` output to Pyve-managed hosting; the `plan_envs` mode authors an environment spec vendored from Pyve. For standalone use, `pip` (or `pipx` for system-wide CLI) works without Pyve.
 
 ## Keywords
 
-`llm`, `coding`, `human-in-the-loop`, `hitloop`, `documentation`, `workflow`, `guide`, `templates`, `python`, `cli`, `version-management`, `synchronization`, `project-management`, `development-tools`, `best-practices`, `override-support`, `yaml-config`, `cross-platform`
+`llm`, `coding`, `human-in-the-loop`, `hitloop`, `documentation`, `workflow`, `guide`, `templates`, `jinja2`, `mode-driven`, `python`, `cli`, `pyve`, `environments`, `version-management`, `synchronization`, `project-management`, `development-tools`, `best-practices`, `override-support`, `yaml-config`, `cross-platform`
 
 ---
 
@@ -63,9 +64,9 @@ The tool tracks which package versions were installed for each guide, allows a p
 
 Essential steps for getting started with project-guide:
 
-1. **Install**: `pip install project-guide` (or `pipx install project-guide` for system-wide CLI)
+1. **Install**: Install Pyve (Homebrew) and let it install Project-Guide into its global toolchain — or `pip install project-guide` (or `pipx install project-guide` for system-wide CLI) directly
 2. **Initialize**: Navigate to your project directory and run `project-guide init`
-3. **Start**: Tell your LLM: "Read `docs/project-guide/go-project-guide.md`."
+3. **Start**: Tell your LLM: "Read `docs/project-guide/go.md`."
 4. **Collaborate**: Say "go" after each step as the LLM walks through planning, stories, and implementation
 5. **Customize**: Mark a prompt document as overridden if you customize it: `project-guide override <filename>`
 6. **Update**: Pull latest workflow improvements: `project-guide update`
@@ -83,29 +84,30 @@ Short blurbs for landing pages and feature grids. Each card has a title and a on
 |---|-------|-------------|
 | 1 | Battle-Tested Workflows | Crafted workflow prompts from concept through production release in one place |
 | 2 | Adaptive Guidance | Switch project between plan, code, and debug modes to get the right instructions for each task |
-| 3 | Version Management | Track and update all prompt docs in a project with a single command |
-| 4 | Custom Prompt Lock | Lock a customized LLM prompt in any project to prevent future updates for that prompt document |
-| 5 | CLI Interface | Eight intuitive commands for all operations |
-| 6 | Zero Configuration | Works out of the box with sensible defaults |
+| 3 | Pyve Integration | Install once globally via Pyve; Project-Guide adapts its onboarding, `status`, and `heal` output to Pyve-managed hosting, and plans named environments with `plan_envs` |
+| 4 | Version Management | Track and update all prompt docs in a project with a single command |
+| 5 | Custom Prompt Lock | Lock a customized LLM prompt in any project to prevent future updates for that prompt document |
+| 6 | CLI Interface | Twelve intuitive commands for all operations |
+| 7 | Zero Configuration | Works out of the box with sensible defaults |
 
 ### Operational Benefits
 
 | # | Title | Description |
 |---|-------|-------------|
-| 7 | Clear Status Reporting | See at a glance which prompt documents are current, outdated, overridden, or missing with color-coded status output |
-| 8 | Gentle 'Forced' Updates | Automatic `.bak` files created if you `--force` update a custom prompt document |
-| 9 | Safe Operations | Idempotent commands and explicit consent requirements protect your project-specific customizations |
-| 10 | Lightweight | Minimal dependencies (click, pyyaml, packaging) mean fast installation and no bloat |
-| 11 | Cross-Platform | Runs on macOS, Linux, and Windows with Python 3.11+ for consistent workflows everywhere |
-| 12 | Well Tested | Comprehensive test coverage minimum of 85% ensures reliability |
+| 8 | Clear Status Reporting | See at a glance which prompt documents are current, outdated, overridden, or missing with color-coded status output |
+| 9 | Gentle 'Forced' Updates | Automatic `.bak` files created if you `--force` update a custom prompt document |
+| 10 | Safe Operations | Idempotent commands and explicit consent requirements protect your project-specific customizations |
+| 11 | Lightweight | Minimal dependencies (click, jinja2, pyyaml, packaging) mean fast installation and no bloat |
+| 12 | Cross-Platform | Runs on macOS, Linux, and Windows with Python 3.11+ for consistent workflows everywhere |
+| 13 | Well Tested | Comprehensive test coverage minimum of 85% ensures reliability |
 
 ### Development Philosophy
 
 | # | Title | Description |
 |---|-------|-------------|
-| 13 | HITLoop Development | You direct features, flow, and taste. The LLM handles the typing. Human-in-the-loop collaboration at its best |
-| 14 | Flaming Agile Pace | Complete an entire production-ready backend in 6-12 hours with structured, methodical LLM collaboration |
-| 15 | Structured Workflow | The workflow enforces a focused methodology: planning, coding, debugging, etc. with approval gates |
+| 14 | HITLoop Development | You direct features, flow, and taste. The LLM handles the typing. Human-in-the-loop collaboration at its best |
+| 15 | Flaming Agile Pace | Complete an entire production-ready backend in 6-12 hours with structured, methodical LLM collaboration |
+| 16 | Structured Workflow | The workflow enforces a focused methodology: planning, coding, debugging, etc. with approval gates |
 
 ---
 
@@ -115,8 +117,8 @@ Short blurbs for landing pages and feature grids. Each card has a title and a on
 |------|--------------------------|
 | `README.md` line 9 | Two-clause Technical Description |
 | `README.md` line 17 | Benefits (inline) |
-| `docs/index.html` hero `<h1>` | One-liner |
-| `docs/index.html` hero `<p>` | Friendly Brief Description |
-| `docs/index.html` feature grid | Feature Cards |
+| `docs/site/index.html` hero `<h1>` | One-liner |
+| `docs/site/index.html` hero `<p>` | Friendly Brief Description |
+| `docs/site/index.html` feature grid | Feature Cards |
 | `pyproject.toml` description | One-liner |
 | (GitHub Repository) | Tagline + ": "+ One-liner |

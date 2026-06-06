@@ -4,7 +4,13 @@ Get up and running with project-guide in minutes.
 
 ## 1. Install
 
-Install project-guide using pip or pipx:
+If you use [pyve](https://pointmatic.github.io/pyve/), let pyve install project-guide globally for you (recommended) — it provisions project-guide in pyve's toolchain venv and adds a `~/.local/bin/project-guide` shim:
+
+```bash
+pyve self install
+```
+
+Otherwise, install with pip or pipx:
 
 ```bash
 pip install project-guide

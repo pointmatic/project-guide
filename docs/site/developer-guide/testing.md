@@ -4,61 +4,63 @@ Comprehensive guide to testing project-guide.
 
 ## Test Suite Overview
 
-project-guide has 91% test coverage with 129 tests across 7 test files covering:
+project-guide has 90% test coverage with 596 tests across 12 test files covering:
 
 - CLI commands
+- Deterministic actions (archive) and the `archive_stories` mode
 - Configuration handling
 - File synchronization
 - Jinja2 template rendering
 - Metadata loading and validation
+- Runtime helpers (skip-input contract, project-name detection)
+- Story parsing and `git-push` message derivation
+- Cross-repo contracts (Pyve hosting)
 - Integration scenarios
 - Purge command
 
 ## Running Tests
 
+This project is pyve-managed: pytest lives in the dev testenv, so run tests with `pyve test` (not bare `pytest`). `pyve test` forwards any arguments straight to pytest.
+
 ### All Tests
 
 ```bash
-pytest
+pyve test
 ```
 
 ### With Coverage
 
 ```bash
-pytest --cov=project_guide --cov-report=term-missing
+pyve test --cov=project_guide --cov-report=term-missing
 ```
 
 ### HTML Coverage Report
 
 ```bash
-pytest --cov=project_guide --cov-report=html
+pyve test --cov=project_guide --cov-report=html
 open htmlcov/index.html
 ```
 
 ### Specific Test Files
 
 ```bash
-pytest tests/test_cli.py
-pytest tests/test_config.py
-pytest tests/test_sync.py
-pytest tests/test_render.py
-pytest tests/test_metadata.py
-pytest tests/test_integration.py
-pytest tests/test_purge.py
+pyve test tests/test_cli.py
+pyve test tests/test_render.py
+pyve test tests/test_config.py
+pyve test tests/test_cross_repo_contract.py
 ```
 
 ### Specific Tests
 
 ```bash
-pytest tests/test_cli.py::test_init_command
-pytest tests/test_cli.py::TestInitCommand::test_creates_project_guide_directory
+pyve test tests/test_cli.py::test_init_in_empty_directory
 ```
 
 ### By Pattern
 
 ```bash
-pytest -k "init"
-pytest -k "render"
+pyve test -k "init"
+pyve test -k "render"
 ```
 
 ## Test Structure
@@ -67,13 +69,18 @@ pytest -k "render"
 
 | File | Tests | Description |
 |------|-------|-------------|
-| `test_cli.py` | ~60 | CLI command tests using CliRunner |
-| `test_sync.py` | ~22 | File synchronization logic |
-| `test_render.py` | ~20 | Jinja2 template rendering |
-| `test_metadata.py` | ~9 | Metadata loading and validation |
-| `test_config.py` | ~7 | Configuration handling |
+| `test_cli.py` | ~200 | CLI command tests using CliRunner |
+| `test_render.py` | ~170 | Jinja2 template rendering (incl. parametrized per-mode) |
+| `test_actions.py` | ~53 | Deterministic actions (archive) |
+| `test_runtime.py` | ~52 | Runtime helpers (skip-input, project-name detection) |
+| `test_stories.py` | ~35 | Story parsing and `git-push` message derivation |
+| `test_sync.py` | ~25 | File synchronization logic |
+| `test_config.py` | ~19 | Configuration handling |
+| `test_metadata.py` | ~18 | Metadata loading and validation |
+| `test_archive_stories_mode.py` | ~8 | `archive_stories` mode behavior |
 | `test_integration.py` | ~6 | End-to-end integration scenarios |
 | `test_purge.py` | ~5 | Purge command |
+| `test_cross_repo_contract.py` | ~3 | Cross-repo contracts (Pyve hosting) |
 
 ### Unit Tests
 
@@ -85,12 +92,12 @@ Test individual functions and classes in isolation.
 def test_config_loads_from_file(tmp_path):
     config_file = tmp_path / ".project-guide.yml"
     config_file.write_text("""
-version: "1.0"
-package_version: "2.0.0"
+version: "2.0"
+installed_version: "2.13.0"
 """)
 
-    config = Config.load(tmp_path)
-    assert config.package_version == "2.0.0"
+    config = Config.load(str(config_file))
+    assert config.installed_version == "2.13.0"
 ```
 
 ### Integration Tests
@@ -290,7 +297,7 @@ def test_with_mock_subprocess():
 
 ### Current Coverage
 
-- **Overall**: 91%
+- **Overall**: 90%
 - **Minimum threshold**: 85% (enforced)
 
 ### Coverage Targets
@@ -303,14 +310,14 @@ def test_with_mock_subprocess():
 
 ```bash
 # Terminal report
-pytest --cov=project_guide --cov-report=term-missing
+pyve test --cov=project_guide --cov-report=term-missing
 
 # HTML report
-pytest --cov=project_guide --cov-report=html
+pyve test --cov=project_guide --cov-report=html
 open htmlcov/index.html
 
 # Fail if coverage drops below threshold
-pytest --cov=project_guide --cov-fail-under=85
+pyve test --cov=project_guide --cov-fail-under=85
 ```
 
 ## Continuous Integration
@@ -420,10 +427,10 @@ def test_something():
 
 ```bash
 # Drop into pdb on failure
-pytest --pdb
+pyve test --pdb
 
 # Drop into pdb on first failure
-pytest -x --pdb
+pyve test -x --pdb
 ```
 
 ## Next Steps

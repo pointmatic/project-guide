@@ -7,7 +7,7 @@
 [![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://pointmatic.github.io/project-guide/)
 [![codecov](https://codecov.io/gh/pointmatic/project-guide/graph/badge.svg)](https://codecov.io/gh/pointmatic/project-guide)
 
-A Python-friendly CLI tool that installs, renders, and synchronizes battle-tested LLM workflow prompts across projects using mode-driven Jinja2 templates, with content-hash sync and project-specific overrides to keep documentation consistent while preserving customizations.
+A Python-friendly CLI tool that installs, renders, and synchronizes battle-tested LLM workflow prompts across projects using mode-driven Jinja2 templates, with content-hash sync and project-specific overrides to keep documentation consistent while preserving customizations. Install globally with [pyve](https://pointmatic.github.io/pyve/), and Project-Guide will help you define your named environments with the `plan_envs` mode, and get pyve-aware onboarding.
 
 ## Why project-guide?
 
@@ -33,6 +33,7 @@ When you customize a file for your project, mark it as overridden so future pack
 ## Key Features
 - **Battle-Tested Workflows** - Crafted workflow prompts from concept through production release in one place
 - **Mode-Driven Templates** - 17 modes rendered via Jinja2 so `go.md` always matches your current task
+- **Pyve Integration** - First-class [pyve](https://pointmatic.github.io/pyve/) support: install globally with `pyve self install`, generate your project's named environment spec with the `plan_envs` mode, and get pyve-aware onboarding plus a `status` host footer and `heal` drift warnings when pyve manages the install
 - **Content-Hash Sync** - SHA-256 hash comparison detects changes without relying on version numbers
 - **Custom File Lock** - Lock customized files to prevent update overwrites
 - **Gentle Force Updates** - Automatic `.bak` files created if you `--force` update a custom file
@@ -52,6 +53,8 @@ If you use [pyve](https://pointmatic.github.io/pyve/), let pyve install project-
 ```bash
 pyve self install
 ```
+
+**Why a single global install?** Under pyve hosting, one project-guide install on `PATH` serves every project you work on, rather than a separate `pip install` per project. project-guide is built for this: all per-project state lives in your project's `.project-guide.yml` and `docs/project-guide/` tree — nothing is written back to the shared install. When pyve is detected at `init` time, project-guide adapts: the rendered `go.md` onboarding, `project-guide status`, and `project-guide heal` all reflect pyve-managed hosting (and `heal` warns if a stray project-local install would shadow the global one).
 
 ### Via pip
 
@@ -170,7 +173,7 @@ Select mode [1-17, Enter to cancel]:
 ### 5. Update files
 
 ```bash
-pip install --upgrade project-guide
+pip install --upgrade project-guide   # pyve users: pyve upgrades project-guide for you
 project-guide update
 ```
 
@@ -280,6 +283,28 @@ If any pre-check fails (no versioned stories, archive target already exists, sou
 
 This command is intended to be run by the LLM after the developer has approved the archive in `project-guide mode archive_stories`.
 
+### `bump-version`
+
+Bump the package version across all three canonical sites in one step. Use it at end-of-phase when shipping a bundled release.
+
+```bash
+project-guide bump-version [VERSION]
+```
+
+**Argument:**
+- `VERSION` - the `X.Y.Z` version to write
+
+**Writes:**
+- `pyproject.toml` `[project] version`
+- the package `__version__` source (auto-detected: `<package>/version.py`, `_version.py`, `__init__.py`, and `src/` variants)
+- a new `## [VERSION] - YYYY-MM-DD` entry in `CHANGELOG.md`, inserted directly below `## [Unreleased]` (idempotent — re-running refreshes the date and preserves the body)
+
+**Options:**
+- `--no-input` - Skip prompts; fail loudly if a default is missing (also auto-enabled by `CI=1` or non-TTY stdin)
+- `--quiet` - Suppress success-path stdout; errors and warnings still print to stderr
+
+The version magnitude (patch / minor / major) is a decision made per the Version Cadence rule in `docs/specs/stories.md`; this command performs only the mechanical write.
+
 ### `status`
 
 Show status of all installed files and current mode. Output is compact and grouped into Mode, Guide, and Files sections with color.
@@ -297,6 +322,7 @@ project-guide status [OPTIONS]
 - Status of the rendered guide
 - File counts (current, need updating, missing, overridden)
 - Stories section: total/done/in-progress/planned counts + next story (when `stories.md` exists)
+- A `Managed by pyve vX.Y.Z` footer when pyve was present at `init` time (install pyve before running `project-guide init` for it to appear)
 - Per-file detail and per-phase story breakdown (verbose mode)
 
 ### `update`
@@ -348,6 +374,8 @@ project-guide heal [OPTIONS]
 **Auto-hook:** every `project-guide` invocation (including `--help` and `--version`) calls heal first via a group-level hook, so the fresh-clone case usually resolves itself silently the first time you run *any* command. The hook is silent in the steady state and prompts only when there's actual drift.
 
 **Tracked-`go.md` warning (v2.8.0+):** if `docs/project-guide/go.md` is in your git index, `heal` emits a stderr warning with a copyable migration command. The current policy is untracked-by-default — `go.md` stays visible to IDE LLMs (because it's unignored) but is kept out of the index so branch switches don't trip on it. The warning is non-fatal; the consumer applies the migration on their own schedule.
+
+**Local-install warning under pyve hosting (v2.13.0+):** when pyve is detected and a project-local install of project-guide (under a `site-packages` directory inside your project, e.g. `.venv/`) would shadow pyve's global install, `heal` emits a stderr warning with a copyable `pip uninstall project-guide` command. Like the `go.md` warning it is non-fatal and never auto-removes anything — you decide when to clean up. An editable source checkout is deliberately not flagged.
 
 **Examples:**
 ```bash
@@ -485,7 +513,7 @@ The `.project-guide.yml` file stores project configuration:
 
 ```yaml
 version: "2.0"
-installed_version: "2.4.12"
+installed_version: "2.13.0"
 target_dir: "docs/project-guide"
 metadata_file: ".metadata.yml"
 current_mode: "code_direct"

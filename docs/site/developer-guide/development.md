@@ -6,7 +6,7 @@ Guide for setting up a development environment for project-guide.
 
 - Python 3.11 or higher
 - Git
-- pip or pipx
+- [pyve](https://pointmatic.github.io/pyve/) — this project is pyve-managed; pyve provisions the environments
 
 ## Clone the Repository
 
@@ -15,32 +15,18 @@ git clone https://github.com/pointmatic/project-guide.git
 cd project-guide
 ```
 
-## Set Up Virtual Environment
+## Set Up the Environment
 
-### Using venv
-
-```bash
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-```
-
-### Using pyenv
+project-guide uses pyve's two-environment model: a main runtime env plus a separate dev testenv. pytest, ruff, and mypy live in the **testenv**, not the main venv.
 
 ```bash
-pyenv virtualenv 3.11 project-guide
-pyenv activate project-guide
+# Main environment: editable install
+pyve run pip install -e .
+
+# Dev testenv: pytest, ruff, mypy
+pyve testenv init
+pyve testenv install -r requirements-dev.txt
 ```
-
-## Install Development Dependencies
-
-```bash
-pip install -e ".[dev,docs]"
-```
-
-This installs:
-- The package in editable mode
-- Development dependencies (pytest, pytest-cov, ruff, mypy)
-- Documentation dependencies (mkdocs-material)
 
 ## Verify Installation
 
@@ -49,13 +35,13 @@ This installs:
 project-guide --version
 
 # Run tests
-pytest
+pyve test
 
 # Check linting
-ruff check .
+pyve testenv run ruff check project_guide tests
 
 # Check types
-mypy project_guide
+pyve testenv run mypy project_guide
 ```
 
 ## Development Workflow
@@ -74,29 +60,29 @@ Edit files in `project_guide/` or `tests/`
 
 ```bash
 # Run all tests
-pytest
+pyve test
 
 # Run with coverage
-pytest --cov=project_guide
+pyve test --cov=project_guide
 
 # Run specific test file
-pytest tests/test_cli.py
+pyve test tests/test_cli.py
 
 # Run specific test
-pytest tests/test_cli.py::test_init_command
+pyve test tests/test_cli.py::test_init_in_empty_directory
 ```
 
 ### 4. Check Code Quality
 
 ```bash
 # Lint code
-ruff check .
+pyve testenv run ruff check project_guide tests
 
 # Format code
-ruff format .
+pyve testenv run ruff format project_guide tests
 
 # Type check
-mypy project_guide
+pyve testenv run mypy project_guide
 ```
 
 ### 5. Update Documentation
@@ -150,13 +136,18 @@ project_guide/
 ```
 tests/
 ├── __init__.py
-├── test_cli.py               # CLI command tests (~60 tests)
-├── test_sync.py              # Sync logic tests (~22 tests)
-├── test_integration.py       # Integration tests (~6 tests)
-├── test_render.py            # Render tests (~20 tests)
-├── test_metadata.py          # Metadata tests (~9 tests)
-├── test_config.py            # Configuration tests (~7 tests)
-└── test_purge.py             # Purge command tests (~5 tests)
+├── test_cli.py                       # CLI command tests (~200)
+├── test_render.py                    # Render tests, incl. per-mode (~170)
+├── test_actions.py                   # Deterministic actions / archive (~53)
+├── test_runtime.py                   # Runtime helpers (~52)
+├── test_stories.py                   # Story parsing / git-push messages (~35)
+├── test_sync.py                      # Sync logic tests (~25)
+├── test_config.py                    # Configuration tests (~19)
+├── test_metadata.py                  # Metadata tests (~18)
+├── test_archive_stories_mode.py      # archive_stories mode (~8)
+├── test_integration.py               # Integration tests (~6)
+├── test_purge.py                     # Purge command tests (~5)
+└── test_cross_repo_contract.py       # Pyve cross-repo contracts (~3)
 ```
 
 ### Documentation
@@ -175,39 +166,39 @@ docs/
 ### Basic Test Run
 
 ```bash
-pytest
+pyve test
 ```
 
 ### With Coverage Report
 
 ```bash
-pytest --cov=project_guide --cov-report=html
+pyve test --cov=project_guide --cov-report=html
 open htmlcov/index.html
 ```
 
 ### Verbose Output
 
 ```bash
-pytest -v
+pyve test -v
 ```
 
 ### Stop on First Failure
 
 ```bash
-pytest -x
+pyve test -x
 ```
 
 ### Run Specific Tests
 
 ```bash
 # By file
-pytest tests/test_cli.py
+pyve test tests/test_cli.py
 
 # By test name
-pytest tests/test_cli.py::test_init_command
+pyve test tests/test_cli.py::test_init_in_empty_directory
 
 # By pattern
-pytest -k "test_init"
+pyve test -k "test_init"
 ```
 
 ## Code Quality Tools
@@ -216,23 +207,23 @@ pytest -k "test_init"
 
 ```bash
 # Check for issues
-ruff check .
+pyve testenv run ruff check project_guide tests
 
 # Fix auto-fixable issues
-ruff check --fix .
+pyve testenv run ruff check --fix project_guide tests
 
 # Format code
-ruff format .
+pyve testenv run ruff format project_guide tests
 ```
 
 ### Mypy (Type Checker)
 
 ```bash
 # Type check
-mypy project_guide
+pyve testenv run mypy project_guide
 
 # Strict mode
-mypy --strict project_guide
+pyve testenv run mypy --strict project_guide
 ```
 
 ## Building Documentation
@@ -269,17 +260,17 @@ import pdb; pdb.set_trace()
 Run tests:
 
 ```bash
-pytest tests/test_cli.py::test_init_command
+pyve test tests/test_cli.py::test_init_in_empty_directory
 ```
 
 ### Using pytest debugging
 
 ```bash
 # Drop into pdb on failure
-pytest --pdb
+pyve test --pdb
 
 # Drop into pdb on first failure
-pytest -x --pdb
+pyve test -x --pdb
 ```
 
 ### Verbose CLI Output
@@ -324,18 +315,18 @@ python -m project_guide init
 
 ### Import Errors
 
-Ensure package is installed in editable mode:
+Ensure the package is installed in editable mode in the main env:
 
 ```bash
-pip install -e .
+pyve run pip install -e .
 ```
 
 ### Test Failures
 
-Check if dependencies are up to date:
+Refresh the dev testenv dependencies:
 
 ```bash
-pip install --upgrade -e ".[dev,docs]"
+pyve testenv install -r requirements-dev.txt
 ```
 
 ### Type Check Errors

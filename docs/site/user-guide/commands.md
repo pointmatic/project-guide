@@ -1,6 +1,6 @@
 # Commands Reference
 
-project-guide provides nine commands for managing LLM workflow files across your projects.
+project-guide provides twelve commands for managing LLM workflow files across your projects.
 
 ## Command Overview
 
@@ -9,8 +9,11 @@ project-guide provides nine commands for managing LLM workflow files across your
 | `init` | Install files into a new project |
 | `mode` | Switch workflow mode or list available modes |
 | `archive-stories` | Archive `stories.md` and re-render a fresh one for the next phase |
+| `bump-version` | Bump the package version across `pyproject.toml`, the version source, and `CHANGELOG.md` |
 | `status` | Show file status grouped by category |
 | `update` | Update non-overridden files to latest versions |
+| `heal` | Repair the install — create missing templates and refresh stale ones |
+| `git-push` | Commit the latest completed story via gitbetter (optional dependency) |
 | `override` | Mark a file as overridden to prevent updates |
 | `unoverride` | Remove override status from a file |
 | `overrides` | List all overridden files |
@@ -141,6 +144,29 @@ If any pre-check fails (no versioned stories in the source, archive target alrea
 
 This command is intended to be run by the LLM after the developer has approved the archive in `project-guide mode archive_stories`. The conversational-vs-deterministic split is deliberate: the mode template walks the developer through the decision; the CLI command performs the transaction.
 
+## bump-version
+
+Bump the package version across all three canonical sites in one step — used at end-of-phase when shipping a bundled release.
+
+```bash
+project-guide bump-version [VERSION]
+```
+
+### Options
+
+- `--no-input` - Skip prompts; fail loudly if a default is missing (also auto-enabled by `CI=1` or non-TTY stdin)
+- `--quiet` - Suppress success-path stdout; errors and warnings still print to stderr
+
+### What It Does
+
+Writes the supplied `X.Y.Z` to:
+
+1. `pyproject.toml` `[project] version`
+2. the package `__version__` source (auto-detected: `<package>/version.py`, `_version.py`, `__init__.py`, and `src/` variants)
+3. a new `## [VERSION] - YYYY-MM-DD` entry in `CHANGELOG.md`, inserted directly below `## [Unreleased]` (idempotent — re-running refreshes the date and preserves the body)
+
+The version magnitude (patch / minor / major) is decided per the Version Cadence rule in `docs/specs/stories.md`; this command performs only the mechanical write.
+
 ## status
 
 Display the status of all files in your project, grouped by category.
@@ -161,6 +187,7 @@ Shows grouped sections:
 - **Guide** - The rendered `go.md` entry point path
 - **Files** - Summary counts (current / need updating / missing / overridden); per-file list in verbose mode
 - **Stories** - Total/done/in-progress/planned counts and next unstarted story (when `stories.md` exists and contains stories); per-phase breakdown in verbose mode
+- **Pyve footer** - A `Managed by pyve vX.Y.Z` line when pyve was present at `init` time (read from the cached `pyve_version`)
 
 Each file shows one of:
 
@@ -172,7 +199,7 @@ Each file shows one of:
 ### Example Output
 
 ```
-project-guide v2.4.12
+project-guide v2.13.0
 
 Mode: code_direct — Generate code directly, test after
   Prerequisites: all met
@@ -185,6 +212,8 @@ Files: 33 current
 
 Stories: 12 total (8 done, 1 in progress, 3 planned)
   Next: N.m — Phase N Documentation and CHANGELOG
+
+Managed by pyve v2.6.2 (detected at init time).
 ```
 
 ## update
@@ -227,6 +256,49 @@ project-guide update --force
 4. Creates `.bak.<timestamp>` backups when updating overridden files with `--force`
 5. Re-renders `go.md` if the active mode's template changed
 6. Updates content hashes in configuration
+
+## heal
+
+Repair the install: create missing template files and refresh stale ones to match the bundled package. Unlike `update`, `heal` also **creates** files that are absent — so it's the right command after cloning a repo whose template tree is gitignored.
+
+```bash
+project-guide heal [OPTIONS]
+```
+
+### Options
+
+- `--no-input` - Auto-yes the `[Y/n]` prompt and emit a one-line stderr notice when writes occur (also auto-enabled by `CI=1`, `PROJECT_GUIDE_NO_INPUT=1`, or non-TTY stdin)
+
+### Behavior
+
+- **Silent when clean** - zero drift exits 0 with no output.
+- **Prompts on drift** - prints a one-line stderr summary and asks to apply; declining exits without writing.
+- **Auto-hook** - every `project-guide` invocation (including `--help`/`--version`) runs the heal drift check first, so a fresh clone usually repairs itself the first time you run any command. The hook is silent in the steady state and only prompts on real drift.
+
+### Warnings
+
+- **Tracked `go.md` (v2.8.0+)** - if `docs/project-guide/go.md` is in your git index, `heal` warns (stderr) with a copyable `git rm --cached … && git commit` migration command. The policy is untracked-by-default: `go.md` stays visible to IDE LLMs but out of the index so branch switches don't trip on it. Non-fatal; apply on your own schedule.
+- **Local install under pyve hosting (v2.13.0+)** - when pyve is detected and a project-local `site-packages` install would shadow pyve's global one, `heal` warns with a copyable `pip uninstall project-guide` command. Non-fatal and never auto-removed; an editable source checkout is not flagged.
+
+## git-push
+
+Commit the most-recently-completed (and not-yet-committed) story with a message auto-derived from its `stories.md` heading, by wrapping [gitbetter](https://github.com/pointmatic/gitbetter)'s `git-push`. This is a **developer-lane convenience** — gitbetter must be on `PATH`; it is not required for any other command.
+
+```bash
+project-guide git-push [BRANCH_NAME]
+```
+
+### Arguments
+
+- `BRANCH_NAME` (optional) - passed through to gitbetter for branch-aware push flows
+
+### What It Does
+
+1. Derives the commit subject from the latest `[Done]` story heading (e.g. `G.a: v1.2.3 New command`), with backticks and double quotes converted to single quotes.
+2. Shells out to gitbetter's `git-push`, which stays fully interactive (preview, confirm, branch cleanup).
+3. Propagates gitbetter's exit code unchanged.
+
+It hard-errors (exit 1) when there is no `[Done]` story, when the latest one is already committed, when multiple `[Done]` stories are uncommitted, or when gitbetter is not installed (`brew install pointmatic/tap/gitbetter`).
 
 ## override
 
