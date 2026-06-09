@@ -3413,6 +3413,124 @@ def test_git_push_out_of_sequence_fires_under_no_input(runner, tmp_path, monkeyp
         assert captured == []
 
 
+# --- Story Q.p: single out-of-sequence story opt-in commit ------------------
+
+
+def test_git_push_single_out_of_sequence_accepted_invokes_gitbetter(runner, tmp_path, monkeypatch):
+    """A single uncommitted [Done] story sitting out of sequence → the
+    wrapper offers [y/N]; accepting derives the single-story message and
+    invokes git-push (Story Q.p)."""
+    import project_guide.cli as cli_module
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 First [Done]",
+            "### Story A.b: v0.2.0 Second [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        # A.a uncommitted; A.b (later) committed → A.a is the single offender.
+        _mock_git_log_subjects(
+            monkeypatch,
+            subjects=["A.b: v0.2.0 Second"],
+            git_push_argv_capture=captured,
+        )
+        monkeypatch.setattr(cli_module, 'should_skip_input', lambda *a, **kw: False)
+
+        result = runner.invoke(main, ['git-push'], input='y\n')
+
+        assert result.exit_code == 0, result.output
+        assert "Out-of-sequence" not in result.output
+        assert len(captured) == 1
+        assert captured[0][1] == "A.a: v0.1.0 First"
+
+
+def test_git_push_single_out_of_sequence_declined_shows_error_block(runner, tmp_path, monkeypatch):
+    """Declining the [y/N] opt-in falls through to the existing out-of-sequence
+    error block and exit 1 (Story Q.p). The default is N, so empty input also
+    declines."""
+    import project_guide.cli as cli_module
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 First [Done]",
+            "### Story A.b: v0.2.0 Second [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(
+            monkeypatch,
+            subjects=["A.b: v0.2.0 Second"],
+            git_push_argv_capture=captured,
+        )
+        monkeypatch.setattr(cli_module, 'should_skip_input', lambda *a, **kw: False)
+
+        # Empty input → accepts the default (N) → declines.
+        result = runner.invoke(main, ['git-push'], input='\n')
+
+        assert result.exit_code == 1
+        assert "Out-of-sequence" in result.output
+        assert "A.a" in result.output
+        assert "A.b" in result.output
+        assert captured == []
+
+
+def test_git_push_single_out_of_sequence_no_input_auto_declines(runner, tmp_path, monkeypatch):
+    """--no-input never auto-yeses the out-of-sequence opt-in (Story Q.p):
+    the single-offender case auto-declines to the error block, exit 1."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 First [Done]",
+            "### Story A.b: v0.2.0 Second [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(
+            monkeypatch,
+            subjects=["A.b: v0.2.0 Second"],
+            git_push_argv_capture=captured,
+        )
+
+        result = runner.invoke(main, ['git-push', '--no-input'])
+
+        assert result.exit_code == 1
+        assert "Out-of-sequence" in result.output
+        assert captured == []
+
+
+def test_git_push_multiple_out_of_sequence_offers_no_opt_in(runner, tmp_path, monkeypatch):
+    """The single-story opt-in does NOT relax the multi-uncommitted case: with
+    2+ uncommitted [Done] stories out of sequence, the wrapper errors without
+    ever prompting, even when stdin would say yes (Story Q.p)."""
+    import project_guide.cli as cli_module
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 First (uncommitted; offender) [Done]",
+            "### Story A.b: v0.2.0 Second (committed) [Done]",
+            "### Story A.c: v0.3.0 Third (uncommitted; offender) [Done]",
+            "### Story A.d: v0.4.0 Fourth (committed) [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(
+            monkeypatch,
+            subjects=[
+                "A.b: v0.2.0 Second (committed)",
+                "A.d: v0.4.0 Fourth (committed)",
+            ],
+            git_push_argv_capture=captured,
+        )
+        monkeypatch.setattr(cli_module, 'should_skip_input', lambda *a, **kw: False)
+
+        result = runner.invoke(main, ['git-push'], input='y\n')
+
+        assert result.exit_code == 1
+        assert "Out-of-sequence" in result.output
+        assert "Commit this single out-of-sequence story?" not in result.output
+        assert captured == []
+
+
 def test_git_push_nothing_to_commit_names_present_headers(runner, tmp_path, monkeypatch):
     """The exit-0 nothing-to-commit message names any [Done] header stories
     present (so the developer understands why the header isn't being

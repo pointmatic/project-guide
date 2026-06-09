@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.14.0] - 2026-06-08
+
+**`git-push` — opt-in commit of a single out-of-sequence story (Story Q.p).** Pre-Q.p, `project-guide git-push` treated *every* out-of-sequence state — an uncommitted `[Done]` story sitting earlier in `stories.md` document order than an already-committed `[Done]` story — as an unconditional hard error (Story P.v). That blanket refusal is heavier than the common case warrants: when exactly **one** `[Done]` story is uncommitted, its commit message is unambiguous (only one story to attribute), so the developer can now opt into committing it in place rather than dropping to raw `git-push`. The genuine-ambiguity case — **multiple** uncommitted `[Done]` stories — keeps the P.v hard error unchanged.
+
+### Changed
+- **Q.p — single out-of-sequence story opt-in.** When `git-push` detects an out-of-sequence state with exactly one uncommitted `[Done]` story, it now offers `Commit this single out-of-sequence story? [y/N]` (default **`N`** — the inverse of the bundle offer's `[Y/n]`, since committing out of sequence is the surprising state) showing the derived single-story subject. Accept → derive the single-story message and invoke `git-push` exactly as the in-sequence single-story path does; decline → emit the existing offender error block and exit 1. Multiple uncommitted out-of-sequence stories are **unchanged** (exit 1, no prompt). `--no-input` auto-declines, preserving the contract that out-of-sequence is an error path `--no-input` never auto-yeses. New helper `_prompt_commit_out_of_sequence` in `cli.py`; the `git-push` docstring and the `project-essentials.md` git-push contract section are updated to match.
+
 ## [2.13.0] - 2026-06-05
 
 **Subphase Q-3 bundled release: Pyve-managed-hosting cross-repo contract + awareness.** Subphase Q-3 of Phase Q pins the four cross-repo contracts that let Pyve host project-guide as a globally-shimmed tool in its toolchain venv (Pyve Story N.aw), and teaches project-guide's user-facing surfaces to reflect pyve-managed hosting. Three contracts already held in code and are now guarded by tests (Q.l); the fourth — branching content on whether pyve is detected, plus a defensive local-install warning — is the new behavior (Q.m). Stories Q.l/Q.m ran unversioned during work; Q.n marks the release boundary. The minor bump reflects the new behavior and the newly-published contract surface. Plan: [`docs/specs/phase-q-subphase-3-pyve-hosting-plan.md`](docs/specs/phase-q-subphase-3-pyve-hosting-plan.md); cross-repo contract: [`docs/specs/phase-q-pyve-toolchain-hosting.md`](docs/specs/phase-q-pyve-toolchain-hosting.md).

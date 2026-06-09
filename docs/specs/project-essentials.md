@@ -110,7 +110,7 @@ Auto-healing N templates under --no-input.
 
 The notice is **non-suppressible** (always emitted even with `--quiet`) so CI logs and embedding callers (pyve scaffolding, etc.) have a visible signal that file writes occurred. This is the heal-specific application of the `--no-input` contract documented earlier in this file.
 
-### `project-guide git-push` is developer-lane (added v2.7.0, bundled-commit support added v2.9.0, header-awareness + out-of-sequence detection added v2.10.0)
+### `project-guide git-push` is developer-lane (added v2.7.0, bundled-commit support added v2.9.0, header-awareness + out-of-sequence detection added v2.10.0, single-story out-of-sequence opt-in v2.14.0)
 
 `project-guide git-push` is a thin wrapper over [gitbetter](https://github.com/pointmatic/gitbetter)'s `git-push` that auto-derives the commit message from `[Done]` story headings. It is a **developer-lane convenience command** — the LLM **must not** initiate it. The approval-gate discipline rule earlier in this file ("do not propose commits, pushes, or bundling options ... do not offer 'want me to also …?' follow-ups") remains in force, and applies to this wrapper just as it does to raw `git`. The wrapper exists to shorten the developer's typing at commit time, not to give the LLM a new excuse to volunteer commits.
 
@@ -137,15 +137,21 @@ The notice is **non-suppressible** (always emitted even with `--quiet`) so CI lo
 
 **Header-story filter (P.v, v2.10.0):** a `[Done]` story whose body — the text between its `### Story` heading and the next `### Story` / `## Phase` / `## Future` / EOF — contains **zero** `- [ ]` and `- [x]` checklist items is treated as a **header** (group-overview heading for a sub-numbered cluster like `H.m` / `H.m.1` / `H.m.2`). Header stories are filtered out of `git-push`'s uncommitted-detection flow — they have no work to commit. The forgiving rule (zero items *of any kind*, not "zero checked items") means a `[Done]` story with all-unchecked items is still treated as a real story: the unchecked items are a developer-discipline concern, not a header signal. Scope: `git-push` only — `_read_done_stories` populates a `StoryHeading.is_header` flag, but other consumers (e.g. `status`) still count `[Done]` headers in their totals. Header IDs that somehow appear in git log are *not* special-cased on the committed-set side; the wrapper doesn't police random commits.
 
-**Out-of-sequence detection (P.v, v2.10.0):** after the header filter, the post-filter `[Done]` list in stories.md document order must follow a clean **committed-prefix → uncommitted-suffix** partition. Any uncommitted story whose document index is less than the index of the last committed story is **out-of-sequence**. When detected, exit 1 with an error block that lists every offender (with their later-committed context) plus the uncommitted-tail stories that *would* be eligible for normal flow. Phase boundaries are not respected — the partition operates on the flat document-order list. This is an **unambiguous error path**: `--no-input` does *not* auto-yes/no it.
+**Out-of-sequence detection (P.v, v2.10.0; single-story opt-in Q.p, v2.14.0):** after the header filter, the post-filter `[Done]` list in stories.md document order must follow a clean **committed-prefix → uncommitted-suffix** partition. Any uncommitted story whose document index is less than the index of the last committed story is **out-of-sequence**. Phase boundaries are not respected — the partition operates on the flat document-order list. Resolution depends on how many `[Done]` stories are uncommitted:
+
+- **Exactly one uncommitted `[Done]` story (Q.p):** its commit message is unambiguous (only one story to attribute), so the wrapper offers `Commit this single out-of-sequence story? [y/N]` (default **`N`** — the inverse of the bundle offer's `[Y/n]`, because committing out of sequence is the surprising state). Accept (`y`) → derive the single-story message and fall through to the normal single-story `git-push` invocation. Decline (`N`) → emit the offender error block and exit 1. The prompt is handled by `_prompt_commit_out_of_sequence` in `cli.py`.
+- **Multiple uncommitted `[Done]` stories:** **unchanged from P.v** — exit 1 with the offender block (every offender + its later-committed context + the eligible-tail context), no prompt. This is the genuine-attribution-ambiguity case the hard error exists to catch.
+
+Out-of-sequence remains an **error path that `--no-input` never auto-yeses**: under `--no-input` the single-story opt-in auto-declines to the error block (so CI never silently commits out of sequence).
 
 **Nothing-to-commit success (P.v, v2.10.0):** when the post-filter uncommitted list is empty (every real `[Done]` story is already in git log), exit **0** with `Nothing to commit — every real [Done] story is already in git log.` plus a parenthetical naming any `[Done]` headers present. Pre-P.v this was exit 1 with a misleading `"Story <last id> is already committed"` message that named the header heading. The "no `[Done]` stories at all" path keeps its exit-1 stories.md-authoring-problem semantics — only the all-committed case became exit 0.
 
 **Branch logic (post-P.v):**
 - 0 `[Done]` stories at all → exit 1 `"No completed story found in <path>."` (stories.md authoring problem).
 - 0 commit-worthy uncommitted (everything committed, or only headers remain) → **exit 0** `"Nothing to commit — ..."`.
-- Out-of-sequence detected → exit 1 with the offender+context error block.
-- 1 commit-worthy uncommitted `[Done]` story → derive single-story message, invoke `git-push`.
+- Out-of-sequence detected, **2+ uncommitted** → exit 1 with the offender+context error block (no prompt).
+- Out-of-sequence detected, **exactly 1 uncommitted** (Q.p) → prompt `Commit this single out-of-sequence story? [y/N]` (default `N`). Accept → single-story `git-push`. Decline (or `--no-input`) → offender error block, exit 1.
+- 1 commit-worthy uncommitted `[Done]` story (in sequence) → derive single-story message, invoke `git-push`.
 - 2+ commit-worthy uncommitted `[Done]` stories → propose bundled subject, prompt `[Y/n]`. Accept → invoke `git-push` with the bundled message. Decline (or `--no-input`) → exit 1 with the manual-resolution hint.
 - Duplicate `<id>` in git log → warning + prompt `Continue? [Y/n]` (defaults `Y` interactive, `n` under `--no-input`).
 

@@ -1882,8 +1882,12 @@ def git_push(branch_name: str | None, no_input: bool):
     \b
     Out-of-sequence detection (Story P.v): if an uncommitted [Done] story
     precedes a committed [Done] story in stories.md document order, the
-    wrapper exits 1 with a message naming every offender. This is an
-    unambiguous error path; --no-input does not auto-yes it.
+    wrapper flags it. When exactly one [Done] story is uncommitted (Story
+    Q.p) its commit message is unambiguous, so the wrapper offers to commit
+    just that story `[y/N]` (default N); accept → single-story push, decline
+    → the offender error block + exit 1. When multiple [Done] stories are
+    uncommitted the attribution is genuinely ambiguous, so the wrapper exits
+    1 with the offender block and no prompt. --no-input auto-declines.
 
     \b
     Exit 0 (success):
@@ -1894,7 +1898,9 @@ def git_push(branch_name: str | None, no_input: bool):
     \b
     Hard errors (exit 1):
       - No `[Done]` story in stories.md
-      - Out-of-sequence [Done] stories detected (Story P.v)
+      - Out-of-sequence [Done] stories detected and not resolved: multiple
+        uncommitted (Story P.v), or a single uncommitted one whose [y/N]
+        opt-in commit was declined / suppressed by --no-input (Story Q.p)
       - Multiple uncommitted `[Done]` stories and bundle offer declined
         (or --no-input)
       - Duplicate story ID found in git log and continuation declined
@@ -1950,8 +1956,17 @@ def git_push(branch_name: str | None, no_input: bool):
     # an unambiguous error (no prompt, ignores --no-input).
     offenders = _check_out_of_sequence(commit_units, committed)
     if offenders:
-        _emit_out_of_sequence_error(offenders, commit_units, committed)
-        sys.exit(1)
+        # Q.p: a single uncommitted [Done] story has an unambiguous commit
+        # message even when it sits out of sequence, so offer to commit just
+        # that story [y/N]. Multiple uncommitted stories stay a hard error —
+        # that is the genuine-attribution-ambiguity case P.v exists to catch.
+        uncommitted_oos = [s for s in commit_units if s.story_id not in committed]
+        single = len(uncommitted_oos) == 1
+        if not (single and _prompt_commit_out_of_sequence(uncommitted_oos[0], skip_input)):
+            _emit_out_of_sequence_error(offenders, commit_units, committed)
+            sys.exit(1)
+        # Accepted single out-of-sequence story → fall through to the normal
+        # single-story commit path below.
 
     uncommitted = [s for s in commit_units if s.story_id not in committed]
 
@@ -2060,6 +2075,38 @@ def _prompt_use_bundle_message(message: str, skip_input: bool) -> bool:
     click.echo("Proposed bundled commit subject:", err=True)
     click.echo(f"  {message}", err=True)
     return click.confirm("Use this message?", default=True, err=True)
+
+
+def _prompt_commit_out_of_sequence(story, skip_input: bool) -> bool:
+    """Offer to commit a single out-of-sequence ``[Done]`` story; True to proceed.
+
+    Story Q.p: when exactly one uncommitted ``[Done]`` story sits out of
+    sequence (a later ``[Done]`` story is already committed), its commit
+    message is unambiguous — there is only one story to attribute — so the
+    developer may opt to commit just that story in place. The prompt defaults
+    to ``N`` (the inverse of the bundle offer's ``Y``): committing out of
+    sequence is the surprising state, so the safe default is to decline and
+    fall through to the existing error block. Under ``skip_input`` returns
+    ``False`` with no prompt — out-of-sequence is an error path that
+    ``--no-input`` never auto-yeses, consistent with the P.v contract.
+    """
+    if skip_input:
+        return False
+
+    message = derive_commit_message(story)
+    click.secho(
+        f"{story.story_id} is [Done] and uncommitted, but a later [Done] "
+        f"story is already committed.",
+        fg='yellow',
+        err=True,
+    )
+    click.echo("Proposed commit subject:", err=True)
+    click.echo(f"  {message}", err=True)
+    return click.confirm(
+        "Commit this single out-of-sequence story?",
+        default=False,
+        err=True,
+    )
 
 
 def _check_out_of_sequence(

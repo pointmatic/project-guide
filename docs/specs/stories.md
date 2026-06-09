@@ -655,6 +655,32 @@ Under Pyve's toolchain-venv hosting (Pyve Story N.aw), `pip install project-guid
 
 ---
 
+### Story Q.p: v2.14.0 git-push — opt-in commit of a single out-of-sequence story [Done]
+
+**Problem.** `project-guide git-push` treats *every* out-of-sequence state as an unambiguous hard error (Story P.v): when an uncommitted `[Done]` story sits earlier in document order than an already-committed `[Done]` story, the wrapper exits 1 with the offender block and refuses to act. That blanket refusal is heavier than the common case warrants. When exactly **one** `[Done]` story is uncommitted, its commit message is unambiguous — there is only one story to attribute — so the developer should be able to opt into committing it in place rather than dropping to raw `git-push`. The genuine ambiguity (and the reason P.v made this an error at all) only arises when **multiple** `[Done]` stories are uncommitted: there the developer must decide the correct message and story attribution, so the existing failure mode stays correct.
+
+**Behavior (post-story).**
+- **Single uncommitted out-of-sequence `[Done]` story** → the wrapper offers `Commit this single out-of-sequence story? [y/N]`, showing the derived single-story subject. The default is **`N`** (out-of-sequence is still the surprising state; declining is the safe default). Accept (`y`) → derive the single-story message and invoke `git-push` exactly as the in-sequence single-story path does. Decline (`N`) → emit the existing out-of-sequence error block and exit 1.
+- **Multiple uncommitted out-of-sequence `[Done]` stories** → **unchanged**: emit the existing offender block and exit 1 (no prompt). The developer resolves attribution with raw `git-push`.
+- **`--no-input`** → auto-decline (return to the existing error path). Out-of-sequence remains an error path that `--no-input` never auto-yeses, consistent with the P.v contract for the multi-offender case.
+
+**Why this shape.** The single-uncommitted case has exactly one legitimate commit message, so the prompt is a pure convenience that removes a needless drop-to-raw-git step without inventing any attribution decision. The multi-uncommitted case is left untouched because that is the case the P.v hard-error was actually protecting against. The `[y/N]` default (decline) is deliberately the inverse of the bundle offer's `[Y/n]`: bundling is a normal in-sequence flow, whereas committing out of sequence is the unusual state and should require an affirmative keystroke.
+
+**Implementation:**
+- [x] In `project_guide/cli.py:git_push`, after `_check_out_of_sequence` returns offenders, branch on the count of uncommitted commit-units: when exactly one is uncommitted, prompt via a new `_prompt_commit_out_of_sequence(story, skip_input)` helper; on accept, fall through to the normal single-story commit path; on decline (or multiple offenders, or `--no-input`), emit the existing `_emit_out_of_sequence_error` block and exit 1.
+- [x] Add `_prompt_commit_out_of_sequence` helper: shows the derived subject + a one-line "later stories already committed" note, prompts `Commit this single out-of-sequence story?` with `default=False`, returns `False` under `skip_input` (no prompt).
+- [x] Update the `git_push` docstring (out-of-sequence paragraph + the exit-code lists) to document the new single-story opt-in.
+- [x] Add tests in `tests/test_cli.py`: single out-of-sequence accepted (invokes git-push with the derived message), single out-of-sequence declined (error block, exit 1), single out-of-sequence under `--no-input` (auto-decline, error block, exit 1), and a guard that the multiple-offender path still errors without prompting.
+- [x] Update the `### project-guide git-push is developer-lane` section of `docs/specs/project-essentials.md` (out-of-sequence paragraph + the **Branch logic** enumeration) to record the single-story opt-in.
+- [x] Bump `project_guide/version.py` and `pyproject.toml` to `2.14.0`; add a `## [2.14.0]` CHANGELOG entry.
+- [x] Run `pyve test` and `pyve testenv run ruff check project_guide/ tests/`; flip status `[Planned]` → `[Done]` and check off tasks.
+
+**Out of scope:**
+- **Relaxing the multi-offender path.** Bundling/committing multiple out-of-sequence stories stays a hard error — that is the genuine-ambiguity case P.v exists to catch.
+- **Git tag / push of the v2.14.0 release.** Per approval-gate discipline, the developer pushes the tag on their own schedule.
+
+---
+
 ## Future
 
 ### Audit Modes [Deferred]
