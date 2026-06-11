@@ -769,7 +769,7 @@ Bundled release at end-of-subphase as **v2.15.0** (minor — new readiness-gated
 
 ---
 
-### Story Q.s: v2.15.0 Subphase Q-4 bundled release [Planned]
+### Story Q.s: v2.15.0 Subphase Q-4 bundled release [Done]
 
 **Problem.** Subphase Q-4 ships as one bundled release per the subphase phase-bundling option installed in Q.a. Stories Q.q and Q.r run unversioned; Q.s is the release-marker story that bumps the package and authors the CHANGELOG entry covering both.
 
@@ -783,12 +783,12 @@ Bundled release at end-of-subphase as **v2.15.0** (minor — new readiness-gated
 - **CHANGELOG entry covers Q.q and Q.r** and cross-references [`phase-q-subphase-4-readiness-gate-plan.md`](phase-q-subphase-4-readiness-gate-plan.md) and [`phase-q-subphase-4-local-install-warning-readiness-gate.md`](phase-q-subphase-4-local-install-warning-readiness-gate.md) so future readers can reconstruct the cross-repo context (the pyve-side `pyve self provision --status` query is the consuming-side counterpart).
 
 **Implementation:**
-- [ ] Bump `project_guide/version.py` to `2.15.0`.
-- [ ] Bump `pyproject.toml` to `2.15.0`.
-- [ ] Add `## [2.15.0]` entry to `CHANGELOG.md` with `### Changed` (the local-install warning is now readiness-gated and non-destructive) and `### Added` (the heal-scoped provisioning offer + the published `pyve self provision --status` dependency contract) subsections. References Q.q and Q.r; cross-references the Q-4 plan and change request.
-- [ ] Run `pyve test`.
-- [ ] Run `pyve testenv run ruff check project_guide/ tests/`.
-- [ ] Flip story status `[Planned]` → `[Done]` and check off tasks.
+- [x] Bump `project_guide/version.py` to `2.15.0`.
+- [x] Bump `pyproject.toml` to `2.15.0`.
+- [x] Add `## [2.15.0]` entry to `CHANGELOG.md` with `### Changed` (the local-install warning is now readiness-gated and non-destructive) and `### Added` (the heal-scoped provisioning offer + the published `pyve self provision --status` dependency contract) subsections. References Q.q and Q.r; cross-references the Q-4 plan and change request.
+- [x] Run `pyve test`.
+- [x] Run `pyve testenv run ruff check project_guide/ tests/`.
+- [x] Flip story status `[Planned]` → `[Done]` and check off tasks.
 
 **Out of scope:**
 - **Git tag / PyPI publish.** Per the *Approval gate discipline* rule in [project-essentials.md](project-essentials.md), the LLM does not initiate git operations or releases. The developer pushes the tag and triggers publish on their own schedule.
