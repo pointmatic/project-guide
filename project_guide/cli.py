@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import importlib.resources
+import json
 import os
 import shutil
 import subprocess
@@ -1570,34 +1571,96 @@ def _running_install_path() -> Path:
     return Path(__file__).resolve().parent
 
 
-def _warn_if_local_install_under_pyve(config: Config) -> None:
+def _parse_provision_version(stdout: str) -> str | None:
+    """Extract ``project_guide.version`` from a ``--status --json`` payload.
+
+    Returns ``None`` when the stdout is absent, not JSON, or lacks the expected
+    nested ``project_guide.version`` string — callers fall back to a
+    version-less phrasing rather than crashing on a shape they don't recognize.
+    """
+    try:
+        data = json.loads(stdout)
+    except (json.JSONDecodeError, TypeError):
+        return None
+    if isinstance(data, dict):
+        payload = data.get("project_guide")
+        if isinstance(payload, dict):
+            version = payload.get("version")
+            if isinstance(version, str):
+                return version
+    return None
+
+
+def _query_pyve_provision_status(pyve_path: str) -> tuple[int | None, str | None]:
+    """Run ``pyve self provision --status --json`` (read-only, side-effect-free).
+
+    Returns ``(exit_code, version)``. ``exit_code`` is ``None`` when the
+    subprocess could not be launched at all (``OSError``) — the caller treats
+    that the same as a non-zero readiness failure (degrade-safe). ``version`` is
+    the parsed ``project_guide.version`` from the JSON payload on exit 0, else
+    ``None``. Factored out so tests can mock it without standing up pyve.
+    """
+    try:
+        proc = subprocess.run(
+            [pyve_path, "self", "provision", "--status", "--json"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        return None, None
+    version = _parse_provision_version(proc.stdout) if proc.returncode == 0 else None
+    return proc.returncode, version
+
+
+def _provision_pyve_hosting(pyve_path: str) -> None:
+    """Delegate provisioning to pyve. Never pip-installs into pyve's venv.
+
+    The bounded soft-touch departure (Story Q.q): project-guide shells out to
+    pyve's own ``self provision`` command rather than touching pyve's toolchain
+    venv directly. Factored out so the heal-scoped offer is mockable in tests.
+    """
+    subprocess.run([pyve_path, "self", "provision"], check=False)
+
+
+def _warn_if_local_install_under_pyve(config: Config, *, offer_provision: bool = False) -> None:
     """Warn (stderr, non-fatal) when a project-local install coexists with pyve.
 
-    Story Q.m: under pyve's toolchain-venv hosting (Pyve Story N.aw) pyve
-    manages a single global project-guide install. If a project also carries a
-    *local* pip install (e.g. under ``<cwd>/.venv/`` or
-    ``<cwd>/.pyve/envs/<name>/``), ``which project-guide`` resolves to whichever
-    is first on ``PATH`` and behavior diverges silently with version drift. The
-    warning surfaces the footgun with a copyable ``pip uninstall`` command; the
-    user removes it on their own schedule — never auto-run, same
-    wrapper-initiates-side-effects discipline as the P.o ``go.md`` warning.
+    Story Q.m introduced this as an *unconditional* ``pip uninstall`` warning the
+    moment a project-local install was detected under a pyve-managed host. Story
+    Q.q (Subphase Q-4) makes it **readiness-gated and non-destructive**: removal
+    is advised only when a runnable global replacement is confirmed.
 
-    Detection: the running package lives under ``Path.cwd()`` **and** inside a
-    ``site-packages`` directory (a real installed copy). The ``site-packages``
-    guard deliberately excludes an editable source checkout (whose ``__file__``
-    is the source tree directly under cwd, as in project-guide's own dogfood
-    repo) — that is a development setup, not the footgun this warns about.
+    Detection (preserved gates): the running package lives under ``Path.cwd()``
+    **and** inside a ``site-packages`` directory (a real installed copy, not an
+    editable source checkout — the dogfood repo's case). Silent under the
+    recursion guard env var and under ``--no-input`` / CI / non-TTY stdin.
 
-    Silent when pyve was not detected at init time, when no qualifying local
-    install is present (the steady state), under the recursion guard env var,
-    or under ``--no-input`` / CI / non-TTY stdin — mirroring
-    :func:`_warn_if_go_md_tracked`.
+    The Q.m ``config.pyve_version`` cached gate is **dropped** in favor of a
+    **live** ``shutil.which("pyve")`` check (documented exception to the Q-3
+    "detection is cached" invariant), so a pyve installed *after*
+    ``project-guide init`` is still detected. When pyve is absent this is
+    standalone usage — no warning.
+
+    With pyve present, ``pyve self provision --status --json`` is consulted:
+
+    - **exit 0** (global ready & runnable) → benign-duplicate notice; removal is
+      now safe, so the copyable ``pip uninstall`` command is emitted. The version
+      is read from the JSON payload, with a version-less fallback on parse failure.
+    - **exit 2** (not pyve-managed here) → silent.
+    - **exit 1 / 127 / OSError / any other** → readiness-first guidance that
+      **never** advises removal (the data-loss-class footgun this subphase closes).
+
+    Core invariant: ``pip uninstall`` advice is emitted **only** on exit 0.
+
+    When ``offer_provision`` is set (the ``heal`` command, not the pre-invoke
+    auto-hook) and we are in the readiness-first branch, an interactive offer to
+    delegate to ``pyve self provision`` is presented. The offer is naturally
+    suppressed under ``should_skip_input`` (the early-return gate above).
     """
     if os.environ.get(_HEAL_GUARD_ENV) == "1":
         return
     if should_skip_input():
-        return
-    if config.pyve_version is None:
         return
 
     install_path = _running_install_path()
@@ -1607,13 +1670,52 @@ def _warn_if_local_install_under_pyve(config: Config) -> None:
     if "site-packages" not in install_path.parts:
         return  # editable source checkout, not a pip-installed local copy
 
+    pyve_path = shutil.which("pyve")
+    if pyve_path is None:
+        return  # standalone usage — no pyve hosting for this copy to shadow
+
+    exit_code, version = _query_pyve_provision_status(pyve_path)
+
+    if exit_code == 0:
+        # Global hosting is ready & runnable — the local copy is safely removable.
+        if version:
+            lead = (
+                f"A pyve-managed global project-guide (v{version}) is active; "
+                f"this local copy in {install_path} is redundant."
+            )
+        else:
+            lead = (
+                "A pyve-managed global project-guide is active; "
+                f"this local copy in {install_path} is redundant."
+            )
+        click.secho(
+            f"{lead}\n  Remove it with: pip uninstall project-guide",
+            fg='yellow',
+            err=True,
+        )
+        return
+
+    if exit_code == 2:
+        return  # not pyve-managed in this context — nothing to warn about
+
+    # exit 1 / 127 / OSError (None) / any other → readiness-first, never removal.
     click.secho(
-        f"⚠ Local project-guide install detected at {install_path}.\n"
-        "  Pyve is configured to manage project-guide globally.\n"
-        "  Remove the local install with: pip uninstall project-guide",
+        "Running project-guide from a local install. Pyve manages "
+        "project-guide globally, but its hosting isn't ready yet.\n"
+        "  Provision it first: pyve self provision\n"
+        "  Keep this local install until the global one is ready.",
         fg='yellow',
         err=True,
     )
+
+    # Heal-scoped, interactive-only offer to delegate the fix to pyve. The
+    # readiness-first warning above still fires from the auto-hook on every
+    # command; only this offer is heal-scoped, to avoid prompting universally.
+    if offer_provision:
+        if click.confirm(
+            "Provision pyve-managed project-guide now?", default=True
+        ):
+            _provision_pyve_hosting(pyve_path)
 
 
 def _run_pre_invoke_hook() -> None:
@@ -1742,7 +1844,7 @@ def heal(no_input: bool):
         sys.exit(3)
 
     _warn_if_go_md_tracked(config)
-    _warn_if_local_install_under_pyve(config)
+    _warn_if_local_install_under_pyve(config, offer_provision=True)
 
     # Drift detection via dry-run sync; overrides are intentionally not drift.
     try:

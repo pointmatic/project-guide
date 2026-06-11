@@ -681,7 +681,132 @@ Under Pyve's toolchain-venv hosting (Pyve Story N.aw), `pip install project-guid
 
 ---
 
+## Subphase Q-4: Readiness-gated local-install warning
+
+Refines contract item #2 ("Pyve-managed-hosting awareness") shipped in Subphase Q-3 (Story Q.m, v2.13.0). The Q.m local-install warning (`_warn_if_local_install_under_pyve` in [`cli.py`](../../project_guide/cli.py)) prescribes `pip uninstall project-guide` *unconditionally* once it detects a project-local install coexisting with a pyve-managed host — destructive when the global replacement was never provisioned (the reproduced footgun: a `pyve self provision` hang left only the venv copy, and following the advice would strand the developer with zero working project-guide). Q-4 makes the warning **readiness-gated** and **non-destructive**: it consults a pyve-owned status query (`pyve self provision --status`, exit codes `0/1/2/127`) and **never advises removal unless exit 0** confirms a runnable global replacement. See [`phase-q-subphase-4-readiness-gate-plan.md`](phase-q-subphase-4-readiness-gate-plan.md) for the plan and [`phase-q-subphase-4-local-install-warning-readiness-gate.md`](phase-q-subphase-4-local-install-warning-readiness-gate.md) for the cross-repo change request.
+
+**Deliberate soft-touch departure.** Q-4 introduces a sanctioned, scoped exception to project-guide's warn-don't-act discipline: a `heal`-scoped, TTY-only provisioning *offer* that delegates to `pyve self provision`. This is justified by the tight Pyve integration handoff and bounded precisely — project-guide delegates the fix to pyve's own command and never installs into pyve's toolchain venv itself.
+
+Bundled release at end-of-subphase as **v2.15.0** (minor — new readiness-gated behavior + interactive provisioning convenience, both additive; the warning message and trigger conditions change but the warning is operator-facing diagnostic output, not a public-API contract → no substantive breaking change). Three stories executed in document order; only `Q.s` carries the version in its title.
+
+**Story-letter continuity:** Q-3 closed at `Q.n` (v2.13.0); `Q.o`/`Q.p` then landed as post-release tail stories (Q.p owning the v2.14.0 bump). Q-4 picks up at **`Q.q`** per the monotonic-continuation rule in `_phase-letters.md`. **No upstream dependency** — Q-1/Q-2/Q-3 and the Q.o–Q.p tail have all shipped, and the pyve-side `pyve self provision --status` query is *not* a blocker: graceful degradation means project-guide ships and degrades safely (readiness-first, never destructive) until pyve's side lands.
+
+### Story Q.q: Readiness-gate the local-install warning + heal-scoped provisioning offer [Done]
+
+**Problem.** `_warn_if_local_install_under_pyve` ([cli.py:1573](../../project_guide/cli.py)) currently emits `pip uninstall project-guide` advice the instant it detects a project-local install (gated only on init-time-cached `config.pyve_version`, under-cwd, and `site-packages`). This is wrong twice over: (1) **destructive** — it recommends removal *without verifying the global replacement is provisioned and runnable*, and on a machine where global hosting never provisioned, following it leaves zero working project-guide; (2) **inverted** — it's noisy about the benign state (a harmless local copy) and silent about the real gap (global hosting not ready). The signal that matters is "is your *global* hosting ready?", which the warning neither checks nor mentions.
+
+**Behavior (post-story).** After the local-install detection, the warning consults pyve before emitting any message, and never recommends removal unless a runnable global replacement is confirmed.
+
+- **Live pyve gate replaces the cached gate.** The Q.m `config.pyve_version is not None` early-return is **dropped** in favor of a **live** `shutil.which("pyve")` check, so the warning correctly engages even when pyve was installed *after* `project-guide init` (closes the cache-staleness gap). The recursion-guard, `should_skip_input()`, under-`cwd`, and `site-packages` gates are preserved.
+- **Decision logic:**
+  - `shutil.which("pyve") is None` → standalone usage; **no warning**.
+  - else run `pyve self provision --status --json` (read-only, side-effect-free):
+    - **exit 0** (global ready & runnable) → **benign-duplicate notice**, removal now safe: `"A pyve-managed global project-guide (v<version>) is active; this local copy in <path> is redundant. Remove it with:  pip uninstall project-guide"`. `<version>` is read from the `--json` payload's `project_guide.version`; fall back to a version-less phrasing if the JSON is absent/unparseable while exit is still 0.
+    - **exit 2** (not pyve-managed here) → **no warning**.
+    - **exit 1 / 127 / `OSError` / any other** → **readiness-first guidance**, never advising removal: `"Running project-guide from a local install. Pyve manages project-guide globally, but its hosting isn't ready yet. Provision it first:  pyve self provision.  Keep this local install until the global one is ready."`
+- **Core invariant: `pip uninstall` advice is emitted only on exit 0.** Every other outcome is silent or readiness-first.
+- **Heal-scoped provisioning offer (the sanctioned soft-touch departure).** In the readiness-first branch, when invoked from `heal` (not the pre-invoke auto-hook) and in an interactive context, offer `Provision pyve-managed project-guide now? [Y/n]` (default `Y`). Accept → `subprocess.run([pyve, "self", "provision"], check=False)` (delegate to pyve; never pip-install into pyve's venv). Suppressed under `should_skip_input()`. The readiness-first *warning text* still fires from the auto-hook on every command; only the interactive *offer* is `heal`-scoped, to avoid hijacking every command with a prompt.
+
+**Why these defaults.**
+
+- **Live detection over cached — documented exception to Q-3 invariant (b).** Invariant (b) ("pyve detection is cached, not re-run per invocation") still governs `status`, help text, and template branches. This guard is the deliberate exception: correctness — never stranding a developer, and catching a post-`init` pyve install — outweighs cheapness. `shutil.which` is a cheap pre-filter; the `--status` subprocess fires only when a local install *and* pyve-on-PATH coexist, never in the steady state or an editable dogfood checkout.
+- **Never advise removal unless exit 0.** Exit 0 is the only state where a runnable global replacement is confirmed; every other state (including a missing/old query) degrades to non-destructive guidance. This is the data-loss-class footgun the subphase exists to close.
+- **Project-guide consults the query, never inspects pyve internals.** The toolchain path is version-keyed and `XDG_DATA_HOME`-relative and the shim can move; a single pyve-owned status query keeps the cross-repo boundary clean and rot-free.
+- **Offer delegates, never installs.** The provisioning offer shells out to `pyve self provision`; project-guide never pip-installs into pyve's toolchain venv. This is the bounded, sanctioned crossing from "warn" to "offer to fix," justified by the tight integration handoff.
+
+**Implementation:**
+- [x] Refactor `_warn_if_local_install_under_pyve` in `project_guide/cli.py`: drop the `config.pyve_version is None` early-return; gate on live `shutil.which("pyve")`; preserve the recursion-guard, `should_skip_input()`, under-`cwd`, and `site-packages` gates.
+- [x] Add a helper that runs `pyve self provision --status --json` via `subprocess.run(..., capture_output=True, text=True, check=False)`, wrapped in `try/except OSError`, and classifies the exit code into the benign (0) / silent (2) / readiness-first (1, 127, error, other) branches. *(`_query_pyve_provision_status` returns `(exit_code, version)`; `None` exit code carries the `OSError` case; `_parse_provision_version` reads `project_guide.version`.)*
+- [x] Emit the exit-0 benign-duplicate message (read `project_guide.version` from the `--json` payload; version-less fallback on parse failure) and the readiness-first message (never advising removal).
+- [x] Add the `heal`-scoped provisioning offer (`_provision_pyve_hosting` + the `click.confirm` in `_warn_if_local_install_under_pyve`): interactive `Provision pyve-managed project-guide now? [Y/n]` (default `Y`), suppressed under `should_skip_input()`; accept → `subprocess.run([pyve, "self", "provision"], check=False)`. Wired via the `offer_provision=True` arg passed only from the `heal` command, **not** `_run_pre_invoke_hook`.
+- [x] Keep `_running_install_path()` monkeypatchable; factor the `shutil.which` / `subprocess.run` calls so tests can mock them.
+- [x] Add tests in `tests/test_cli.py`: exit 0 (with and without a parseable JSON version); exit 2 silent; exit 1 readiness-first (no removal advice); exit 127 / `OSError` readiness-first (degrade-safe); pyve-not-on-PATH silent; preserved gates silent (not-under-cwd, not-site-packages, skip-input); a pyve install post-dating `init` is now detected; heal offer accepted invokes `pyve self provision`; declined is a no-op; under `--no-input` no prompt and no invoke; the auto-hook never prompts.
+- [x] Run `pyve test`.
+- [x] Run `pyve testenv run ruff check project_guide/ tests/`.
+- [x] Flip story status `[Planned]` → `[Done]` and check off tasks.
+
+**Out of scope:**
+- **Cross-repo contract + invariant documentation.** Bundled into Q.r.
+- **Version bump / CHANGELOG entry.** Bundled into Q.s.
+- **Pyve-side `pyve self provision --status [--json]` implementation.** Lives in the Pyve repo (Subphase N-9 / Phase P), paired with the `self provision` hang fix (Pyve Story N.bv). Project-guide ships against the exit-code contract and degrades safely until it lands.
+- **A provisioning offer in the pre-invoke auto-hook.** Heal-scoped only; the readiness-first warning still fires from the hook.
+- **Runtime pyve re-detection / `project-guide refresh-detection` surface.** Still deferred from Q-3 (YAGNI); the readiness probe is a separate, narrowly-gated subprocess, not a general re-detection path.
+
+---
+
+### Story Q.r: Cross-repo contract + invariant doc sync [Planned]
+
+**Problem.** Q.q changes the local-install warning's behavior and introduces a new pyve dependency (`pyve self provision --status`), but the contract documentation still describes the Q.m *unconditional* warning. Two surfaces drift: `features.md`'s Cross-Repo Contracts #2 ("Pyve-managed-hosting awareness") and `project-essentials.md`'s "Pyve cross-repo contracts" section. Without the update, future LLMs reading the specs would not know the readiness-gate invariant (never advise removal unless exit 0), the live-detection exception to invariant (b), or the delegate-don't-install discipline of the provisioning offer.
+
+**Behavior (post-story).** Both contract surfaces reflect the Q-4 readiness-gated behavior.
+
+- **`features.md` Cross-Repo Contracts #2 refinement.** Contract item #2 describes the readiness-gated warning, its dependency on the `pyve self provision --status` query (exit-code contract `0/1/2/127`), graceful degradation, the never-uninstall-unless-0 invariant, and the two-way version coordination.
+- **`project-essentials.md` Q-4 invariants** appended to the existing "Pyve cross-repo contracts" section (after the Q-3 content):
+  - **Never advise `pip uninstall project-guide` unless `pyve self provision --status` returns exit 0** (a runnable global replacement is confirmed) — the core safety invariant.
+  - **The readiness guard is the documented exception to invariant (b).** It uses live `shutil.which("pyve")` + the `--status` probe rather than the cached `config.pyve_version`, because correctness outweighs cheapness here; invariant (b) still governs `status`, help, and template branches. The probe fires only when a local install and pyve-on-PATH coexist (bounded to the footgun state).
+  - **project-guide consults the query, never inspects pyve internals** (toolchain path, shim location).
+  - **The provisioning offer delegates to `pyve self provision`; project-guide never pip-installs into pyve's toolchain venv** (the bounded soft-touch departure).
+  - **Two-way version coordination.** project-guide's gating requires **pyve ≥ the release that ships `pyve self provision --status`** (degrades to readiness-first below that); pyve adopting this messaging pins **project-guide ≥ v2.15.0** (mirrors the existing `≥ 2.13.0` hosting pin).
+
+**Why these defaults.**
+
+- **Two documentation homes, consistent with Q.l.** `features.md` documents the contract as a functional surface (what's promised); `project-essentials.md` documents it as an architectural invariant (what future LLMs must respect). Q.r extends the same two surfaces Q.l/Q.m established.
+- **Doc sync as its own story, not folded into Q.q.** Q.q's review focus is "the readiness logic is correct"; Q.r's is "the cross-repo contract is accurately published." Different cognitive layers; separate commit boundaries — the same split Q-3 used (Q.l docs vs. Q.m code).
+
+**Implementation:**
+- [ ] Edit `docs/specs/features.md` — refine Cross-Repo Contracts #2 to describe the readiness-gated warning, the `--status` query dependency (exit codes `0/1/2/127`), graceful degradation, never-uninstall-unless-0, and the two-way version coordination.
+- [ ] Append the Q-4 invariants to `docs/specs/project-essentials.md`'s "Pyve cross-repo contracts" section (after the Q-3 content): never-uninstall-unless-0; the live-detection documented exception to invariant (b); consult-the-query-never-inspect-internals; delegate-don't-install; two-way version coordination.
+- [ ] Run `pyve run project-guide update` and re-render `go.md` (the `project-essentials.md` addition flows through the auto-render path).
+- [ ] Spot-check the rendered Q-4 invariants block in `docs/project-guide/go.md`.
+- [ ] Run `pyve test`.
+- [ ] Run `pyve testenv run ruff check project_guide/ tests/`.
+- [ ] Flip story status `[Planned]` → `[Done]` and check off tasks.
+
+**Out of scope:**
+- **The readiness-gate code change.** Owned by Q.q.
+- **Version bump / CHANGELOG entry.** Bundled into Q.s.
+- **Pyve-side documentation of the `--status` contract.** Lives in the Pyve repo's own `project-essentials`.
+
+---
+
+### Story Q.s: v2.15.0 Subphase Q-4 bundled release [Planned]
+
+**Problem.** Subphase Q-4 ships as one bundled release per the subphase phase-bundling option installed in Q.a. Stories Q.q and Q.r run unversioned; Q.s is the release-marker story that bumps the package and authors the CHANGELOG entry covering both.
+
+**Behavior (post-story).** Version bumped to **v2.15.0** across the three canonical sites (`project_guide/version.py`, `pyproject.toml`, new `CHANGELOG.md` entry). The CHANGELOG entry describes Subphase Q-4 as one bundled release: the readiness-gated local-install warning (Q.q) and the cross-repo contract/invariant doc sync (Q.r).
+
+**Why this default.**
+
+- **v2.15.0 minor, not patch.** New readiness-gated behavior plus an interactive provisioning convenience, both additive; the warning message change is operator-facing diagnostic output, not a public-API contract. Per Version Cadence "Feature or improvement → minor."
+- **Distinct release from Q-3's v2.13.0 / the v2.14.0 tail.** Per the subphase phase-bundling pattern installed in Q.a, each subphase decides its own release shape; Q-4 ships as a separate minor bump.
+- **One bump, last story.** Same convention as Q.c / Q.f / Q.n — Q.s is the only Q-4 story with a version in its title.
+- **CHANGELOG entry covers Q.q and Q.r** and cross-references [`phase-q-subphase-4-readiness-gate-plan.md`](phase-q-subphase-4-readiness-gate-plan.md) and [`phase-q-subphase-4-local-install-warning-readiness-gate.md`](phase-q-subphase-4-local-install-warning-readiness-gate.md) so future readers can reconstruct the cross-repo context (the pyve-side `pyve self provision --status` query is the consuming-side counterpart).
+
+**Implementation:**
+- [ ] Bump `project_guide/version.py` to `2.15.0`.
+- [ ] Bump `pyproject.toml` to `2.15.0`.
+- [ ] Add `## [2.15.0]` entry to `CHANGELOG.md` with `### Changed` (the local-install warning is now readiness-gated and non-destructive) and `### Added` (the heal-scoped provisioning offer + the published `pyve self provision --status` dependency contract) subsections. References Q.q and Q.r; cross-references the Q-4 plan and change request.
+- [ ] Run `pyve test`.
+- [ ] Run `pyve testenv run ruff check project_guide/ tests/`.
+- [ ] Flip story status `[Planned]` → `[Done]` and check off tasks.
+
+**Out of scope:**
+- **Git tag / PyPI publish.** Per the *Approval gate discipline* rule in [project-essentials.md](project-essentials.md), the LLM does not initiate git operations or releases. The developer pushes the tag and triggers publish on their own schedule.
+- **Pyve-side minimum-version pin.** Pyve pins `project-guide ≥ v2.15.0` once this subphase ships; that edit lives in the Pyve repo.
+- **End-of-subphase migration to a Q-5 planning session.** Q-5 entry is a separate developer-initiated decision; Q.s is just the release marker for Q-4.
+
+---
+
 ## Future
+
+### Installation/Config Discovery Hierarchy (global vs. project context) [Deferred]
+
+Model after `asdf` with no `.tool-versions`: context-free commands still work; project-scoped commands warn when there's no project. Today `project-guide` resolves its operating context only from a local `.project-guide.yml` in `Path.cwd()`, so commands run outside a project directory have no context and the pre-invoke hook stays silent (e.g., the Q-4 local-install readiness warning can't fire without a local config). Support a discovery hierarchy with a graceful global fallback:
+
+- **Context-free commands** (`--version`, `status`, …) run against the global pyve toolchain-install context when no local `.project-guide.yml` is found — no project home required.
+- **Project-scoped commands** (`mode`, …) warn "no project home" (no-op / non-zero exit) when no local `.project-guide.yml` is found, rather than silently doing nothing.
+
+Resolution order: local `.project-guide.yml` first, then the global toolchain-install context. **Cross-repo contract implication:** the install-location-independence contract (Story Q.l, pinned by `tests/test_cross_repo_contract.py`) currently mandates per-project state is *always* resolved from `cwd`, never from the package install location — a global fallback is a coordinated evolution of that contract requiring a paired Pyve story (the global toolchain context is Pyve-owned). Defer until the need is concrete.
 
 ### Audit Modes [Deferred]
 

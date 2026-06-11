@@ -3777,31 +3777,220 @@ def test_status_omits_pyve_footer_when_not_detected(runner, tmp_path):
         assert 'Managed by pyve' not in result.output
 
 
-def test_heal_warns_on_local_install_under_pyve(runner, tmp_path, monkeypatch):
-    """heal warns when a project-local (site-packages) install coexists with pyve."""
-    import yaml
+# --- End Story Q.m ----------------------------------------------------------
 
+
+# --- Story Q.q: readiness-gated local-install warning -----------------------
+#
+# Q-4 makes _warn_if_local_install_under_pyve non-destructive: it consults
+# `pyve self provision --status --json` and only advises `pip uninstall` on
+# exit 0 (a runnable global replacement confirmed). Every other outcome is
+# silent (exit 2) or readiness-first guidance (exit 1 / 127 / OSError / other).
+
+def _fake_pyve_on_path(monkeypatch, cli_module, *, present=True):
+    """Make `shutil.which("pyve")` resolve (or not) without touching real PATH."""
+    real_which = cli_module.shutil.which
+
+    def fake_which(name):
+        if name == 'pyve':
+            return '/usr/local/bin/pyve' if present else None
+        return real_which(name)
+
+    monkeypatch.setattr(cli_module.shutil, 'which', fake_which)
+
+
+def _fake_site_packages_install(monkeypatch, cli_module):
+    """Point _running_install_path at a pip-installed copy under cwd."""
+    fake = Path.cwd() / '.venv/lib/python3.12/site-packages/project_guide'
+    resolved = fake.resolve()
+    monkeypatch.setattr(cli_module, '_running_install_path', lambda: resolved)
+    return resolved
+
+
+def test_warn_exit0_with_version_advises_removal(runner, tmp_path, monkeypatch):
+    """exit 0 + parseable version → benign-duplicate notice naming the version."""
     import project_guide.cli as cli_module
     monkeypatch.delenv('PROJECT_GUIDE_HEALING', raising=False)
     monkeypatch.setattr(cli_module, 'should_skip_input', lambda *a, **kw: False)
 
     with runner.isolated_filesystem(temp_dir=tmp_path):
         runner.invoke(main, ['init'])
-        cfg = yaml.safe_load(Path('.project-guide.yml').read_text())
-        cfg['pyve_version'] = 'pyve version 2.6.2'
-        Path('.project-guide.yml').write_text(yaml.dump(cfg))
+        _fake_pyve_on_path(monkeypatch, cli_module)
+        _fake_site_packages_install(monkeypatch, cli_module)
+        monkeypatch.setattr(cli_module, '_query_pyve_provision_status',
+                            lambda pyve: (0, '2.15.0'))
 
-        # Simulate a pip-installed local copy under the project root.
-        fake = Path.cwd() / '.venv/lib/python3.12/site-packages/project_guide'
-        monkeypatch.setattr(cli_module, '_running_install_path', lambda: fake.resolve())
-
-        result = runner.invoke(main, ['heal'])
-        assert 'Local project-guide install detected' in result.output
+        result = runner.invoke(main, ['status'])
+        assert 'pyve-managed global project-guide (v2.15.0)' in result.output
         assert 'pip uninstall project-guide' in result.output
 
 
-def test_heal_silent_on_editable_checkout_under_pyve(runner, tmp_path, monkeypatch):
+def test_warn_exit0_without_version_falls_back(runner, tmp_path, monkeypatch):
+    """exit 0 with no parseable JSON version → version-less removal advice."""
+    import project_guide.cli as cli_module
+    monkeypatch.delenv('PROJECT_GUIDE_HEALING', raising=False)
+    monkeypatch.setattr(cli_module, 'should_skip_input', lambda *a, **kw: False)
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        runner.invoke(main, ['init'])
+        _fake_pyve_on_path(monkeypatch, cli_module)
+        _fake_site_packages_install(monkeypatch, cli_module)
+        monkeypatch.setattr(cli_module, '_query_pyve_provision_status',
+                            lambda pyve: (0, None))
+
+        result = runner.invoke(main, ['status'])
+        assert 'A pyve-managed global project-guide is active' in result.output
+        assert 'pip uninstall project-guide' in result.output
+        assert '(v' not in result.output  # no version token leaked
+
+
+def test_warn_exit2_is_silent(runner, tmp_path, monkeypatch):
+    """exit 2 (not pyve-managed here) → no warning at all."""
+    import project_guide.cli as cli_module
+    monkeypatch.delenv('PROJECT_GUIDE_HEALING', raising=False)
+    monkeypatch.setattr(cli_module, 'should_skip_input', lambda *a, **kw: False)
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        runner.invoke(main, ['init'])
+        _fake_pyve_on_path(monkeypatch, cli_module)
+        _fake_site_packages_install(monkeypatch, cli_module)
+        monkeypatch.setattr(cli_module, '_query_pyve_provision_status',
+                            lambda pyve: (2, None))
+
+        result = runner.invoke(main, ['status'])
+        assert 'pip uninstall' not in result.output
+        assert "hosting isn't ready" not in result.output
+
+
+@pytest.mark.parametrize('exit_code', [1, 127, None])
+def test_warn_readiness_first_never_advises_removal(runner, tmp_path, monkeypatch, exit_code):
+    """exit 1 / 127 / OSError(None) → readiness-first guidance, never removal."""
+    import project_guide.cli as cli_module
+    monkeypatch.delenv('PROJECT_GUIDE_HEALING', raising=False)
+    monkeypatch.setattr(cli_module, 'should_skip_input', lambda *a, **kw: False)
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        runner.invoke(main, ['init'])
+        _fake_pyve_on_path(monkeypatch, cli_module)
+        _fake_site_packages_install(monkeypatch, cli_module)
+        monkeypatch.setattr(cli_module, '_query_pyve_provision_status',
+                            lambda pyve: (exit_code, None))
+
+        result = runner.invoke(main, ['status'])
+        assert "hosting isn't ready" in result.output
+        assert 'pyve self provision' in result.output
+        assert 'pip uninstall' not in result.output
+
+
+def test_query_provision_status_handles_oserror(monkeypatch):
+    """The status helper degrades to (None, None) when pyve cannot be launched."""
+    import project_guide.cli as cli_module
+
+    def raise_oserror(*a, **kw):
+        raise OSError("no such binary")
+
+    monkeypatch.setattr(cli_module.subprocess, 'run', raise_oserror)
+    assert cli_module._query_pyve_provision_status('/usr/local/bin/pyve') == (None, None)
+
+
+def test_query_provision_status_parses_version(monkeypatch):
+    """exit 0 with a well-formed JSON payload yields the project_guide.version."""
+    import project_guide.cli as cli_module
+
+    class _Proc:
+        returncode = 0
+        stdout = '{"project_guide": {"version": "2.15.0"}}'
+
+    monkeypatch.setattr(cli_module.subprocess, 'run', lambda *a, **kw: _Proc())
+    assert cli_module._query_pyve_provision_status('/usr/local/bin/pyve') == (0, '2.15.0')
+
+
+def test_query_provision_status_tolerates_bad_json(monkeypatch):
+    """exit 0 with unparseable stdout yields (0, None), not a crash."""
+    import project_guide.cli as cli_module
+
+    class _Proc:
+        returncode = 0
+        stdout = 'not json at all'
+
+    monkeypatch.setattr(cli_module.subprocess, 'run', lambda *a, **kw: _Proc())
+    assert cli_module._query_pyve_provision_status('/usr/local/bin/pyve') == (0, None)
+
+
+def test_warn_silent_when_pyve_absent(runner, tmp_path, monkeypatch):
+    """pyve not on PATH → standalone usage, no warning (no status query run)."""
+    import project_guide.cli as cli_module
+    monkeypatch.delenv('PROJECT_GUIDE_HEALING', raising=False)
+    monkeypatch.setattr(cli_module, 'should_skip_input', lambda *a, **kw: False)
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        runner.invoke(main, ['init'])
+        _fake_pyve_on_path(monkeypatch, cli_module, present=False)
+        _fake_site_packages_install(monkeypatch, cli_module)
+
+        def fail(pyve):  # pragma: no cover - must not be called
+            raise AssertionError("status query ran despite pyve absent")
+
+        monkeypatch.setattr(cli_module, '_query_pyve_provision_status', fail)
+
+        result = runner.invoke(main, ['status'])
+        assert 'pip uninstall' not in result.output
+        assert "hosting isn't ready" not in result.output
+
+
+def test_warn_silent_on_editable_checkout(runner, tmp_path, monkeypatch):
     """No warning for an editable source checkout (no site-packages segment)."""
+    import project_guide.cli as cli_module
+    monkeypatch.delenv('PROJECT_GUIDE_HEALING', raising=False)
+    monkeypatch.setattr(cli_module, 'should_skip_input', lambda *a, **kw: False)
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        runner.invoke(main, ['init'])
+        _fake_pyve_on_path(monkeypatch, cli_module)
+        fake = (Path.cwd() / 'project_guide').resolve()
+        monkeypatch.setattr(cli_module, '_running_install_path', lambda: fake)
+
+        result = runner.invoke(main, ['status'])
+        assert 'pip uninstall' not in result.output
+        assert "hosting isn't ready" not in result.output
+
+
+def test_warn_silent_when_not_under_cwd(runner, tmp_path, monkeypatch):
+    """No warning when the running install is outside the project root."""
+    import project_guide.cli as cli_module
+    monkeypatch.delenv('PROJECT_GUIDE_HEALING', raising=False)
+    monkeypatch.setattr(cli_module, 'should_skip_input', lambda *a, **kw: False)
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        runner.invoke(main, ['init'])
+        _fake_pyve_on_path(monkeypatch, cli_module)
+        foreign = Path('/opt/foreign/lib/site-packages/project_guide')
+        monkeypatch.setattr(cli_module, '_running_install_path', lambda: foreign)
+
+        result = runner.invoke(main, ['status'])
+        assert 'pip uninstall' not in result.output
+        assert "hosting isn't ready" not in result.output
+
+
+def test_warn_silent_under_skip_input(runner, tmp_path, monkeypatch):
+    """should_skip_input() suppresses the warning entirely (preserved gate)."""
+    import project_guide.cli as cli_module
+    monkeypatch.delenv('PROJECT_GUIDE_HEALING', raising=False)
+    # Do not override should_skip_input — CliRunner's non-TTY stdin makes it True.
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        runner.invoke(main, ['init'])
+        _fake_pyve_on_path(monkeypatch, cli_module)
+        _fake_site_packages_install(monkeypatch, cli_module)
+        monkeypatch.setattr(cli_module, '_query_pyve_provision_status',
+                            lambda pyve: (0, '2.15.0'))
+
+        result = runner.invoke(main, ['status'])
+        assert 'pip uninstall' not in result.output
+
+
+def test_warn_detects_pyve_installed_after_init(runner, tmp_path, monkeypatch):
+    """Live shutil.which gate engages even when init cached no pyve_version."""
     import yaml
 
     import project_guide.cli as cli_module
@@ -3811,36 +4000,105 @@ def test_heal_silent_on_editable_checkout_under_pyve(runner, tmp_path, monkeypat
     with runner.isolated_filesystem(temp_dir=tmp_path):
         runner.invoke(main, ['init'])
         cfg = yaml.safe_load(Path('.project-guide.yml').read_text())
-        cfg['pyve_version'] = 'pyve version 2.6.2'
+        cfg['pyve_version'] = None  # pyve was not present at init time
         Path('.project-guide.yml').write_text(yaml.dump(cfg))
 
-        # Editable checkout: package dir directly under cwd, no site-packages.
-        fake = Path.cwd() / 'project_guide'
-        monkeypatch.setattr(cli_module, '_running_install_path', lambda: fake.resolve())
+        _fake_pyve_on_path(monkeypatch, cli_module)  # but it's on PATH now
+        _fake_site_packages_install(monkeypatch, cli_module)
+        monkeypatch.setattr(cli_module, '_query_pyve_provision_status',
+                            lambda pyve: (0, '2.15.0'))
 
-        result = runner.invoke(main, ['heal'])
-        assert 'Local project-guide install detected' not in result.output
+        result = runner.invoke(main, ['status'])
+        assert 'pip uninstall project-guide' in result.output
 
 
-def test_heal_silent_on_local_install_when_pyve_absent(runner, tmp_path, monkeypatch):
-    """No warning when pyve was not detected, even with a local site-packages install."""
-    import yaml
-
+def test_heal_offer_accepted_invokes_pyve_provision(runner, tmp_path, monkeypatch):
+    """In the readiness-first branch, heal offers to provision and delegates on yes."""
     import project_guide.cli as cli_module
     monkeypatch.delenv('PROJECT_GUIDE_HEALING', raising=False)
     monkeypatch.setattr(cli_module, 'should_skip_input', lambda *a, **kw: False)
 
+    recorded = []
+    monkeypatch.setattr(cli_module, '_provision_pyve_hosting',
+                        lambda pyve: recorded.append(pyve))
+
     with runner.isolated_filesystem(temp_dir=tmp_path):
         runner.invoke(main, ['init'])
-        cfg = yaml.safe_load(Path('.project-guide.yml').read_text())
-        cfg['pyve_version'] = None
-        Path('.project-guide.yml').write_text(yaml.dump(cfg))
+        _fake_pyve_on_path(monkeypatch, cli_module)
+        _fake_site_packages_install(monkeypatch, cli_module)
+        monkeypatch.setattr(cli_module, '_query_pyve_provision_status',
+                            lambda pyve: (1, None))
 
-        fake = Path.cwd() / '.venv/lib/python3.12/site-packages/project_guide'
-        monkeypatch.setattr(cli_module, '_running_install_path', lambda: fake.resolve())
-
-        result = runner.invoke(main, ['heal'])
-        assert 'Local project-guide install detected' not in result.output
+        result = runner.invoke(main, ['heal'], input='y\n')
+        assert 'Provision pyve-managed project-guide now?' in result.output
+        assert recorded == ['/usr/local/bin/pyve']
 
 
-# --- End Story Q.m ----------------------------------------------------------
+def test_heal_offer_declined_is_noop(runner, tmp_path, monkeypatch):
+    """Declining the heal provisioning offer delegates nothing and advises no removal."""
+    import project_guide.cli as cli_module
+    monkeypatch.delenv('PROJECT_GUIDE_HEALING', raising=False)
+    monkeypatch.setattr(cli_module, 'should_skip_input', lambda *a, **kw: False)
+
+    recorded = []
+    monkeypatch.setattr(cli_module, '_provision_pyve_hosting',
+                        lambda pyve: recorded.append(pyve))
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        runner.invoke(main, ['init'])
+        _fake_pyve_on_path(monkeypatch, cli_module)
+        _fake_site_packages_install(monkeypatch, cli_module)
+        monkeypatch.setattr(cli_module, '_query_pyve_provision_status',
+                            lambda pyve: (1, None))
+
+        result = runner.invoke(main, ['heal'], input='n\n')
+        assert 'Provision pyve-managed project-guide now?' in result.output
+        assert recorded == []
+        assert 'pip uninstall' not in result.output
+
+
+def test_heal_offer_suppressed_under_no_input(runner, tmp_path, monkeypatch):
+    """--no-input never prompts to provision and never delegates."""
+    import project_guide.cli as cli_module
+    monkeypatch.delenv('PROJECT_GUIDE_HEALING', raising=False)
+
+    recorded = []
+    monkeypatch.setattr(cli_module, '_provision_pyve_hosting',
+                        lambda pyve: recorded.append(pyve))
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        runner.invoke(main, ['init'])
+        _fake_pyve_on_path(monkeypatch, cli_module)
+        _fake_site_packages_install(monkeypatch, cli_module)
+        monkeypatch.setattr(cli_module, '_query_pyve_provision_status',
+                            lambda pyve: (1, None))
+
+        result = runner.invoke(main, ['heal', '--no-input'])
+        assert 'Provision pyve-managed project-guide now?' not in result.output
+        assert recorded == []
+
+
+def test_auto_hook_never_prompts_to_provision(runner, tmp_path, monkeypatch):
+    """The pre-invoke auto-hook emits readiness text but never the provision offer."""
+    import project_guide.cli as cli_module
+    monkeypatch.delenv('PROJECT_GUIDE_HEALING', raising=False)
+    monkeypatch.setattr(cli_module, 'should_skip_input', lambda *a, **kw: False)
+
+    recorded = []
+    monkeypatch.setattr(cli_module, '_provision_pyve_hosting',
+                        lambda pyve: recorded.append(pyve))
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        runner.invoke(main, ['init'])
+        _fake_pyve_on_path(monkeypatch, cli_module)
+        _fake_site_packages_install(monkeypatch, cli_module)
+        monkeypatch.setattr(cli_module, '_query_pyve_provision_status',
+                            lambda pyve: (1, None))
+
+        result = runner.invoke(main, ['status'])
+        assert "hosting isn't ready" in result.output
+        assert 'Provision pyve-managed project-guide now?' not in result.output
+        assert recorded == []
+
+
+# --- End Story Q.q ----------------------------------------------------------
