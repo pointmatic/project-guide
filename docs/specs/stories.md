@@ -797,6 +797,25 @@ Bundled release at end-of-subphase as **v2.15.0** (minor — new readiness-gated
 
 ---
 
+### Story Q.t: v2.15.1 Fix pre-invoke hang — bound the `pyve self provision --status` probe [Done]
+
+**Problem.** The Q-4 readiness gate's status probe (`_query_pyve_provision_status` in [cli.py](../../project_guide/cli.py)) ran `pyve self provision --status --json` via `subprocess.run` with **no `timeout`** and an **inherited stdin**. Against a pyve that predates the `--status` query (the pyve-side counterpart, Pyve Story N.bv), the invocation can fall into the real — interactive/hanging — `self provision` path: with `capture_output=True` its prompt is swallowed, stdin stays open, and **every `project-guide` invocation hangs silently in the pre-invoke hook** until Ctrl-C (reproduced field report: v2.12.0 → v2.15.0 upgrade in a pyve venv, `project-guide mode code_direct` hung). Root cause class: incomplete failure-mode enumeration — Q.q's degrade-safe design keyed degradation on exit codes (`0/1/2/127/OSError`), but a subprocess that never returns produces no exit code, so the degrade path was unreachable. The two-way version-coordination note assumed an older pyve would *exit non-zero*, not block. Why tests missed it: the existing probe tests mocked `subprocess.run`'s return/raise behavior but never pinned the call's *bounding* arguments, so the absent `timeout` was invisible to the suite. The sibling `pyve --version` probe in `cli.py:init` already used `timeout=5` — the new probe simply didn't follow that established pattern.
+
+**Behavior (post-story).** The probe passes `timeout=5` (matching the `pyve --version` probe) and `stdin=subprocess.DEVNULL`; `subprocess.TimeoutExpired` is caught alongside `OSError` and degrades to `(None, None)` → the caller's non-destructive readiness-first branch. A hung or interactive pyve can no longer block any `project-guide` invocation; worst case is a 5-second delay, after which the gate degrades exactly as it does for a missing or erroring pyve.
+
+**Implementation:**
+- [x] Failing tests first (`tests/test_cli.py`): `test_query_provision_status_bounds_subprocess` (pins `timeout` + `stdin=DEVNULL` kwargs on the `subprocess.run` call) and `test_query_provision_status_handles_timeout` (`TimeoutExpired` → `(None, None)`). Both confirmed failing pre-fix.
+- [x] Fix `_query_pyve_provision_status` in `project_guide/cli.py`: add `timeout=5` and `stdin=subprocess.DEVNULL` to the `subprocess.run` call; widen the except clause to `(OSError, subprocess.TimeoutExpired)`; update the docstring to document the timeout outcome.
+- [x] Prevention scan: audited every other `subprocess.run` call in `project_guide/` — the `pyve --version` probe (`cli.py:init`) already has `timeout=5`; `_provision_pyve_hosting` and the `git-push` gitbetter delegation are *deliberately* unbounded interactive delegations (the user sees and drives them), not silent probes; the three local-git plumbing probes (`git rev-parse`, `git ls-files`, `git log --pretty=%s`) are non-interactive local commands with captured output (no prompt path, no network) — acceptable without timeouts. No change needed.
+- [x] Bump `project_guide/version.py` and `pyproject.toml` to `2.15.1`; add a `## [2.15.1]` CHANGELOG entry.
+- [x] Run `pyve test` (617 passed) and `pyve testenv run ruff check project_guide/ tests/` (clean).
+
+**Out of scope:**
+- **Pyve-side `self provision` hang fix.** Already tracked as Pyve Story N.bv in the Pyve repo; this story makes project-guide safe regardless of the installed pyve version.
+- **Git tag / PyPI publish of v2.15.1.** Per approval-gate discipline, the developer pushes the tag and triggers publish on their own schedule.
+
+---
+
 ## Future
 
 ### Installation/Config Discovery Hierarchy (global vs. project context) [Deferred]

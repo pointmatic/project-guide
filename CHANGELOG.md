@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.15.1] - 2026-06-11
+
+**Fix: pre-invoke hook hang against a pyve without `self provision --status` (Story Q.t).** The Q-4 readiness gate (v2.15.0) probed `pyve self provision --status --json` with no `timeout` and an inherited stdin. Against a pyve predating the `--status` query (the pyve-side counterpart, Pyve Story N.bv), the invocation could fall into the real — interactive/hanging — `self provision` path: its prompt was swallowed by `capture_output=True` and **every `project-guide` invocation hung silently in the pre-invoke hook** until Ctrl-C. The degrade-safe design keyed degradation on exit codes, but a subprocess that never returns produces no exit code, so the degrade path was unreachable.
+
+### Fixed
+- **Q.t — bound the readiness probe.** `_query_pyve_provision_status` (`cli.py`) now passes `timeout=5` (matching the existing `pyve --version` probe) and `stdin=subprocess.DEVNULL`, and catches `subprocess.TimeoutExpired` alongside `OSError`, degrading to the non-destructive readiness-first branch. Worst case is a 5-second delay; a hung or interactive pyve can no longer block project-guide. Regression tests pin the bounding kwargs and the timeout degradation.
+
 ## [2.15.0] - 2026-06-10
 
 **Subphase Q-4 bundled release: readiness-gated, non-destructive local-install warning.** Subphase Q-4 refines the Q.m pyve-managed-hosting awareness (v2.13.0) so the local-install warning never strands a developer. The Q.m warning advised `pip uninstall project-guide` *unconditionally* the instant it detected a project-local install coexisting with a pyve-managed host — destructive when the global replacement was never provisioned (the reproduced footgun: a `pyve self provision` hang left only the venv copy, and following the advice removed the last working project-guide). Q-4 makes the warning consult the read-only `pyve self provision --status --json` query and **never advise removal unless exit 0** confirms a runnable global replacement; every other outcome is silent or non-destructive readiness-first guidance. Stories Q.q/Q.r ran unversioned during work; Q.s marks the release boundary. The minor bump reflects the new readiness-gated behavior plus the interactive provisioning convenience (both additive; the warning message change is operator-facing diagnostic output, not a public-API contract). Plan: [`docs/specs/phase-q-subphase-4-readiness-gate-plan.md`](docs/specs/phase-q-subphase-4-readiness-gate-plan.md); cross-repo change request: [`docs/specs/phase-q-subphase-4-local-install-warning-readiness-gate.md`](docs/specs/phase-q-subphase-4-local-install-warning-readiness-gate.md).

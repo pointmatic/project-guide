@@ -3917,6 +3917,46 @@ def test_query_provision_status_tolerates_bad_json(monkeypatch):
     assert cli_module._query_pyve_provision_status('/usr/local/bin/pyve') == (0, None)
 
 
+def test_query_provision_status_bounds_subprocess(monkeypatch):
+    """The probe must pass a finite timeout and a closed stdin to subprocess.run.
+
+    Regression test for the v2.15.0 hang: an older pyve that does not recognize
+    ``self provision --status`` can fall into an interactive/blocking path. With
+    no ``timeout`` the pre-invoke hook hangs every ``project-guide`` invocation;
+    with an inherited stdin the hidden prompt blocks forever. Pin both guards.
+    """
+    import project_guide.cli as cli_module
+
+    captured = {}
+
+    class _Proc:
+        returncode = 0
+        stdout = '{"project_guide": {"version": "2.15.0"}}'
+
+    def fake_run(*a, **kw):
+        captured.update(kw)
+        return _Proc()
+
+    monkeypatch.setattr(cli_module.subprocess, 'run', fake_run)
+    cli_module._query_pyve_provision_status('/usr/local/bin/pyve')
+
+    assert captured.get('timeout'), "subprocess.run must be bounded by a finite timeout"
+    assert captured.get('stdin') == cli_module.subprocess.DEVNULL, (
+        "subprocess.run must close stdin so an interactive pyve fallback gets EOF"
+    )
+
+
+def test_query_provision_status_handles_timeout(monkeypatch):
+    """A hung pyve probe degrades to (None, None), same as OSError."""
+    import project_guide.cli as cli_module
+
+    def raise_timeout(*a, **kw):
+        raise cli_module.subprocess.TimeoutExpired(cmd=a[0], timeout=5)
+
+    monkeypatch.setattr(cli_module.subprocess, 'run', raise_timeout)
+    assert cli_module._query_pyve_provision_status('/usr/local/bin/pyve') == (None, None)
+
+
 def test_warn_silent_when_pyve_absent(runner, tmp_path, monkeypatch):
     """pyve not on PATH → standalone usage, no warning (no status query run)."""
     import project_guide.cli as cli_module

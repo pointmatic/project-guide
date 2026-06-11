@@ -1595,8 +1595,10 @@ def _query_pyve_provision_status(pyve_path: str) -> tuple[int | None, str | None
     """Run ``pyve self provision --status --json`` (read-only, side-effect-free).
 
     Returns ``(exit_code, version)``. ``exit_code`` is ``None`` when the
-    subprocess could not be launched at all (``OSError``) — the caller treats
-    that the same as a non-zero readiness failure (degrade-safe). ``version`` is
+    subprocess could not be launched at all (``OSError``) or did not finish
+    within 5 seconds (``TimeoutExpired`` — e.g. an older pyve falling into an
+    interactive ``self provision`` path) — the caller treats both the same as a
+    non-zero readiness failure (degrade-safe). ``version`` is
     the parsed ``project_guide.version`` from the JSON payload on exit 0, else
     ``None``. Factored out so tests can mock it without standing up pyve.
     """
@@ -1606,8 +1608,10 @@ def _query_pyve_provision_status(pyve_path: str) -> tuple[int | None, str | None
             capture_output=True,
             text=True,
             check=False,
+            timeout=5,
+            stdin=subprocess.DEVNULL,
         )
-    except OSError:
+    except (OSError, subprocess.TimeoutExpired):
         return None, None
     version = _parse_provision_version(proc.stdout) if proc.returncode == 0 else None
     return proc.returncode, version
