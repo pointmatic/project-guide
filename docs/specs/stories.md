@@ -734,7 +734,7 @@ Bundled release at end-of-subphase as **v2.15.0** (minor — new readiness-gated
 
 ---
 
-### Story Q.r: Cross-repo contract + invariant doc sync [Planned]
+### Story Q.r: Cross-repo contract + invariant doc sync [Done]
 
 **Problem.** Q.q changes the local-install warning's behavior and introduces a new pyve dependency (`pyve self provision --status`), but the contract documentation still describes the Q.m *unconditional* warning. Two surfaces drift: `features.md`'s Cross-Repo Contracts #2 ("Pyve-managed-hosting awareness") and `project-essentials.md`'s "Pyve cross-repo contracts" section. Without the update, future LLMs reading the specs would not know the readiness-gate invariant (never advise removal unless exit 0), the live-detection exception to invariant (b), or the delegate-don't-install discipline of the provisioning offer.
 
@@ -754,13 +754,13 @@ Bundled release at end-of-subphase as **v2.15.0** (minor — new readiness-gated
 - **Doc sync as its own story, not folded into Q.q.** Q.q's review focus is "the readiness logic is correct"; Q.r's is "the cross-repo contract is accurately published." Different cognitive layers; separate commit boundaries — the same split Q-3 used (Q.l docs vs. Q.m code).
 
 **Implementation:**
-- [ ] Edit `docs/specs/features.md` — refine Cross-Repo Contracts #2 to describe the readiness-gated warning, the `--status` query dependency (exit codes `0/1/2/127`), graceful degradation, never-uninstall-unless-0, and the two-way version coordination.
-- [ ] Append the Q-4 invariants to `docs/specs/project-essentials.md`'s "Pyve cross-repo contracts" section (after the Q-3 content): never-uninstall-unless-0; the live-detection documented exception to invariant (b); consult-the-query-never-inspect-internals; delegate-don't-install; two-way version coordination.
-- [ ] Run `pyve run project-guide update` and re-render `go.md` (the `project-essentials.md` addition flows through the auto-render path).
-- [ ] Spot-check the rendered Q-4 invariants block in `docs/project-guide/go.md`.
-- [ ] Run `pyve test`.
-- [ ] Run `pyve testenv run ruff check project_guide/ tests/`.
-- [ ] Flip story status `[Planned]` → `[Done]` and check off tasks.
+- [x] Edit `docs/specs/features.md` — refine Cross-Repo Contracts #2 to describe the readiness-gated warning, the `--status` query dependency (exit codes `0/1/2/127`), graceful degradation, never-uninstall-unless-0, and the two-way version coordination. *(Refined contract row #4 — the "Pyve-managed-hosting awareness" row matching the named contract — plus the trailing coordination paragraph.)*
+- [x] Append the Q-4 invariants to `docs/specs/project-essentials.md`'s "Pyve cross-repo contracts" section (after the Q-3 content): never-uninstall-unless-0; the live-detection documented exception to invariant (b); consult-the-query-never-inspect-internals; delegate-don't-install; two-way version coordination. *(Also added a one-clause cross-ref on invariant (b) pointing at the Q-4 exception.)*
+- [x] Run `pyve run project-guide update` and re-render `go.md` (the `project-essentials.md` addition flows through the auto-render path).
+- [x] Spot-check the rendered Q-4 invariants block in `docs/project-guide/go.md`.
+- [x] Run `pyve test`.
+- [x] Run `pyve testenv run ruff check project_guide/ tests/`.
+- [x] Flip story status `[Planned]` → `[Done]` and check off tasks.
 
 **Out of scope:**
 - **The readiness-gate code change.** Owned by Q.q.
