@@ -30,6 +30,16 @@ Any future interactive prompt added to a CLI command **must** use the `should_sk
 - **`stories.md` titles:** include **`vX.Y.Z` in the heading only for the story that owns that bump** (the story whose completion coincides with releasing that version). Omit the version in the title for doc-only stories and for **`[Planned]`** stories until the ship version is known.
 - **Bump when this story owns the release:** `project_guide/version.py`, `pyproject.toml`, and `CHANGELOG.md` (new `## [X.Y.Z]` entry dated).
 
+### Story verification (CI-gate parity)
+
+Before presenting a **code** story at its approval gate, run the **same checks CI gates on**, so a green local run predicts a green CI run. All three, every code story:
+
+- **Tests** — `pyve test` (full suite passes).
+- **Lint** — `pyve testenv run ruff check project_guide/ tests/`.
+- **Types** — `pyve testenv run mypy project_guide/`. **mypy is a CI gate** ([ci.yml](../../.github/workflows/ci.yml), [publish.yml](../../.github/workflows/publish.yml)); a verification step that runs only tests + ruff can ship a type error straight to red CI. This happened in **Story Q.u** — a `str | None` narrowing error at `cli.py:2169` reached CI because the verification step omitted mypy.
+
+Record the outcome in the story checklist (counts passed / "clean"). If the local testenv's console-script shebangs are stale (env-layout churn breaks `pyve testenv run mypy`), invoke the module directly — `.pyve/envs/testenv/venv/bin/python -m mypy project_guide/` — rather than skipping the gate.
+
 ### Commit workflow
 
 - **Commit messages reference the story ID** in the bare form `<id>: <title>` (no `Story ` prefix — the prefix is implicit context and adds no information the `<id>:` anchor doesn't already convey). Include **`vX.Y.Z`** when this commit is the **single** version bump for that story — examples:
@@ -110,7 +120,7 @@ Auto-healing N templates under --no-input.
 
 The notice is **non-suppressible** (always emitted even with `--quiet`) so CI logs and embedding callers (pyve scaffolding, etc.) have a visible signal that file writes occurred. This is the heal-specific application of the `--no-input` contract documented earlier in this file.
 
-### `project-guide git-push` is developer-lane (added v2.7.0, bundled-commit support added v2.9.0, header-awareness + out-of-sequence detection added v2.10.0, single-story out-of-sequence opt-in v2.14.0)
+### `project-guide git-push` is developer-lane (added v2.7.0, bundled-commit support added v2.9.0, header-awareness + out-of-sequence detection added v2.10.0, single-story out-of-sequence opt-in v2.14.0, branch-aware squash-merge presumption v2.16.0)
 
 `project-guide git-push` is a thin wrapper over [gitbetter](https://github.com/pointmatic/gitbetter)'s `git-push` that auto-derives the commit message from `[Done]` story headings. It is a **developer-lane convenience command** — the LLM **must not** initiate it. The approval-gate discipline rule earlier in this file ("do not propose commits, pushes, or bundling options ... do not offer 'want me to also …?' follow-ups") remains in force, and applies to this wrapper just as it does to raw `git`. The wrapper exists to shorten the developer's typing at commit time, not to give the LLM a new excuse to volunteer commits.
 
@@ -144,13 +154,21 @@ The notice is **non-suppressible** (always emitted even with `--quiet`) so CI lo
 
 Out-of-sequence remains an **error path that `--no-input` never auto-yeses**: under `--no-input` the single-story opt-in auto-declines to the error block (so CI never silently commits out of sequence).
 
+**Branch-aware squash-merge presumption (Q.u, v2.16.0):** the out-of-sequence discipline above applies only on **`main`/`master`** (literal match; also when the branch is undeterminable — git absent, not a repo, no commits). On **any other branch**, squash merges to main rewrite commit subjects (PR titles), so earlier `[Done]` stories may not parse from this branch's `git log` even though they shipped — the out-of-sequence error would be a false positive. `_presume_committed_on_branch` (`cli.py`) replaces it with two heuristics:
+
+- **Anchor found** (≥1 `[Done]` story parses from the branch log): announce `The first committed story in branch '<branch>' is: <id>.`, presume every `[Done]` story *before* it (document order) merged via the squashed branch (announced), and run the normal single/bundle flow on the genuinely uncommitted tail. No out-of-sequence error or `[y/N]` prompt on non-main branches.
+- **No anchor** (zero recognizable story commits) with 2+ uncommitted `[Done]` stories: offer `Commit just the last one? [Y/n]` (default **`Y`** — low risk; worst case the developer amends the message to cover more stories, and from then on the branch has a first-story anchor). Accept → single-story push of the last `[Done]` story. Decline → fall through to the normal bundle offer. Under `--no-input` the prompt is skipped (auto-decline → bundle offer → auto-decline → exit 1), so CI never silently picks a story.
+
+The duplicate-`<id>` warning stays active on every branch (it scans the same log and inherited history is still meaningful).
+
 **Nothing-to-commit success (P.v, v2.10.0):** when the post-filter uncommitted list is empty (every real `[Done]` story is already in git log), exit **0** with `Nothing to commit — every real [Done] story is already in git log.` plus a parenthetical naming any `[Done]` headers present. Pre-P.v this was exit 1 with a misleading `"Story <last id> is already committed"` message that named the header heading. The "no `[Done]` stories at all" path keeps its exit-1 stories.md-authoring-problem semantics — only the all-committed case became exit 0.
 
-**Branch logic (post-P.v):**
+**Branch logic (post-P.v; Q.u branch-awareness v2.16.0):**
 - 0 `[Done]` stories at all → exit 1 `"No completed story found in <path>."` (stories.md authoring problem).
 - 0 commit-worthy uncommitted (everything committed, or only headers remain) → **exit 0** `"Nothing to commit — ..."`.
-- Out-of-sequence detected, **2+ uncommitted** → exit 1 with the offender+context error block (no prompt).
-- Out-of-sequence detected, **exactly 1 uncommitted** (Q.p) → prompt `Commit this single out-of-sequence story? [y/N]` (default `N`). Accept → single-story `git-push`. Decline (or `--no-input`) → offender error block, exit 1.
+- **Non-main branch (Q.u)** → no out-of-sequence error/prompt; anchor-presumption or the no-anchor `Commit just the last one? [Y/n]` offer (see above), then the normal single/bundle flow on the uncommitted tail.
+- Out-of-sequence detected on main/master, **2+ uncommitted** → exit 1 with the offender+context error block (no prompt).
+- Out-of-sequence detected on main/master, **exactly 1 uncommitted** (Q.p) → prompt `Commit this single out-of-sequence story? [y/N]` (default `N`). Accept → single-story `git-push`. Decline (or `--no-input`) → offender error block, exit 1.
 - 1 commit-worthy uncommitted `[Done]` story (in sequence) → derive single-story message, invoke `git-push`.
 - 2+ commit-worthy uncommitted `[Done]` stories → propose bundled subject, prompt `[Y/n]`. Accept → invoke `git-push` with the bundled message. Decline (or `--no-input`) → exit 1 with the manual-resolution hint.
 - Duplicate `<id>` in git log → warning + prompt `Continue? [Y/n]` (defaults `Y` interactive, `n` under `--no-input`).

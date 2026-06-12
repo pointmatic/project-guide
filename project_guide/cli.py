@@ -1927,6 +1927,94 @@ def _get_committed_story_ids() -> tuple[set[str], dict[str, list[str]]]:
     return committed, duplicates
 
 
+def _get_current_branch() -> str | None:
+    """Return the current git branch name, or ``None`` when undeterminable.
+
+    Runs ``git rev-parse --abbrev-ref HEAD``. Returns ``None`` when git is
+    unavailable, the cwd is not a git repository, or the repo has no commits
+    — callers treat ``None`` like ``main`` (the conservative path that keeps
+    the full out-of-sequence discipline).
+    """
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except (FileNotFoundError, OSError):
+        return None
+    if result.returncode != 0:
+        return None
+    branch = result.stdout.strip()
+    return branch or None
+
+
+def _presume_committed_on_branch(
+    branch: str,
+    commit_units: list,
+    committed: set[str],
+    skip_input: bool,
+) -> set[str]:
+    """Augment ``committed`` with stories presumed merged on a non-main branch.
+
+    Story Q.u: on a non-main branch, squash merges to main rewrite commit
+    subjects (PR titles), so earlier ``[Done]`` stories may not parse out of
+    this branch's ``git log`` even though they shipped. Two heuristics:
+
+    - **Anchor found** (at least one ``[Done]`` story parses from the branch
+      log): announce the first (document-order) committed story and presume
+      every ``[Done]`` story *before* it committed. The normal single/bundle
+      flow then runs on the genuinely uncommitted tail — no out-of-sequence
+      error or prompt on non-main branches.
+    - **No anchor** (zero recognizable story commits) with 2+ uncommitted
+      ``[Done]`` stories: offer ``Commit just the last one? [Y/n]`` (default
+      ``Y`` — low risk; worst case the developer amends the message to cover
+      more stories, and from then on the branch has a first-story anchor).
+      Accept → presume all but the last committed. Decline (or
+      ``skip_input``) → fall through unchanged to the normal bundle flow.
+    """
+    committed_in_branch = [s for s in commit_units if s.story_id in committed]
+    if committed_in_branch:
+        anchor = committed_in_branch[0]
+        anchor_idx = next(
+            i for i, s in enumerate(commit_units) if s.story_id == anchor.story_id
+        )
+        presumed = {
+            s.story_id
+            for s in commit_units[:anchor_idx]
+            if s.story_id not in committed
+        }
+        if presumed:
+            click.echo(
+                f"The first committed story in branch '{branch}' is: "
+                f"{anchor.story_id}.",
+                err=True,
+            )
+            presumed_ids = ", ".join(
+                s.story_id for s in commit_units[:anchor_idx] if s.story_id in presumed
+            )
+            click.echo(
+                f"Presuming earlier [Done] stories merged to main via a "
+                f"squashed branch: {presumed_ids}.",
+                err=True,
+            )
+        return committed | presumed
+
+    uncommitted = [s for s in commit_units if s.story_id not in committed]
+    if len(uncommitted) <= 1 or skip_input:
+        return committed
+
+    click.echo(
+        f"Branch '{branch}' has no story commits, but there are multiple "
+        f"[Done] stories.",
+        err=True,
+    )
+    if click.confirm("Commit just the last one?", default=True, err=True):
+        return committed | {s.story_id for s in uncommitted[:-1]}
+    return committed
+
+
 def _resolve_spec_artifacts_path() -> str:
     """Resolve the spec artifacts directory (where stories.md lives).
 
@@ -1986,14 +2074,26 @@ def git_push(branch_name: str | None, no_input: bool):
     and asks `[Y/n]`. Decline → exit 1 with the manual-resolution hint.
 
     \b
-    Out-of-sequence detection (Story P.v): if an uncommitted [Done] story
-    precedes a committed [Done] story in stories.md document order, the
-    wrapper flags it. When exactly one [Done] story is uncommitted (Story
-    Q.p) its commit message is unambiguous, so the wrapper offers to commit
-    just that story `[y/N]` (default N); accept → single-story push, decline
-    → the offender error block + exit 1. When multiple [Done] stories are
-    uncommitted the attribution is genuinely ambiguous, so the wrapper exits
-    1 with the offender block and no prompt. --no-input auto-declines.
+    Out-of-sequence detection (Story P.v) applies on `main`/`master` (or when
+    the branch is undeterminable): if an uncommitted [Done] story precedes a
+    committed [Done] story in stories.md document order, the wrapper flags
+    it. When exactly one [Done] story is uncommitted (Story Q.p) its commit
+    message is unambiguous, so the wrapper offers to commit just that story
+    `[y/N]` (default N); accept → single-story push, decline → the offender
+    error block + exit 1. When multiple [Done] stories are uncommitted the
+    attribution is genuinely ambiguous, so the wrapper exits 1 with the
+    offender block and no prompt. --no-input auto-declines.
+
+    \b
+    On any other branch (Story Q.u), squash merges to main rewrite commit
+    subjects, so earlier [Done] stories may not parse from this branch's
+    log even though they shipped. Instead of the out-of-sequence error, the
+    wrapper announces the first committed story found in the branch and
+    presumes every earlier [Done] story merged, then runs the normal flow on
+    the uncommitted tail. When the branch log has no recognizable story
+    commits and 2+ [Done] stories are uncommitted, it offers `Commit just
+    the last one? [Y/n]` (default Y); decline (or --no-input) falls through
+    to the normal bundle flow.
 
     \b
     Exit 0 (success):
@@ -2056,23 +2156,37 @@ def git_push(branch_name: str | None, no_input: bool):
     commit_units = [s for s in done_stories if not s.is_header]
     headers = [s for s in done_stories if s.is_header]
 
-    # P.v: out-of-sequence detection on the post-filter commit-units list.
-    # The committed prefix → uncommitted suffix invariant must hold; any
-    # uncommitted story that precedes a committed story in document order is
-    # an unambiguous error (no prompt, ignores --no-input).
-    offenders = _check_out_of_sequence(commit_units, committed)
-    if offenders:
-        # Q.p: a single uncommitted [Done] story has an unambiguous commit
-        # message even when it sits out of sequence, so offer to commit just
-        # that story [y/N]. Multiple uncommitted stories stay a hard error —
-        # that is the genuine-attribution-ambiguity case P.v exists to catch.
-        uncommitted_oos = [s for s in commit_units if s.story_id not in committed]
-        single = len(uncommitted_oos) == 1
-        if not (single and _prompt_commit_out_of_sequence(uncommitted_oos[0], skip_input)):
-            _emit_out_of_sequence_error(offenders, commit_units, committed)
-            sys.exit(1)
-        # Accepted single out-of-sequence story → fall through to the normal
-        # single-story commit path below.
+    # Q.u: branch-aware committed-set handling. On main/master (or when the
+    # branch is undeterminable) the full out-of-sequence discipline applies.
+    # On any other branch, squash merges to main make earlier [Done] stories
+    # unparseable from this branch's log, so the presumption heuristics in
+    # _presume_committed_on_branch replace the out-of-sequence error/prompt.
+    branch = _get_current_branch()
+    on_main = branch is None or branch in ("main", "master")
+
+    if not on_main:
+        assert branch is not None  # on_main is True whenever branch is None
+        committed = _presume_committed_on_branch(
+            branch, commit_units, committed, skip_input
+        )
+    else:
+        # P.v: out-of-sequence detection on the post-filter commit-units list.
+        # The committed prefix → uncommitted suffix invariant must hold; any
+        # uncommitted story that precedes a committed story in document order is
+        # an unambiguous error (no prompt, ignores --no-input).
+        offenders = _check_out_of_sequence(commit_units, committed)
+        if offenders:
+            # Q.p: a single uncommitted [Done] story has an unambiguous commit
+            # message even when it sits out of sequence, so offer to commit just
+            # that story [y/N]. Multiple uncommitted stories stay a hard error —
+            # that is the genuine-attribution-ambiguity case P.v exists to catch.
+            uncommitted_oos = [s for s in commit_units if s.story_id not in committed]
+            single = len(uncommitted_oos) == 1
+            if not (single and _prompt_commit_out_of_sequence(uncommitted_oos[0], skip_input)):
+                _emit_out_of_sequence_error(offenders, commit_units, committed)
+                sys.exit(1)
+            # Accepted single out-of-sequence story → fall through to the normal
+            # single-story commit path below.
 
     uncommitted = [s for s in commit_units if s.story_id not in committed]
 

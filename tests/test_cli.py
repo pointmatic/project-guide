@@ -2591,8 +2591,9 @@ def _write_stories_md_raw(body: str) -> None:
     )
 
 
-def _mock_git_log_subjects(monkeypatch, subjects: list[str], git_push_argv_capture: list | None = None):
-    """Patch subprocess.run so `git log` returns the given subjects and
+def _mock_git_log_subjects(monkeypatch, subjects: list[str], git_push_argv_capture: list | None = None, branch: str = "main"):
+    """Patch subprocess.run so `git log` returns the given subjects, `git
+    rev-parse --abbrev-ref HEAD` returns the given branch name, and
     `git-push` invocations capture their argv into the given list."""
     import project_guide.cli as cli_module
 
@@ -2605,6 +2606,8 @@ def _mock_git_log_subjects(monkeypatch, subjects: list[str], git_push_argv_captu
     def fake_run(argv, **kwargs):
         if argv and argv[:2] == ["git", "log"]:
             return _FakeCompleted(0, stdout="\n".join(subjects) + ("\n" if subjects else ""))
+        if argv and argv[:2] == ["git", "rev-parse"]:
+            return _FakeCompleted(0, stdout=branch + "\n")
         # Anything else is a git-push invocation in these tests.
         if git_push_argv_capture is not None:
             git_push_argv_capture.append(list(argv))
@@ -3572,6 +3575,195 @@ def test_git_push_no_done_stories_still_exits_one(runner, tmp_path, monkeypatch)
 
 
 # --- End Story P.v ----------------------------------------------------------
+
+
+# --- Story Q.u: branch-aware git-push (squash-merge presumption) ------------
+
+
+def test_git_push_nonmain_presumes_prefix_before_first_committed(runner, tmp_path, monkeypatch):
+    """On a non-main branch, [Done] stories earlier in document order than the
+    first branch-committed story are presumed squash-merged to main: the
+    wrapper announces the anchor, skips the out-of-sequence error/prompt, and
+    proceeds with the normal flow on the genuinely uncommitted tail."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 First [Done]",
+            "### Story A.b: v0.2.0 Second [Done]",
+            "### Story A.c: v0.3.0 Third [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        # A.a was squashed into main under a PR-title subject → unparseable;
+        # only A.b is recognizable in this branch's log.
+        _mock_git_log_subjects(
+            monkeypatch,
+            subjects=["A.b: v0.2.0 Second"],
+            git_push_argv_capture=captured,
+            branch="feature/x",
+        )
+
+        result = runner.invoke(main, ['git-push'])
+
+        assert result.exit_code == 0, result.output
+        assert "first committed story in branch 'feature/x' is: A.b" in result.output
+        assert "Out-of-sequence" not in result.output
+        assert "Commit this single out-of-sequence story?" not in result.output
+        assert len(captured) == 1, captured
+        assert captured[0][1] == "A.c: v0.3.0 Third"
+
+
+def test_git_push_nonmain_no_story_commits_multiple_done_prompt_accept(runner, tmp_path, monkeypatch):
+    """Non-main branch with zero recognizable story commits and multiple [Done]
+    stories → 'Commit just the last one? [Y/n]' (default Y); accepting pushes
+    only the last [Done] story."""
+    import project_guide.cli as cli_module
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 First [Done]",
+            "### Story A.b: v0.2.0 Second [Done]",
+            "### Story A.c: v0.3.0 Third [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(
+            monkeypatch, subjects=[], git_push_argv_capture=captured, branch="feature/x",
+        )
+        monkeypatch.setattr(cli_module, 'should_skip_input', lambda *a, **kw: False)
+
+        result = runner.invoke(main, ['git-push'], input='\n')  # default Y
+
+        assert result.exit_code == 0, result.output
+        assert "Branch 'feature/x' has no story commits" in result.output
+        assert "Commit just the last one?" in result.output
+        assert len(captured) == 1, captured
+        assert captured[0][1] == "A.c: v0.3.0 Third"
+
+
+def test_git_push_nonmain_no_story_commits_prompt_declined_falls_to_bundle(runner, tmp_path, monkeypatch):
+    """Declining 'Commit just the last one?' falls through to the normal
+    bundle offer over all uncommitted [Done] stories."""
+    import project_guide.cli as cli_module
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 First [Done]",
+            "### Story A.b: v0.2.0 Second [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(
+            monkeypatch, subjects=[], git_push_argv_capture=captured, branch="feature/x",
+        )
+        monkeypatch.setattr(cli_module, 'should_skip_input', lambda *a, **kw: False)
+
+        result = runner.invoke(main, ['git-push'], input='n\ny\n')  # decline last-one, accept bundle
+
+        assert result.exit_code == 0, result.output
+        assert "Proposed bundled commit subject" in result.output
+        assert len(captured) == 1, captured
+        assert captured[0][1] == "A.a: v0.1.0, A.b: v0.2.0 First + Second"
+
+
+def test_git_push_nonmain_no_story_commits_no_input_auto_declines(runner, tmp_path, monkeypatch):
+    """Under --no-input the 'Commit just the last one?' prompt is skipped
+    (auto-decline) and the flow falls to the bundle offer, which also
+    auto-declines → exit 1. CI never silently picks a story."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 First [Done]",
+            "### Story A.b: v0.2.0 Second [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(
+            monkeypatch, subjects=[], git_push_argv_capture=captured, branch="feature/x",
+        )
+
+        result = runner.invoke(main, ['git-push', '--no-input'])
+
+        assert result.exit_code == 1
+        assert "Commit just the last one?" not in result.output
+        assert "Multiple uncommitted [Done] stories" in result.output
+        assert captured == []
+
+
+def test_git_push_nonmain_no_story_commits_single_done_no_prompt(runner, tmp_path, monkeypatch):
+    """Non-main branch, empty log, exactly one [Done] story → normal
+    single-story push with no 'Commit just the last one?' prompt."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 Hello World [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(
+            monkeypatch, subjects=[], git_push_argv_capture=captured, branch="feature/x",
+        )
+
+        result = runner.invoke(main, ['git-push'])
+
+        assert result.exit_code == 0, result.output
+        assert "Commit just the last one?" not in result.output
+        assert captured[0][1] == "A.a: v0.1.0 Hello World"
+
+
+def test_git_push_master_branch_keeps_out_of_sequence_discipline(runner, tmp_path, monkeypatch):
+    """Literal `master` is treated like `main`: the full out-of-sequence
+    detection (P.v/Q.p) remains in force."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 First (uncommitted; offender) [Done]",
+            "### Story A.b: v0.2.0 Second (committed) [Done]",
+            "### Story A.c: v0.3.0 Third (uncommitted; offender) [Done]",
+            "### Story A.d: v0.4.0 Fourth (committed) [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(
+            monkeypatch,
+            subjects=[
+                "A.b: v0.2.0 Second (committed)",
+                "A.d: v0.4.0 Fourth (committed)",
+            ],
+            git_push_argv_capture=captured,
+            branch="master",
+        )
+
+        result = runner.invoke(main, ['git-push', '--no-input'])
+
+        assert result.exit_code == 1
+        assert "Out-of-sequence" in result.output
+        assert captured == []
+
+
+def test_git_push_nonmain_duplicate_id_warning_still_fires(runner, tmp_path, monkeypatch):
+    """The duplicate-story-ID warning stays active on non-main branches."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 Hello World [Done]",
+            "### Story A.b: v0.2.0 Second [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(
+            monkeypatch,
+            subjects=[
+                "A.a: v0.1.0 Hello World",
+                "A.a: v0.1.1 Hello World patch",
+            ],
+            git_push_argv_capture=captured,
+            branch="feature/x",
+        )
+
+        result = runner.invoke(main, ['git-push', '--no-input'])
+
+        assert result.exit_code == 1
+        assert "duplicate story ID" in result.output
+        assert captured == []
+
+
+# --- End Story Q.u ----------------------------------------------------------
 
 
 # --- Story P.o: untracked-by-default go.md policy ---------------------------

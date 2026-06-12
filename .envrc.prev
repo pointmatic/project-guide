@@ -1,0 +1,15 @@
+# pyve-managed direnv configuration
+# Activates Python virtual environment and loads .env
+
+VENV_DIR=".venv"
+
+if [[ -d "$VENV_DIR" ]]; then
+    source "$VENV_DIR/bin/activate"
+    export PYVE_BACKEND="venv"
+    export PYVE_ENV_NAME="project-guide"
+    export PYVE_PROMPT_PREFIX="(venv:project-guide) "
+fi
+
+if [[ -f ".env" ]]; then
+    dotenv
+fi

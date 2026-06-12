@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.16.0] - 2026-06-11
+
+**`git-push` — branch-aware squash-merge presumption (Story Q.u).** The out-of-sequence discipline (P.v/Q.p) assumed every shipped `[Done]` story is parseable from the current branch's `git log`. On repos that protect `main` (PRs + squash merges required), squash merges rewrite commit subjects to PR titles, so prior-bundle stories don't parse from a feature branch's log even though they shipped — producing false out-of-sequence warnings/prompts on every branch, and a fresh branch with no story commits made every `[Done]` story look uncommitted.
+
+### Changed
+- **Q.u — branch-aware committed-set handling.** `git-push` now detects the current branch (`git rev-parse --abbrev-ref HEAD`). On `main`/`master` (literal; also when undeterminable) behavior is unchanged. On any other branch the out-of-sequence error/prompt is replaced by `_presume_committed_on_branch`: when at least one `[Done]` story parses from the branch log, the wrapper announces `The first committed story in branch '<branch>' is: <id>.`, presumes every earlier `[Done]` story squash-merged, and runs the normal single/bundle flow on the uncommitted tail; when the branch log has no recognizable story commits and 2+ `[Done]` stories are uncommitted, it offers `Commit just the last one? [Y/n]` (default `Y`) — decline (or `--no-input`) falls through to the normal bundle flow. The duplicate-story-ID warning stays active on every branch. New helpers `_get_current_branch` and `_presume_committed_on_branch` in `cli.py`; the `git-push` docstring and the `project-essentials.md` git-push contract section are updated to match.
+
 ## [2.15.1] - 2026-06-11
 
 **Fix: pre-invoke hook hang against a pyve without `self provision --status` (Story Q.t).** The Q-4 readiness gate (v2.15.0) probed `pyve self provision --status --json` with no `timeout` and an inherited stdin. Against a pyve predating the `--status` query (the pyve-side counterpart, Pyve Story N.bv), the invocation could fall into the real — interactive/hanging — `self provision` path: its prompt was swallowed by `capture_output=True` and **every `project-guide` invocation hung silently in the pre-invoke hook** until Ctrl-C. The degrade-safe design keyed degradation on exit codes, but a subprocess that never returns produces no exit code, so the degrade path was unreachable.

@@ -807,12 +807,43 @@ Bundled release at end-of-subphase as **v2.15.0** (minor — new readiness-gated
 - [x] Failing tests first (`tests/test_cli.py`): `test_query_provision_status_bounds_subprocess` (pins `timeout` + `stdin=DEVNULL` kwargs on the `subprocess.run` call) and `test_query_provision_status_handles_timeout` (`TimeoutExpired` → `(None, None)`). Both confirmed failing pre-fix.
 - [x] Fix `_query_pyve_provision_status` in `project_guide/cli.py`: add `timeout=5` and `stdin=subprocess.DEVNULL` to the `subprocess.run` call; widen the except clause to `(OSError, subprocess.TimeoutExpired)`; update the docstring to document the timeout outcome.
 - [x] Prevention scan: audited every other `subprocess.run` call in `project_guide/` — the `pyve --version` probe (`cli.py:init`) already has `timeout=5`; `_provision_pyve_hosting` and the `git-push` gitbetter delegation are *deliberately* unbounded interactive delegations (the user sees and drives them), not silent probes; the three local-git plumbing probes (`git rev-parse`, `git ls-files`, `git log --pretty=%s`) are non-interactive local commands with captured output (no prompt path, no network) — acceptable without timeouts. No change needed.
+- [x] Doc follow-up: extend `features.md` Cross-Repo Contracts #4 to name the timed-out/hung probe (`TimeoutExpired`) as a degrade-to-readiness-first outcome alongside the exit codes — the row had been exit-code-only, reproducing the same failure-mode-enumeration gap this story fixed in code. (Doc-only; rides v2.15.1, no separate bump.)
 - [x] Bump `project_guide/version.py` and `pyproject.toml` to `2.15.1`; add a `## [2.15.1]` CHANGELOG entry.
 - [x] Run `pyve test` (617 passed) and `pyve testenv run ruff check project_guide/ tests/` (clean).
 
 **Out of scope:**
 - **Pyve-side `self provision` hang fix.** Already tracked as Pyve Story N.bv in the Pyve repo; this story makes project-guide safe regardless of the installed pyve version.
 - **Git tag / PyPI publish of v2.15.1.** Per approval-gate discipline, the developer pushes the tag and triggers publish on their own schedule.
+
+---
+
+### Story Q.u: v2.16.0 git-push — branch-aware squash-merge presumption [Done]
+
+**Problem.** `git-push`'s already-committed check and out-of-sequence discipline (P.v/Q.p) assume every shipped `[Done]` story is parseable from the current branch's `git log`. On repos that protect `main` (PRs + squash merges required), that assumption breaks twice: (1) squash merges rewrite commit subjects to PR titles, so stories from a prior bundle don't parse from the branch's log even though they shipped — producing false out-of-sequence warnings/prompts about "uncommitted" stories on every feature branch; (2) a fresh branch with no story commits at all makes *every* `[Done]` story look uncommitted, proposing a giant bundle of already-merged work. Field report: repeated annoying out-of-sequence prompts on non-main branches for work that was squashed to main long ago.
+
+**Behavior (post-story).** The wrapper detects the current branch via `git rev-parse --abbrev-ref HEAD`. On `main`/`master` (literal match; also when undeterminable) behavior is unchanged — full P.v/Q.p discipline. On any other branch:
+
+- **Anchor found** (≥1 `[Done]` story parses from the branch log): announce `The first committed story in branch '<branch>' is: <id>.`, presume every earlier (document-order) `[Done]` story squash-merged (announced), and run the normal single/bundle flow on the genuinely uncommitted tail — no out-of-sequence error/prompt.
+- **No anchor**, 2+ uncommitted `[Done]` stories: `Branch '<branch>' has no story commits, but there are multiple [Done] stories.` + `Commit just the last one? [Y/n]` (default `Y` — low risk; worst case the developer amends the message, and from then on the branch has a first-story anchor). Accept → push only the last `[Done]` story. Decline → normal bundle offer. `--no-input` → auto-decline (falls to the bundle offer, which also auto-declines → exit 1; CI never silently picks a story).
+- **No anchor, single `[Done]` story:** normal single-story flow, no prompt.
+- The duplicate-`<id>` warning stays active on every branch.
+
+**Why this shape.** `git-push <branchname>` for a new branch needs no special casing — the same no-anchor/anchor heuristics cover it, since the new branch inherits the current HEAD's log. `main`/`master` literal matching is somewhat brittle but practical (no extra `origin/HEAD` probing).
+
+**Implementation:**
+- [x] Failing tests first (`tests/test_cli.py`, Q.u section): anchor-presumption pushes the tail story with the announcement; no-anchor prompt accept pushes the last story; decline falls through to the bundle offer; `--no-input` auto-declines to exit 1; single-story no-prompt; `master` keeps out-of-sequence discipline; duplicate warning still fires on non-main. Three confirmed failing pre-fix (the rest are behavior guards).
+- [x] `_mock_git_log_subjects` test helper: answer `git rev-parse --abbrev-ref HEAD` with a parameterized `branch` (default `main` preserves all existing tests).
+- [x] Add `_get_current_branch()` and `_presume_committed_on_branch()` helpers in `project_guide/cli.py`; gate the P.v/Q.p out-of-sequence block on `on_main` and run the presumption heuristics otherwise.
+- [x] Update the `git_push` docstring (branch-aware paragraph) and `docs/specs/project-essentials.md` ("Branch-aware squash-merge presumption" block + Branch logic enumeration + heading suffix).
+- [x] Bump `project_guide/version.py` and `pyproject.toml` to `2.16.0`; add a `## [2.16.0]` CHANGELOG entry.
+- [x] Run `pyve test` (624 passed) and `pyve testenv run ruff check project_guide/ tests/` (clean).
+- [x] **Amendment (CI fix, 2026-06-11).** `mypy project_guide/` failed in CI on `cli.py:2169` — `_get_current_branch()` returns `str | None`, and mypy cannot narrow it through the intermediate `on_main` bool before the `_presume_committed_on_branch(branch, …)` call (which expects `str`). Runtime-safe (`on_main` is `True` whenever `branch is None`, so `branch` is always a real `str` inside `if not on_main:`); fix narrows with `assert branch is not None`. **Why it slipped:** this story's verification ran `pyve test` + `ruff` but **not** `mypy`, even though `mypy project_guide/` is a CI gate ([ci.yml](../../.github/workflows/ci.yml), [publish.yml](../../.github/workflows/publish.yml)). mypy now clean (12 source files).
+
+**Out of scope:**
+- **Default-branch detection via `origin/HEAD`.** Literal `main`/`master` per developer decision — practical over perfect; revisit if a repo with a different default branch surfaces.
+- **Anchor-gap handling.** Uncommitted stories sitting *between* two committed stories on a non-main branch flow into the normal bundle offer rather than erroring — intentional (no out-of-sequence discipline off-main).
+- **Pyve conda-backed testenv operability (pyve 3.0.5) — field finding, not actioned here.** A `[tool.pyve.testenvs.testenv]` with `backend="micromamba"` + `manifest="environment.yml"` *materializes*: `pyve env init testenv` built a real conda env at `.pyve/envs/testenv/conda` (python 3.12.13, provisioned with torch + the package + pytest + ml-datarefinery), correcting an earlier "not materializable" assumption — the prior claim had only set the `pyve.toml [env.*]` mirror, not the pyproject driver table. But pyve 3.0.5 cannot *operate* it: `pyve env run` / `pyve test` (built on `env run`) error with "does not yet support conda-backed env 'testenv'" (workaround: `micromamba run -p .pyve/envs/testenv/conda`), and `pyve env install testenv -r requirements-dev.txt` **silently syncs only `environment.yml`, dropping the pip requirements** (dev tools had to be pip-installed via the conda env's own python). Net: a conda testenv runs only by bypassing pyve entirely, so the `pyve test` ergonomics that justify a pyve testenv don't hold against conda in 3.0.5. The backend vocabulary is Pyve-owned (see the env-spec vendored-template contract in `project-essentials.md`), so this is a **Pyve-side gap to escalate upstream**, not a project-guide change; project-guide's own dev loop stays on the venv testenv. (Aside: pyve 3.0.x also moved the layout to `.pyve/envs/<name>/<backend>/`, was `.pyve/testenvs/<name>/{venv,conda}/` in v2.8.)
+- **Git tag / PyPI publish of v2.16.0.** Per approval-gate discipline, the developer pushes the tag and triggers publish on their own schedule.
 
 ---
 
@@ -854,3 +885,7 @@ Future modes: `audit_security`, `audit_architecture`, `audit_performance`, `audi
 ### Template & Rendering [Deferred]
 
 - Support for literal `{{ var }}` strings in template output — use `{% raw %}...{% endraw %}` on a case-by-case basis; bridge with a general solution only if the pattern becomes common.
+
+### mypy `tests.*` unused-override cleanup [Deferred]
+
+`mypy project_guide/` emits `note: unused section(s): module = ['tests.*']` on every run — the `[[tool.mypy.overrides]]` block targeting `tests.*` in `pyproject.toml` matches nothing, because the checked target is `project_guide/` only (tests are never passed to mypy). Harmless (a note, not an error — exit stays 0 on success) but it's noise on every type-check, and a dead config stanza invites confusion about whether tests are meant to be type-checked. Resolve by deciding intent, then either: (a) **remove** the dead `tests.*` override from `pyproject.toml` (if tests are intentionally out of mypy's scope), or (b) **bring `tests/` into the mypy target** (CI step + local convention) if the override implies test type-checking was once intended. Surfaced 2026-06-11 during the Q.u mypy CI fix. Low priority — cosmetic until someone wants test type-checking.
