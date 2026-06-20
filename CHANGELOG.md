@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.16.1] - 2026-06-11
+
+**Story parser recognizes `###`–`#####` heading depths (Story Q.v).** The story-heading parser was anchored to exactly `###`, so a sub-numbered cluster that nests a group header above deeper children (`### Story J.m` / `##### Story J.m.1`) was invisible at H4/H5 — `git-push`, `status`, and `archive-stories`' version scan all silently dropped the deeper headings. The colon after the ID stays required at every depth.
+
+### Changed
+- **Q.v — H3–H5 story headings.** `_STORY_RE` (`stories.py`, used by `git-push` done-detection / `is_header` / body-boundary scanning and by `status` counts) and `_VERSION_RE` (`actions.py`, `archive-stories` highest-version scan) now accept a `#{3,5}` prefix. `##` (phase level) and `######` (too deep) remain non-stories; the colon after the ID remains mandatory. Body-boundary detection extends for free since it is driven by the same `_STORY_RE`, so a checklist-less `###` group header above `#####` children correctly reads as a header while each child's own checklist governs its `is_header`.
+
 ## [2.16.0] - 2026-06-11
 
 **`git-push` — branch-aware squash-merge presumption (Story Q.u).** The out-of-sequence discipline (P.v/Q.p) assumed every shipped `[Done]` story is parseable from the current branch's `git log`. On repos that protect `main` (PRs + squash merges required), squash merges rewrite commit subjects to PR titles, so prior-bundle stories don't parse from a feature branch's log even though they shipped — producing false out-of-sequence warnings/prompts on every branch, and a fresh branch with no story commits made every `[Done]` story look uncommitted.

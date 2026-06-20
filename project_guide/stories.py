@@ -16,12 +16,16 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-# Matches: ### Story N.a: v2.4.0 Some Title [Done]
+# Matches: ### / #### / ##### Story N.a: v2.4.0 Some Title [Done]
+# The `#{3,5}` prefix accepts H3–H5 depths so sub-numbered clusters can nest a
+# group header (`### Story J.m`) above deeper children (`##### Story J.m.1`);
+# `##` (phase level) and `######` (too deep) are not story headings (Story Q.v).
 # The optional `(?:\.\d+)?` tail captures sub-numbered IDs (`J.m.1`, `J.m.2`, …)
 # used for pre-implementation splits or post-implementation follow-ups. See
-# `_phase-letters.md` (Sub-numbered stories).
+# `_phase-letters.md` (Sub-numbered stories). The colon after the ID stays
+# required at every depth.
 _STORY_RE = re.compile(
-    r"^### Story ([A-Z]\.[a-z]+(?:\.\d+)?): (.+) \[(Done|In Progress|Planned)\]\s*$",
+    r"^#{3,5} Story ([A-Z]\.[a-z]+(?:\.\d+)?): (.+) \[(Done|In Progress|Planned)\]\s*$",
     re.MULTILINE,
 )
 

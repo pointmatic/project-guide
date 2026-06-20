@@ -163,6 +163,18 @@ def test_detect_latest_version_recognizes_subnumbered_story_id():
     assert detect_latest_version(text) == (0, 70, 0)
 
 
+def test_detect_latest_version_recognizes_deeper_heading_levels():
+    """Story Q.v: a version-owning story declared at `####`/`#####` depth must
+    contribute to the latest-version computation, so archive-stories never
+    under-reports when the top version sits on a deeper heading."""
+    text = (
+        "### Story J.l: v0.68.0 prior story [Done]\n\n"
+        "#### Story J.m: v0.69.0 group overview [Done]\n\n"
+        "##### Story J.m.1: v0.70.0 deepest follow-up [Done]\n"
+    )
+    assert detect_latest_version(text) == (0, 70, 0)
+
+
 # ---------------------------------------------------------------------------
 # detect_latest_phase_letter
 # ---------------------------------------------------------------------------

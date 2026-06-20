@@ -847,6 +847,27 @@ Bundled release at end-of-subphase as **v2.15.0** (minor — new readiness-gated
 
 ---
 
+### Story Q.v: v2.16.1 Story parser recognizes `###`–`#####` heading depths [Done]
+
+**Problem.** The story-heading parser was anchored to exactly `###`. Sub-numbered clusters that nest a group header above deeper children — a `### Story J.m` overview with `##### Story J.m.1` / `##### Story J.m.2` beneath it — were invisible at H4/H5: `git-push` (done-detection, `is_header`, body-boundary scanning), `status` counts, and `archive-stories`' highest-version scan all silently dropped the deeper headings. Root-cause class: an over-tight literal anchor (`^### `) in two independent regexes, with no test exercising H4/H5.
+
+**Behavior (post-story).** `### Story …`, `#### Story …`, and `##### Story …` are all recognized as stories (subject to the unchanged criteria — the `[Status]` tag, and the checklist-based `is_header` rule from P.v). `##` (phase level) and `######` (too deep) are **not** story headings. The **colon after the ID stays required at every depth** (the example with a colon-less `##### Story A.c.1 Baz` was a typo, not a supported shape — developer-decided 2026-06-11). Body-boundary detection extends for free since it is driven by the same `_STORY_RE`, so a checklist-less `###` group header above `#####` children correctly reads as a header while each child's own checklist governs its `is_header`.
+
+**Implementation:**
+- [x] Failing tests first: `tests/test_stories.py` — `_STORY_RE` matches `####`/`#####` (`test_story_re_matches_h4_and_h5_headings`), rejects `##`/`######` (`test_story_re_rejects_out_of_range_heading_depths`), still requires the colon (`test_story_re_still_requires_colon`), and `_read_done_stories` recognizes deeper levels with correct body-boundary/`is_header` behavior (`test_read_done_stories_recognizes_deeper_heading_levels`); `tests/test_actions.py::test_detect_latest_version_recognizes_deeper_heading_levels`. The two recognition tests confirmed failing pre-fix.
+- [x] Loosen `_STORY_RE` (`project_guide/stories.py`) `^### ` → `^#{3,5} `; update the comment.
+- [x] Loosen `_VERSION_RE` (`project_guide/actions.py`) `^###\s+` → `^#{3,5}\s+`; update the comment.
+- [x] Prevention scan: audited every story-heading parser. The only two `###`-literal markdown-heading regexes are the two fixed here; `cli.py:2119` is a docstring example (no regex); the git-log **subject** parsers (`parse_committed_ids_from_subject`, `_get_committed_story_ids`) operate on commit messages, not headings, and are intentionally out of scope; `_PHASE_RE` (`##`) is the phase level, unaffected.
+- [x] Bump `project_guide/version.py` and `pyproject.toml` to `2.16.1`; add a `## [2.16.1]` CHANGELOG entry.
+- [x] Verify all three CI gates (per the new "Story verification" convention): `pyve test` equivalent — 629 passed; `mypy project_guide/` — clean (12 files); `ruff check project_guide/ tests/` — clean. (Run via `.pyve/envs/testenv/venv/bin/python -m …` because the testenv console-script shebangs are stale from env-layout churn.)
+
+**Out of scope:**
+- **Deeper sub-number levels.** The ID pattern keeps a single `(?:\.\d+)?` sub-level (`A.c.1`); `A.c.1.2` is not requested and not supported.
+- **Colon-optional headings.** Considered and rejected — the colon is the commit-subject anchor; the colon-less example was a typo. Headings stay `#{3,5} Story <ID>: <title> [Status]`.
+- **Git tag / PyPI publish of v2.16.1.** Per approval-gate discipline, the developer pushes the tag and triggers publish on their own schedule.
+
+---
+
 ## Future
 
 ### Installation/Config Discovery Hierarchy (global vs. project context) [Deferred]

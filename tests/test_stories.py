@@ -65,6 +65,32 @@ def test_story_re_matches_multi_digit_sub_number():
     assert matches == [("J.m.10", "tenth follow-up", "Done")]
 
 
+def test_story_re_matches_h4_and_h5_headings():
+    """Story Q.v: headings at `####` and `#####` depth parse identically to
+    `###`. The colon after the ID stays required (example-3's colon-less form
+    was a typo, not a supported shape)."""
+    h4 = "#### Story A.c: v0.1.2 Bar [Planned]\n"
+    h5 = "##### Story A.c.1: Baz [Planned]\n"
+    assert _STORY_RE.findall(h4) == [("A.c", "v0.1.2 Bar", "Planned")]
+    assert _STORY_RE.findall(h5) == [("A.c.1", "Baz", "Planned")]
+
+
+def test_story_re_rejects_out_of_range_heading_depths():
+    """Story Q.v: only `###`/`####`/`#####` are story depths. `##` is the
+    phase level (too shallow) and `######` is too deep — neither is a story."""
+    h2 = "## Story X.y: too shallow [Done]\n"
+    h6 = "###### Story X.y: too deep [Done]\n"
+    assert _STORY_RE.findall(h2) == []
+    assert _STORY_RE.findall(h6) == []
+
+
+def test_story_re_still_requires_colon():
+    """Story Q.v: the colon after the ID remains mandatory at every depth —
+    a colon-less heading is not recognized."""
+    no_colon = "##### Story A.c.1 Baz [Planned]\n"
+    assert _STORY_RE.findall(no_colon) == []
+
+
 # ---------------------------------------------------------------------------
 # _read_done_stories — "last [Done]" selection with sub-numbered IDs
 # ---------------------------------------------------------------------------
@@ -113,6 +139,32 @@ def test_read_done_stories_scenario_b_subnumber_without_bare_letter(tmp_path):
     assert headings is not None
     assert [h.story_id for h in headings] == ["J.l", "J.m.1", "J.m.2"]
     assert headings[-1].story_id == "J.m.2"
+
+
+def test_read_done_stories_recognizes_deeper_heading_levels(tmp_path):
+    """Story Q.v: a `### Story` group header followed by `#####` children is
+    parsed so that (a) all three depths are recognized as stories and (b) the
+    parent's body ends at the first child heading — so a checklist-less parent
+    reads as a header while each child's own checklist governs its is_header.
+    Without the body-boundary breaking on the deeper heading, the parent would
+    swallow the children's checklists and wrongly read as a real story."""
+    specs = _write(
+        tmp_path,
+        (
+            "### Story J.m: Group overview [Done]\n\n"
+            "Prose only, no checklist.\n\n"
+            "##### Story J.m.1: First child [Done]\n\n- [x] done\n\n"
+            "##### Story J.m.2: Second child [Done]\n\n- [x] done\n"
+        ),
+    )
+    headings = _read_done_stories(str(specs))
+    assert headings is not None
+    assert [h.story_id for h in headings] == ["J.m", "J.m.1", "J.m.2"]
+    # Parent's (correctly bounded) body has no checklist → header.
+    assert headings[0].is_header is True
+    # Children carry their own checklists → real stories.
+    assert headings[1].is_header is False
+    assert headings[2].is_header is False
 
 
 # ---------------------------------------------------------------------------

@@ -127,11 +127,13 @@ class Artifact:
             action=action,
         )
 
-# Matches `### Story <Phase>.<sub>: vMAJOR.MINOR.PATCH ...` — the optional
-# `(?:\.\d+)?` tail covers sub-numbered IDs (`J.m.1`, `J.m.2`, …) per the
-# `_phase-letters.md` "Sub-numbered stories" rule.
+# Matches `### / #### / ##### Story <Phase>.<sub>: vMAJOR.MINOR.PATCH ...` — the
+# `#{3,5}` prefix accepts H3–H5 story depths (Story Q.v) so a version-owning
+# story on a deeper heading still counts; the optional `(?:\.\d+)?` tail covers
+# sub-numbered IDs (`J.m.1`, `J.m.2`, …) per the `_phase-letters.md`
+# "Sub-numbered stories" rule.
 _VERSION_RE = re.compile(
-    r"^###\s+Story\s+[A-Za-z]+\.[a-z]+(?:\.\d+)?:\s+v(\d+)\.(\d+)\.(\d+)",
+    r"^#{3,5}\s+Story\s+[A-Za-z]+\.[a-z]+(?:\.\d+)?:\s+v(\d+)\.(\d+)\.(\d+)",
     re.M,
 )
 
