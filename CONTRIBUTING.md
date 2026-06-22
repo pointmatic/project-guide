@@ -42,8 +42,8 @@ cd project-guide
 pyve run pip install -e .
 
 # Dev testenv: pytest, ruff, mypy, etc.
-pyve testenv init                                    # one-time
-pyve testenv install -r requirements-dev.txt
+pyve env init                                    # one-time
+pyve env install -r requirements-dev.txt
 ```
 
 After this you can run the package as a CLI (`project-guide --version`)
@@ -64,9 +64,9 @@ and run the test suite (`pyve test`).
 - **Type checking**: `mypy` must run clean.
 
 ```bash
-pyve testenv run ruff check project_guide tests
-pyve testenv run ruff format project_guide tests
-pyve testenv run mypy project_guide
+pyve env run ruff check project_guide tests
+pyve env run ruff format project_guide tests
+pyve env run mypy project_guide
 ```
 
 ---

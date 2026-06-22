@@ -35,10 +35,10 @@ Any future interactive prompt added to a CLI command **must** use the `should_sk
 Before presenting a **code** story at its approval gate, run the **same checks CI gates on**, so a green local run predicts a green CI run. All three, every code story:
 
 - **Tests** — `pyve test` (full suite passes).
-- **Lint** — `pyve testenv run ruff check project_guide/ tests/`.
-- **Types** — `pyve testenv run mypy project_guide/`. **mypy is a CI gate** ([ci.yml](../../.github/workflows/ci.yml), [publish.yml](../../.github/workflows/publish.yml)); a verification step that runs only tests + ruff can ship a type error straight to red CI. This happened in **Story Q.u** — a `str | None` narrowing error at `cli.py:2169` reached CI because the verification step omitted mypy.
+- **Lint** — `pyve env run ruff check project_guide/ tests/`.
+- **Types** — `pyve env run mypy project_guide/`. **mypy is a CI gate** ([ci.yml](../../.github/workflows/ci.yml), [publish.yml](../../.github/workflows/publish.yml)); a verification step that runs only tests + ruff can ship a type error straight to red CI. This happened in **Story Q.u** — a `str | None` narrowing error at `cli.py:2169` reached CI because the verification step omitted mypy.
 
-Record the outcome in the story checklist (counts passed / "clean"). If the local testenv's console-script shebangs are stale (env-layout churn breaks `pyve testenv run mypy`), invoke the module directly — `.pyve/envs/testenv/venv/bin/python -m mypy project_guide/` — rather than skipping the gate.
+Record the outcome in the story checklist (counts passed / "clean"). If the local testenv's console-script shebangs are stale (env-layout churn breaks `pyve env run mypy`), invoke the module directly — `.pyve/envs/testenv/venv/bin/python -m mypy project_guide/` — rather than skipping the gate.
 
 ### Commit workflow
 

@@ -986,7 +986,7 @@ Bundled release at end-of-subphase as **v2.15.0** (minor — new readiness-gated
 
 ---
 
-### Story Q.z.2: Modernize Pyve 2.x command/path references to Pyve 3.x (`pyve env`, `.pyve/envs/`) [Planned]
+### Story Q.z.2: Modernize Pyve 2.x command/path references to Pyve 3.x (`pyve env`, `.pyve/envs/`) [Done]
 
 **Problem.** project-guide's Pyve-invocation guidance is pinned to the Pyve **2.x** command surface, which Pyve **3.x** renamed and restructured. The drift is concentrated in the bundled, auto-rendered `pyve-essentials.md` artifact (FR-13 — surfaced in *every* consumer's `go.md` under `### Pyve Essentials`) and echoed across the project's own developer docs. Three stale shapes, all confirmed against the vendored Pyve 3.x source at [`docs/specs/pyve/`](pyve/) (concept / features / tech-spec / README):
 
@@ -1008,14 +1008,14 @@ Bundled release at end-of-subphase as **v2.15.0** (minor — new readiness-gated
 - **Defer the `env-dependencies.md` artifact.** Its `pyve testenv` refs live in the frozen `plan_envs` artifact (Q.z.1); modernizing frozen content is low-value and folds into the eventual unfreeze.
 
 **Tasks:**
-- [ ] `pyve-essentials.md`: `pyve testenv …` → `pyve env …`; `.pyve/testenvs/…` → `.pyve/envs/…` (default `.pyve/envs/testenv/venv/`); reframe the testenv-init bullet for 3.x auto-create-on-`pyve test`; fix the `#testenv-subcommand` URL; verify/update the `[tool.pyve.testenvs]` table name against `docs/specs/pyve/`.
-- [ ] `developer/python-editable-install.md` and `modes/plan-tech-spec-mode.md`: `testenv → env` + path modernization.
-- [ ] `README.md` + `CONTRIBUTING.md`: modernize the Dev-setup / Running-tests / Code-quality snippets to `pyve env …`.
-- [ ] `docs/specs/project-essentials.md` (Story-verification CI-gate commands) and `docs/specs/tech-spec.md`: modernize (`pyve testenv run` → `pyve env run`).
-- [ ] `docs/site/developer-guide/development.md` and `docs/site/developer-guide/contributing.md`: modernize.
-- [ ] `pyve run project-guide update`; spot-check the rendered `### Pyve Essentials` block in a `go.md` shows the 3.x forms; grep the live surfaces to confirm zero remaining `pyve testenv` / `.pyve/testenvs` outside the skip-list.
-- [ ] Run the three CI gates: `pyve test`; `pyve env run ruff check project_guide/ tests/`; `pyve env run mypy project_guide/` (fall back to direct-module mypy if the env's console-script shebangs are stale).
-- [ ] Flip story status `[Planned]` → `[Done]` and check off tasks.
+- [x] `pyve-essentials.md`: `pyve testenv …` → `pyve env …`; `.pyve/testenvs/…` → `.pyve/envs/…` (default `.pyve/envs/testenv/venv/`); reframe the testenv-init bullet for 3.x auto-create-on-`pyve test`; fix the `#testenv-subcommand` URL (→ `#env-subcommand`); verify/update the `[tool.pyve.testenvs]` table name against `docs/specs/pyve/`. *(**Key finding:** the pyproject table is still `[tool.pyve.testenvs]` in Pyve 3.x — 10 occurrences in the vendored source — so **only the subcommand renamed** (`testenv`→`env`); the config table name was correctly **left unchanged**.)*
+- [x] `developer/python-editable-install.md` and `modes/plan-tech-spec-mode.md`: `testenv → env` + path modernization. *(python-editable-install used the older *singular* `.pyve/testenv/venv/` — modernized to `.pyve/envs/testenv/venv/`.)*
+- [x] `README.md` + `CONTRIBUTING.md`: modernize the Dev-setup / Running-tests / Code-quality snippets to `pyve env …`.
+- [x] `docs/specs/project-essentials.md` (Story-verification CI-gate commands) and `docs/specs/tech-spec.md`: modernize (`pyve testenv run` → `pyve env run`).
+- [x] `docs/site/developer-guide/development.md` and `docs/site/developer-guide/contributing.md`: modernize.
+- [x] `pyve run project-guide update`; spot-check the rendered `### Pyve Essentials` block in a `go.md` shows the 3.x forms; grep the live surfaces to confirm zero remaining `pyve testenv` / `.pyve/testenvs` outside the skip-list. *(Rendered `go.md` shows `pyve env run` / `.pyve/envs/testenv/` / auto-create; live-surface grep clean. Skip-list — `.archive/`, `phase-q-*.md`, completed-story bodies, vendored `docs/specs/pyve/`, frozen `env-dependencies.md` — intentionally untouched.)*
+- [x] Run the three CI gates: `pyve test`; `pyve env run ruff check project_guide/ tests/`; `pyve env run mypy project_guide/` (fall back to direct-module mypy if the env's console-script shebangs are stale). *(629 passed; ruff clean — `pyve env run` works; mypy clean (12 files, direct-module).)*
+- [x] Flip story status `[Planned]` → `[Done]` and check off tasks.
 
 **Out of scope:**
 - **Importing Pyve's full 3.x env model** (polyglot backends, every named-env recipe) into project-guide templates. Correct command forms + the auto-create simplification only; Pyve owns the vocabulary.

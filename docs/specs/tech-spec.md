@@ -55,7 +55,7 @@ project-guide/
 ├── README.md
 ├── LICENSE
 ├── CHANGELOG.md
-├── requirements-dev.txt                # Dev/test deps for pyve testenv
+├── requirements-dev.txt                # Dev/test deps for the pyve test env
 ├── .github/workflows/
 │   ├── ci.yml                          # Lint + test on push
 │   ├── test.yml                        # Multi-platform test matrix

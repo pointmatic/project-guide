@@ -24,8 +24,8 @@ project-guide uses pyve's two-environment model: a main runtime env plus a separ
 pyve run pip install -e .
 
 # Dev testenv: pytest, ruff, mypy
-pyve testenv init
-pyve testenv install -r requirements-dev.txt
+pyve env init
+pyve env install -r requirements-dev.txt
 ```
 
 ## Verify Installation
@@ -38,10 +38,10 @@ project-guide --version
 pyve test
 
 # Check linting
-pyve testenv run ruff check project_guide tests
+pyve env run ruff check project_guide tests
 
 # Check types
-pyve testenv run mypy project_guide
+pyve env run mypy project_guide
 ```
 
 ## Development Workflow
@@ -76,13 +76,13 @@ pyve test tests/test_cli.py::test_init_in_empty_directory
 
 ```bash
 # Lint code
-pyve testenv run ruff check project_guide tests
+pyve env run ruff check project_guide tests
 
 # Format code
-pyve testenv run ruff format project_guide tests
+pyve env run ruff format project_guide tests
 
 # Type check
-pyve testenv run mypy project_guide
+pyve env run mypy project_guide
 ```
 
 ### 5. Update Documentation
@@ -207,23 +207,23 @@ pyve test -k "test_init"
 
 ```bash
 # Check for issues
-pyve testenv run ruff check project_guide tests
+pyve env run ruff check project_guide tests
 
 # Fix auto-fixable issues
-pyve testenv run ruff check --fix project_guide tests
+pyve env run ruff check --fix project_guide tests
 
 # Format code
-pyve testenv run ruff format project_guide tests
+pyve env run ruff format project_guide tests
 ```
 
 ### Mypy (Type Checker)
 
 ```bash
 # Type check
-pyve testenv run mypy project_guide
+pyve env run mypy project_guide
 
 # Strict mode
-pyve testenv run mypy --strict project_guide
+pyve env run mypy --strict project_guide
 ```
 
 ## Building Documentation
@@ -326,7 +326,7 @@ pyve run pip install -e .
 Refresh the dev testenv dependencies:
 
 ```bash
-pyve testenv install -r requirements-dev.txt
+pyve env install -r requirements-dev.txt
 ```
 
 ### Type Check Errors

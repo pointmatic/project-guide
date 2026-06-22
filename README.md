@@ -657,8 +657,8 @@ cd project-guide
 pyve run pip install -e .
 
 # Dev testenv: pytest, ruff, mypy.
-pyve testenv init
-pyve testenv install -r requirements-dev.txt
+pyve env init
+pyve env install -r requirements-dev.txt
 ```
 
 ### Running Tests
@@ -672,9 +672,9 @@ pyve test --cov=project_guide --cov-report=term-missing
 ### Code Quality
 
 ```bash
-pyve testenv run ruff check project_guide tests
-pyve testenv run ruff format project_guide tests
-pyve testenv run mypy project_guide
+pyve env run ruff check project_guide tests
+pyve env run ruff format project_guide tests
+pyve env run mypy project_guide
 ```
 
 ### Documentation Development
@@ -708,7 +708,7 @@ Contributions are welcome! See [`CONTRIBUTING.md`](CONTRIBUTING.md) for
 the full PR process. Quick summary:
 
 1. **Fork** and branch off `main`.
-2. **Test** locally: `pyve test` and `pyve testenv run ruff check project_guide tests` must pass.
+2. **Test** locally: `pyve test` and `pyve env run ruff check project_guide tests` must pass.
 3. **PR** against `pointmatic/project-guide:main` with a description that explains the *why*.
 4. **CI** must be green; a maintainer will review.
 

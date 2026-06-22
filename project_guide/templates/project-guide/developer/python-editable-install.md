@@ -65,7 +65,7 @@ Installs the package as editable into the active virtualenv, registering both im
 
 ## Pyve Projects
 
-pyve maintains **two separate environments**: the main `.venv/` (runtime) and a testenv at `.pyve/testenv/venv/` (dev tools + test runner). This separation keeps test dependencies out of the runtime environment.
+pyve maintains **two separate environments**: the main `.venv/` (runtime) and a testenv at `.pyve/envs/testenv/venv/` (dev tools + test runner). This separation keeps test dependencies out of the runtime environment.
 
 ### When to install where
 
@@ -78,9 +78,9 @@ pyve run pip install -e .
 **Testenv** — install if your tests invoke CLI entry points (console scripts). `pythonpath` alone does not register entry points:
 
 ```bash
-pyve testenv init                                # one-time, creates .pyve/testenv/venv/
-pyve testenv run pip install -e .
-pyve testenv install -r requirements-dev.txt
+pyve env init                                # one-time, creates .pyve/envs/testenv/venv/
+pyve env run pip install -e .
+pyve env install -r requirements-dev.txt
 ```
 
 **Preferred pattern for most pyve projects** — install editable in the main env only, then use `pythonpath` so the testenv picks up the source tree without a second install:
@@ -93,15 +93,15 @@ pythonpath = ["."]
 
 ```bash
 pyve run pip install -e .                       # main env — for interactive use
-pyve testenv init                               # testenv — one-time
-pyve testenv install -r requirements-dev.txt   # testenv — dev tools only
+pyve env init                               # testenv — one-time
+pyve env install -r requirements-dev.txt   # testenv — dev tools only
 ```
 
 This avoids maintaining two editable installs with potentially diverging dependency resolution.
 
 ### Surviving a pyve purge
 
-When `pyve` purges and reinitialises the main environment (`.venv/`), the testenv at `.pyve/testenv/venv/` is **not touched** — it survives the purge. After a purge, restore the main-env editable install with:
+When `pyve` purges and reinitialises the main environment (`.venv/`), the testenv at `.pyve/envs/testenv/venv/` is **not touched** — it survives the purge. After a purge, restore the main-env editable install with:
 
 ```bash
 pyve run pip install -e .
@@ -113,7 +113,7 @@ The testenv editable install (if you have one) remains intact and does not need 
 
 ```bash
 pyve run pip show <package-name>   # main env
-pyve testenv run pip show <package-name>   # testenv
+pyve env run pip show <package-name>   # testenv
 ```
 
 If the package is missing from one env, install it there as shown above.
@@ -124,8 +124,8 @@ If the package is missing from one env, install it there as shown above.
 
 | Mistake | Consequence | Fix |
 |---|---|---|
-| `pip install -e ".[dev]"` into main venv | Test-only deps pollute the runtime env | Use `pyve testenv init` then `pyve testenv install -r requirements-dev.txt` |
-| `pyve testenv install` or `pyve testenv run` before `pyve testenv init` | Error: testenv does not exist | Run `pyve testenv init` once to create `.pyve/testenv/venv/` |
+| `pip install -e ".[dev]"` into main venv | Test-only deps pollute the runtime env | Use `pyve env init` then `pyve env install -r requirements-dev.txt` |
+| `pyve env install` or `pyve env run` before `pyve env init` | Error: testenv does not exist | Run `pyve env init` once to create `.pyve/envs/testenv/venv/` |
 | `pyve run pytest` instead of `pyve test` | pytest not found — it lives in testenv | Use `pyve test [args]` |
-| No editable install or `pythonpath`, but tests import the package | `ModuleNotFoundError` at test time | Add `pythonpath = ["."]` to pytest config or `pyve testenv run pip install -e .` |
+| No editable install or `pythonpath`, but tests import the package | `ModuleNotFoundError` at test time | Add `pythonpath = ["."]` to pytest config or `pyve env run pip install -e .` |
 | Editable install in testenv but entry point not found | `FileNotFoundError` running the CLI | Also install editable in main env, or invoke via `python -m <module>` |

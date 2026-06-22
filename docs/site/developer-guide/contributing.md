@@ -43,8 +43,8 @@ For template improvements or new features:
 3. **Set up development environment**
    ```bash
    pyve run pip install -e .                       # main env: editable install
-   pyve testenv init                               # create the dev testenv
-   pyve testenv install -r requirements-dev.txt    # pytest, ruff, mypy
+   pyve env init                               # create the dev testenv
+   pyve env install -r requirements-dev.txt    # pytest, ruff, mypy
    ```
 
 4. **Make your changes**
@@ -59,8 +59,8 @@ For template improvements or new features:
 
 6. **Run linters**
    ```bash
-   pyve testenv run ruff check project_guide tests
-   pyve testenv run mypy project_guide
+   pyve env run ruff check project_guide tests
+   pyve env run mypy project_guide
    ```
 
 7. **Commit your changes**
@@ -194,13 +194,13 @@ open htmlcov/index.html
 
 ```bash
 # Check code style
-pyve testenv run ruff check project_guide tests
+pyve env run ruff check project_guide tests
 
 # Type checking
-pyve testenv run mypy project_guide
+pyve env run mypy project_guide
 
 # Format code
-pyve testenv run ruff format project_guide tests
+pyve env run ruff format project_guide tests
 ```
 
 ## Building Documentation
