@@ -895,7 +895,7 @@ Bundled release at end-of-subphase as **v2.15.0** (minor — new readiness-gated
 
 ---
 
-### Story Q.x: Ground every mode in the strategic context documents [Planned]
+### Story Q.x: Ground every mode in the strategic context documents [Done]
 
 **Problem.** Across modes — `debug` most acutely, but also `code_direct` / `code_test_first` — the LLM loses conceptual grounding when starting a fresh context/session: it narrows onto implementation mechanics (short-sighted decisions, hacks, lazy solutions) and misses the abstract purpose. The pattern is most pronounced when the LLM has **not** read the strategic context — `docs/specs/concept.md`, `features.md`, `tech-spec.md`, the repo-root `README.md`, and any **phase/subphase plan** for the active phase. `_header-common.md` currently tells the LLM only to re-read `go.md` after compaction; nothing points it at the strategic docs. Per the developer (2026-06-22): there is no harm in grounding *every* mode in these documents — it can only lead to better outcomes.
 
@@ -907,10 +907,10 @@ Bundled release at end-of-subphase as **v2.15.0** (minor — new readiness-gated
 - These supply the *why* and *what* behind the *how*; reading them prevents short-sighted, mechanics-only implementation. Absent docs are skipped silently (no error) — early planning modes may not have authored them yet.
 
 **Tasks:**
-- [ ] Add the **Ground yourself in the strategic context** block to `_header-common.md` (universal; graceful-when-absent; session-start framing, not a re-read-every-turn instruction).
-- [ ] Include the phase/subphase plan-doc discovery patterns (`phase-<letter>-*.md`, `phase-<letter>-subphase-<n>-*.md`) keyed to the active phase.
-- [ ] Confirm the block reads naturally in both planning (sequence) and coding/debug (cycle) renders — it lives in the common header, so verify against a sequence mode (e.g. `plan_features`, where `tech-spec.md` won't exist yet) and a cycle mode (`debug`).
-- [ ] `pyve run project-guide update` to re-render; run `tests/test_render.py` parametrized all-modes regression.
+- [x] Add the **Ground yourself in the strategic context** block to `_header-common.md` (universal; graceful-when-absent; session-start framing, not a re-read-every-turn instruction). *(Added as a bolded rule in the **Rules** block, adjacent to the compaction-reread rule — both are "establish your context" rules. Uses the `{{ spec_artifacts_path }}` common variable, which resolves to `docs/specs` and is guarded by `_validate_no_unrendered_placeholders`.)*
+- [x] Include the phase/subphase plan-doc discovery patterns (`phase-<letter>-*.md`, `phase-<letter>-subphase-<n>-*.md`) keyed to the active phase. *(Both globs present with worked examples: Phase Q → `phase-q-*.md`; Subphase Q-4 → `phase-q-subphase-4-*.md`.)*
+- [x] Confirm the block reads naturally in both planning (sequence) and coding/debug (cycle) renders — it lives in the common header, so verify against a sequence mode (e.g. `plan_features`, where `tech-spec.md` won't exist yet) and a cycle mode (`debug`). *(Rendered both via `render_go_project_guide` against the installed template tree: grounding block present, `spec_artifacts_path` → `docs/specs`, zero leftover placeholders in each. The graceful-degradation clause covers `plan_features`, where `tech-spec.md` does not yet exist.)*
+- [x] `pyve run project-guide update` to re-render; run `tests/test_render.py` parametrized all-modes regression. *(Installed `_header-common.md` identical to source; current `go.md` carries the block. Render tests 171 passed; full suite 629 passed; ruff clean; mypy clean (12 source files).)*
 
 **Out of scope:**
 - Auto-loading / tool-enforced reads — this is LLM guidance in the rendered prompt, not a code-enforced gate.
