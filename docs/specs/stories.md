@@ -868,6 +868,83 @@ Bundled release at end-of-subphase as **v2.15.0** (minor — new readiness-gated
 
 ---
 
+### Story Q.w: Loosen and enrich story scope & sequencing guidance in cycle modes [Done]
+
+**Problem.** In the cycle coding modes (`code_direct`, `code_test_first`) — and `debug` — the LLM gets "wound up" about story scope and sequencing. Two root causes in `_header-cycle.md`'s **Story execution order** section: (1) the rule is **absolute** — *"this rule binds regardless of any explicit developer signal … corrupting whether or not the developer asked for the work"* — which is now too rigid: implementing a *single* story out of order for better implementation flow is a legitimate, developer-sanctioned exception, and the absolute language even contradicts the `git-push` Q.p single-story out-of-sequence opt-in already shipped in the code. (2) There is **no guidance** on assessing story *scope* at implementation time (when an `X.y` story is too large and should split into an `X.y.#` bundle) or on using sub-numbering as a practical ordering device. The LLM either rigidly refuses sensible reordering or thrashes on how to structure a split.
+
+**Approach.** Rewrite the **Story execution order** section of `_header-cycle.md` (rendered into every cycle mode — `code_direct`, `code_test_first`, `debug`, `refactor_plan`, `refactor_document`) to the loosened policy, and add a **Story scope & splitting** subsection. Reconcile cross-references with `_phase-letters.md` (Option 1/2/3, "Sub-numbered stories"). No code change — the loosened guidance aligns with the existing `git-push` Q.p single-story opt-in.
+
+**Policy to encode** (refined from the developer's narrative, 2026-06-22):
+- **Sequential is preferred, not absolute.** Implementing a *single* story out of order for better implementation flow is an allowed exception. **Cherry-picking** (working multiple stories non-sequentially) is not allowed.
+- **Overall sequencing problems** → raise the concern with the developer and offer a resequencing pass (flag it as token-expensive) or let them resequence themselves; do not silently reorder a whole bundle.
+- **Scope assessment at implementation time** → if an `X.y` story as written is too large, split it into an `X.y.#` multi-story bundle.
+- **Sub-numbering is a practical ordering device.** Inserting an `X.y.1` to achieve the desired ordering is fine even when that story is not semantically/procedurally a child of `X.y`. Do not create a 4th level (`X.y.#.#`): if already working a 3-level `X.y.#` bundle, either resequence the small bundle or append to the `X.y.#` list.
+- **Brittle cross-story dependencies** → when implementation reveals dependencies between stories that are too brittle, you *may* offer to reorganize tasks between stories for a more self-contained structure. Reserve this for extreme cases: stories in a phase/subphase/bundle are typically implemented in rapid succession, so long-term repo risk from any single story breaking the build is low.
+
+**Tasks:**
+- [x] Rewrite `_header-cycle.md` **Story execution order** to the loosened policy (single out-of-order allowed; cherry-picking disallowed; overall-sequencing-problem → raise + offer resequence-or-defer). Remove the absolute "binds regardless of any explicit developer signal / corrupting whether or not the developer asked" framing; keep the **Recovery when already out of order** guidance but soften it to match. *(New "One story out of order is allowed" / "Cherry-picking is not" bullets tie the single-story exception to the shipped `git-push` Q.p opt-in; Recovery softened to fire only when the result "looks wrong," explicitly leaving a deliberate sanctioned out-of-order story in place.)*
+- [x] Add a **Story scope & splitting** subsection (`X.y` → `X.y.#` split when too large; `X.y.1` as practical ordering even for a non-child; no 4th level; resequence small bundle vs. append long list).
+- [x] Add the **brittle cross-story dependency** task-reshuffle guidance (extreme cases only, with the rapid-succession / low-long-term-risk rationale). *(Appended as a bolded paragraph closing the "Story scope & splitting" section.)*
+- [x] Reconcile cross-references in `_phase-letters.md` (Option 1/2/3, "Sub-numbered stories") so the ID-scheme mechanics and the cycle-header summary agree on the loosened policy. *("Sub-numbered stories" gains an **Ordering convenience** situation + an implementation-time-reassessment clause on the pre-implementation split + a flat-no-4th-level reaffirmation; Option 2 (Sub-number extension) broadened so proximity/ordering is a valid trigger, not only conceptual follow-up.)*
+- [x] `pyve run project-guide update` to re-render installed `docs/project-guide/` copies; confirm rendered `go.md` reflects the new language across cycle modes. *(Installed `templates/modes/` copies now identical to source; rendered `docs/project-guide/go.md` carries the new "Sequential is the strong default" language and no longer contains the old absolute framing.)*
+- [x] Run `tests/test_render.py` (parametrized all-modes render) to confirm no template breakage; ruff/mypy unaffected (template-only) but run per the three-gate convention. *(171 render tests pass; full suite 629 passed; ruff clean; mypy clean (12 source files) via direct-module invocation — testenv console-script shebangs are stale from the `pyve testenv`→`pyve env` layout churn.)*
+
+**Out of scope:**
+- Changing `git-push`'s out-of-sequence detection code — it already supports the single-story opt-in (Q.p) and the loosened guidance is consistent with it.
+- The `_phase-letters.md` base-26 ID scheme itself — only the cross-reference / policy-summary text is touched, not the letter math.
+
+---
+
+### Story Q.x: Ground every mode in the strategic context documents [Planned]
+
+**Problem.** Across modes — `debug` most acutely, but also `code_direct` / `code_test_first` — the LLM loses conceptual grounding when starting a fresh context/session: it narrows onto implementation mechanics (short-sighted decisions, hacks, lazy solutions) and misses the abstract purpose. The pattern is most pronounced when the LLM has **not** read the strategic context — `docs/specs/concept.md`, `features.md`, `tech-spec.md`, the repo-root `README.md`, and any **phase/subphase plan** for the active phase. `_header-common.md` currently tells the LLM only to re-read `go.md` after compaction; nothing points it at the strategic docs. Per the developer (2026-06-22): there is no harm in grounding *every* mode in these documents — it can only lead to better outcomes.
+
+**Approach.** Add a **"Ground yourself in the strategic context"** instruction to `_header-common.md` (rendered into *every* mode), directing the LLM — at the start of a working session or whenever entering a fresh context — to read the strategic docs that exist and to discover phase/subphase plan docs. Phrase it to **degrade gracefully** when a doc is absent (planning modes author some of these, so they won't exist yet in early-lifecycle projects).
+
+**Instruction to encode:**
+- At the start of a working session / new context, ground yourself by reading (when present): `{{ spec_artifacts_path }}/concept.md`, `{{ spec_artifacts_path }}/features.md`, `{{ spec_artifacts_path }}/tech-spec.md`, and the repo-root `README.md`.
+- Discover and read any **phase/subphase plan** for the active phase: look in `{{ spec_artifacts_path }}/` for `phase-<letter>-*.md` and `phase-<letter>-subphase-<n>-*.md` (e.g., Phase Q → `phase-q-*.md`; Subphase Q-4 → `phase-q-subphase-4-*.md`).
+- These supply the *why* and *what* behind the *how*; reading them prevents short-sighted, mechanics-only implementation. Absent docs are skipped silently (no error) — early planning modes may not have authored them yet.
+
+**Tasks:**
+- [ ] Add the **Ground yourself in the strategic context** block to `_header-common.md` (universal; graceful-when-absent; session-start framing, not a re-read-every-turn instruction).
+- [ ] Include the phase/subphase plan-doc discovery patterns (`phase-<letter>-*.md`, `phase-<letter>-subphase-<n>-*.md`) keyed to the active phase.
+- [ ] Confirm the block reads naturally in both planning (sequence) and coding/debug (cycle) renders — it lives in the common header, so verify against a sequence mode (e.g. `plan_features`, where `tech-spec.md` won't exist yet) and a cycle mode (`debug`).
+- [ ] `pyve run project-guide update` to re-render; run `tests/test_render.py` parametrized all-modes regression.
+
+**Out of scope:**
+- Auto-loading / tool-enforced reads — this is LLM guidance in the rendered prompt, not a code-enforced gate.
+- Per-mode customization of *which* docs to read — a universal set in the common header matches the "every mode grounded" intent; revisit only if a mode proves it needs a narrower set.
+
+---
+
+### Story Q.y: v2.17.0 — cycle-mode story-guidance & strategic-context grounding (bundled release) [Planned]
+
+**Problem.** Stories Q.w and Q.x are template-only edits to the rendered mode headers — Q.w loosens the **Story execution order** policy and adds a **Story scope & splitting** subsection to `_header-cycle.md`; Q.x adds a **Ground yourself in the strategic context** block to `_header-common.md`. Both run unversioned during work. Q.y is the release-marker story that bumps the package and authors the CHANGELOG entry covering both. Per developer direction (2026-06-22), these guidance changes are expected to meaningfully reduce the "wound-up" / short-sighted cycle-mode behavior, so they ship as a deliberate minor release rather than riding silently into the repo.
+
+**Behavior (post-story).** Version bumped to **v2.17.0** across the three canonical sites (`project_guide/version.py`, `pyproject.toml`, new `CHANGELOG.md` entry). The CHANGELOG entry describes the two themes as one bundled release: the loosened story scope/sequencing guidance (Q.w) and the strategic-context grounding instruction (Q.x).
+
+**Why this default.**
+
+- **v2.17.0 minor, not patch.** The edits add new opt-in guidance affordances to every cycle mode (single out-of-order allowed, scope-splitting device) and a new universal grounding instruction to every mode — additive, behavior-shaping improvements to the rendered prompts (project-guide's actual product). Per Version Cadence "Feature or improvement → minor." Template-only with no Python change, but the rendered-prompt surface is user-facing, so the improvement warrants a minor bump rather than a doc-only no-bump.
+- **One bump, last story.** Same convention as Q.c / Q.f / Q.n / Q.s — Q.y is the only story in this bundle with a version in its title; Q.w and Q.x stay unversioned.
+- **Bundles Q.w and Q.x, not the whole Q-4 tail.** Q-4's own bundled release (v2.15.0, Q.s) already shipped, as did the versioned follow-ups Q.t / Q.u / Q.v. Q.w and Q.x are tail-appended template-doc stories with no version of their own; Q.y bundles exactly those two.
+- **CHANGELOG entry covers Q.w and Q.x** and references them by story ID so future readers can reconstruct the bundle.
+
+**Implementation:**
+- [ ] Confirm Q.w and Q.x are both `[Done]` before bumping (release-marker stories ship last).
+- [ ] Bump `project_guide/version.py` to `2.17.0`.
+- [ ] Bump `pyproject.toml` to `2.17.0`.
+- [ ] Add `## [2.17.0]` entry to `CHANGELOG.md` with a `### Changed` subsection (the loosened `_header-cycle.md` story scope/sequencing guidance, Q.w) and an `### Added` subsection (the `_header-common.md` strategic-context grounding instruction, Q.x). Reference Q.w and Q.x by story ID.
+- [ ] Verify all three CI gates: `pyve test`, `pyve testenv run ruff check project_guide/ tests/`, `pyve testenv run mypy project_guide/`.
+- [ ] Flip story status `[Planned]` → `[Done]` and check off tasks.
+
+**Out of scope:**
+- **Implementing Q.w / Q.x themselves.** Those are separate stories with their own checklists; Q.y is only the release marker that bumps the package once both have shipped.
+- **Git tag / PyPI publish of v2.17.0.** Per the *Approval gate discipline* rule in [project-essentials.md](project-essentials.md), the developer pushes the tag and triggers publish on their own schedule.
+
+---
+
 ## Future
 
 ### Installation/Config Discovery Hierarchy (global vs. project context) [Deferred]
@@ -910,3 +987,21 @@ Future modes: `audit_security`, `audit_architecture`, `audit_performance`, `audi
 ### mypy `tests.*` unused-override cleanup [Deferred]
 
 `mypy project_guide/` emits `note: unused section(s): module = ['tests.*']` on every run — the `[[tool.mypy.overrides]]` block targeting `tests.*` in `pyproject.toml` matches nothing, because the checked target is `project_guide/` only (tests are never passed to mypy). Harmless (a note, not an error — exit stays 0 on success) but it's noise on every type-check, and a dead config stanza invites confusion about whether tests are meant to be type-checked. Resolve by deciding intent, then either: (a) **remove** the dead `tests.*` override from `pyproject.toml` (if tests are intentionally out of mypy's scope), or (b) **bring `tests/` into the mypy target** (CI step + local convention) if the override implies test type-checking was once intended. Surfaced 2026-06-11 during the Q.u mypy CI fix. Low priority — cosmetic until someone wants test type-checking.
+
+### Remove the `bump-version` command [Deferred]
+
+Rip out `project-guide bump-version` entirely. It is a Python-/`pyproject.toml`-centric mechanical version writer (added Story O.o, v2.5.13) that stamps `X.Y.Z` into three hardcoded Python sites: `pyproject.toml [project] version`, an auto-detected `__version__` source, and a `CHANGELOG.md` entry.
+
+**Why remove rather than extend.** project-guide is now tightly integrated into Pyve, which is **polyglot** (Python + JavaScript/TypeScript today; venv / micromamba / pnpm / npm backends; Ruby, Rust, C++, Go, Java and their canonical backends/frameworks to come). Generalizing a mechanical version-write across every ecosystem's version file + manifest (`Cargo.toml`, `package.json`, `*.gemspec`, `build.gradle`/`pom.xml`, `go.mod`, …) and CHANGELOG conventions would be a brittle, fragile maintenance nightmare. Version stamping is per-ecosystem and increasingly Pyve's domain; project-guide should not own a Python-shaped command that mis-serves every other stack. (Removing `bump-version` also *unblocks and simplifies* the separately-considered hatchling **dynamic-version / single-source-of-truth** change: with no command needing a static `version =` line to rewrite, making `pyproject.toml` derive its version from `version.py` becomes a trivial config edit rather than one that must also teach `bump-version` to skip a dynamic pyproject. That dynamic-version change is still worthwhile on its own — it is *enabled*, not obviated, by this removal.)
+
+**Removal surface (audited 2026-06-11):**
+- **Code** — `project_guide/cli.py`: the `bump-version` command (`bump_version`, `@main.command(name="bump-version")`) and its helpers `_bump_pyproject_version`, `_bump_version_file`, `_bump_changelog`, `_find_version_file`, plus `_SEMVER_RE` (used *only* by this command).
+- **Mode template** — `templates/.../modes/plan-production-phase-mode.md` instructs the LLM to run `project-guide bump-version` at end-of-phase; rewrite that step to point at the manual per-story bump convention (or a Pyve-delegated bump) instead. `developer/best-practices-guide.md` also references it.
+- **Tests** — `tests/test_cli.py` (the `bump-version` suite) and any `tests/test_render.py` assertion that the production-phase template mentions the command.
+- **Docs** — `README.md` (`### bump-version` section), `tech-spec.md` (CLI command table), `concept.md`, `docs/site/user-guide/commands.md`. Re-render installed `docs/project-guide/` copies after editing the source templates. Leave `.archive/` and historical `stories-vX.Y.Z.md` bodies untouched.
+
+**Open decisions (planning-time):**
+- **Hard-remove vs. deprecate-then-remove.** project-guide is post-1.0 and `bump-version` is a shipped, consumer-facing command — a clean removal is a breaking change. Decide whether to ship a one-release deprecation shim (command prints a removal notice + exits non-zero) or hard-remove. Coordinate with the Pyve integration if Pyve invokes it anywhere.
+- **Replacement guidance.** What the production-phase mode and best-practices guide tell the LLM to do for version bumps post-removal (manual edits to the per-ecosystem version sites + CHANGELOG, per the Version Cadence rule).
+
+Surfaced 2026-06-11 while weighing a hatchling dynamic-version change — concluded the command itself is the liability, not its sync mechanics.
