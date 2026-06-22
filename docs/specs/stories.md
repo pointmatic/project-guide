@@ -1026,7 +1026,7 @@ Bundled release at end-of-subphase as **v2.15.0** (minor — new readiness-gated
 
 ---
 
-### Story Q.aa: End-of-Phase-Q planning-artifact drift sweep — `concept.md`, `features.md`, `tech-spec.md`, `project-essentials.md` [Planned]
+### Story Q.aa: End-of-Phase-Q planning-artifact drift sweep — `concept.md`, `features.md`, `tech-spec.md`, `project-essentials.md` [Done]
 
 **Problem.** Before Phase Q is closed out (archived), the planning artifacts must be accurate against the code as it actually stands at end-of-phase. An audit (2026-06-22) found drift that accumulated across the phase — some predating Phase Q, some introduced by it — that the earlier Q.e.1 planning sweep did not catch because it was scoped to mode-count/name alignment, not module/test inventories or illustrative trees. These are `refactor_plan`-class documents; the drift is mechanical (stale line counts, a retired mode-file name, a missing artifact, a stale spec-doc count, a stale test-count table) and right-sized for a sweep story rather than a `refactor_plan` mode switch.
 
@@ -1045,12 +1045,12 @@ Bundled release at end-of-subphase as **v2.15.0** (minor — new readiness-gated
 - **Count-agnostic where practical.** Exact line/test counts re-drift on every subsequent story; preferring "the suite" / "~N" / eliding exact numbers reduces the maintenance tax this very story is paying down.
 
 **Tasks:**
-- [ ] `concept.md`: spot-check Scope CLI/mode lists and reconcile any **non-`plan_envs`** flagged count. Do **not** change "four spec documents" or annotate `plan_envs` here — owned by Q.z.1.
-- [ ] `features.md`: `code-velocity-mode.md` → `code-direct-mode.md`; refresh the Output File-Structure `modes/` + `artifacts/` lists (add `env-dependencies.md`, `project-essentials.md`, `pyve-essentials.md`; curate/elide retired entries); refresh stale `2.0.15` example strings. The FR-1 `plan_envs` row `(frozen)` annotation is Q.z.1's.
-- [ ] `tech-spec.md`: refresh/de-emphasize module line counts; add `stories.py`/`actions.py`/`runtime.py` and the five missing test files to Package Structure; fix Test Structure table (129 → 629 across 12 files); name the Phase Q `cli.py`/`stories.py` helpers in the command/key-function lists without restructuring. (The `pyve testenv → pyve env` modernization of `tech-spec.md` is owned by Q.z.2 — do not touch those here.)
-- [ ] `project-essentials.md`: light spot-check; fix any stale count/name. (The `plan_envs` freeze-record subsection is added by Q.z.1, and the `pyve testenv → pyve env` CI-gate modernization by Q.z.2 — not here.)
-- [ ] Run `pyve test`, `pyve env run ruff check project_guide/ tests/`, and `pyve env run mypy project_guide/` (hygiene; doc-only, no code change expected to affect them).
-- [ ] Flip story status `[Planned]` → `[Done]` and check off tasks.
+- [x] `concept.md`: spot-check Scope CLI/mode lists and reconcile any **non-`plan_envs`** flagged count. Do **not** change "four spec documents" or annotate `plan_envs` here — owned by Q.z.1. *(Verified clean: 17 modes correct, CLI list current (`bump-version` still real), "four spec documents" intact, `plan_envs` already frozen-annotated by Q.z.1 — no edit needed.)*
+- [x] `features.md`: `code-velocity-mode.md` → `code-direct-mode.md`; refresh the Output File-Structure `modes/` + `artifacts/` lists (add `env-dependencies.md`, `project-essentials.md`, `pyve-essentials.md`; curate/elide retired entries); refresh stale `2.0.15` example strings. The FR-1 `plan_envs` row `(frozen)` annotation is Q.z.1's. *(Tree completed to all 17 modes + 8 artifacts; `code-velocity-mode.md` → `code-direct-mode.md`; status-output examples + both config examples refreshed `2.0.15`/`2.0.13` → `2.17.0`/`2.16.1`; "Generate code with velocity" → "Generate code directly, test after".)*
+- [x] `tech-spec.md`: refresh/de-emphasize module line counts; add `stories.py`/`actions.py`/`runtime.py` and the five missing test files to Package Structure; fix Test Structure table (129 → 629 across 12 files); name the Phase Q `cli.py`/`stories.py` helpers in the command/key-function lists without restructuring. *(Module line-count parentheticals dropped (count-agnostic); 3 modules + 5 test files added to Package Structure; Test Structure table rebuilt count-agnostic with all 12 files + "629 tests" total; new "Phase Q additions" key-functions bullet names the readiness-gate / branch-aware / out-of-sequence / heading-depth helpers.)*
+- [x] `project-essentials.md`: light spot-check; fix any stale count/name. *(Clean — no stale count/version; freeze record (Q.z.1) and CI-gate modernization (Q.z.2) already landed. No edit needed.)*
+- [x] Run `pyve test`, `pyve env run ruff check project_guide/ tests/`, and `pyve env run mypy project_guide/` (hygiene; doc-only, no code change expected to affect them). *(629 passed; ruff clean; mypy clean.)*
+- [x] Flip story status `[Planned]` → `[Done]` and check off tasks.
 
 **Out of scope:**
 - **All `plan_envs` / `env-dependencies` freeze framing** — the frozen annotations, the spec-document-count decision ("four", not "five"), and the FR-1 row marker. Owned by Q.z.1.

@@ -71,6 +71,9 @@ project-guide/
 │   ├── render.py                       # Jinja2 rendering pipeline
 │   ├── sync.py                         # File sync: hash comparison, copy, backup
 │   ├── cli.py                          # Click CLI commands
+│   ├── stories.py                      # stories.md parsing: [Done] detection, commit-message derivation
+│   ├── actions.py                      # archive-stories + version-detection actions
+│   ├── runtime.py                      # shared runtime helpers (skip-input, project-name detection)
 │   └── templates/
 │       └── project-guide/              # Bundled template tree (copied on init)
 │           ├── .metadata.yml
@@ -80,14 +83,19 @@ project-guide/
 │               ├── go.md               # Jinja2 entry point template
 │               ├── modes/              # Mode templates + header partials
 │               └── artifacts/          # Artifact structure templates
-└── tests/
-    ├── test_cli.py                     # CLI command tests (~35K)
-    ├── test_sync.py                    # Sync logic tests (~13K)
+└── tests/                              # 629 tests across 12 files
+    ├── test_cli.py                     # CLI command tests
+    ├── test_sync.py                    # Sync logic tests
     ├── test_integration.py             # End-to-end workflow tests
     ├── test_render.py                  # Rendering pipeline tests
     ├── test_metadata.py                # Metadata parsing tests
     ├── test_config.py                  # Config round-trip tests
-    └── test_purge.py                   # Purge command tests
+    ├── test_purge.py                   # Purge command tests
+    ├── test_actions.py                 # archive-stories + version-detection actions
+    ├── test_stories.py                 # stories.md parsing + commit-message derivation
+    ├── test_cross_repo_contract.py     # Pyve-hosting cross-repo contract guards
+    ├── test_runtime.py                 # Runtime helpers
+    └── test_archive_stories_mode.py    # archive_stories mode end-to-end
 ```
 
 ---
@@ -106,7 +114,7 @@ project-guide/
 
 ## Key Component Design
 
-### Module: `cli.py` (695 lines)
+### Module: `cli.py`
 
 **Purpose**: All Click CLI commands.
 
@@ -137,8 +145,9 @@ project-guide/
 - `_get_committed_story_ids()` — parses `git log --pretty=%s` and extracts story IDs from any subject line whose prefix matches `<id>: ` (regex `^([A-Z]\.[a-z]+):\s`). Returns an empty set on `git`-not-found, non-git cwd, or empty history. Used by the `git-push` wrapper to decide which `[Done]` stories are uncommitted.
 - `_resolve_spec_artifacts_path()` — best-effort resolver for the `spec_artifacts_path` metadata value used by `git-push` to locate `stories.md`. Falls back to `docs/specs` when config / metadata are unavailable so the wrapper works in projects that haven't yet run `init`.
 - `project_guide/stories.py:_read_done_stories()` / `derive_commit_message()` — pure helpers used by `git-push`. `_read_done_stories` returns all `[Done]` headings as `StoryHeading(story_id, title)` tuples in file order; `derive_commit_message` produces the gitbetter-ready subject `"<id>: <transformed title>"` (backticks → single quotes, double quotes → single quotes, single quotes pass through, colon preserved).
+- **Phase Q additions (named for navigation; the contracts live in `project-essentials.md`):** `_query_pyve_provision_status()` / `_warn_if_local_install_under_pyve()` / `_provision_pyve_hosting()` (Subphase Q-4 readiness-gated local-install warning); `_get_current_branch()` / `_presume_committed_on_branch()` (Q.u branch-aware squash-merge presumption for `git-push`); `_prompt_commit_out_of_sequence()` (Q.p single-story out-of-sequence opt-in). The git-log subject parser is `parse_committed_ids_from_subject()` in `stories.py` (P.u, superseding the single-regex form); `stories.py`'s `_STORY_RE` recognizes `#{3,5}` heading depths (Q.v).
 
-### Module: `config.py` (138 lines)
+### Module: `config.py`
 
 **Purpose**: Configuration model and YAML I/O.
 
@@ -184,7 +193,7 @@ project-guide/
 - `keep_trailing_newline=True`
 - `_LenientUndefined` — undefined variables render as `{{ var_name }}` instead of erroring (preserves LLM instruction placeholders)
 
-### Module: `sync.py` (250 lines)
+### Module: `sync.py`
 
 **Purpose**: File synchronization using content-hash comparison.
 
@@ -198,7 +207,7 @@ project-guide/
 
 **Key design decision:** `sync_files` uses `file_matches_template()` as the sole freshness check. Version numbers are not used to determine whether a file needs updating. This means a package version bump that doesn't change a specific template won't flag that file as stale.
 
-### Module: `exceptions.py` (52 lines)
+### Module: `exceptions.py`
 
 **Exception hierarchy:**
 ```
@@ -402,17 +411,22 @@ All operations are file-based on small files (<100KB each). No performance conce
 
 ### Test Structure
 
-| File | Focus | Tests |
-|------|-------|-------|
-| `test_cli.py` | All CLI commands, error paths, output assertions | ~60 |
-| `test_sync.py` | Hash comparison, copy, backup, sync logic | ~22 |
-| `test_integration.py` | End-to-end workflows | ~6 |
-| `test_render.py` | Jinja2 rendering, parametrized mode test | ~20 |
-| `test_metadata.py` | YAML parsing, variable resolution | ~9 |
-| `test_config.py` | Config round-trip, overrides | ~7 |
-| `test_purge.py` | Purge command edge cases | ~5 |
+| File | Focus |
+|------|-------|
+| `test_cli.py` | All CLI commands, error paths, output assertions |
+| `test_sync.py` | Hash comparison, copy, backup, sync logic |
+| `test_integration.py` | End-to-end workflows |
+| `test_render.py` | Jinja2 rendering, parametrized all-modes render |
+| `test_metadata.py` | YAML parsing, variable resolution |
+| `test_config.py` | Config round-trip, overrides |
+| `test_purge.py` | Purge command edge cases |
+| `test_actions.py` | archive-stories + version-detection actions |
+| `test_stories.py` | stories.md parsing, `is_header`, commit-message derivation |
+| `test_cross_repo_contract.py` | Pyve-hosting cross-repo contract guards |
+| `test_runtime.py` | Runtime helpers (skip-input, project-name detection) |
+| `test_archive_stories_mode.py` | `archive_stories` mode end-to-end |
 
-**Total: 129 tests, ~91% coverage**
+**Total: 629 tests across 12 files, ≥85% coverage (currently ~91%).**
 
 ### Key Test Patterns
 

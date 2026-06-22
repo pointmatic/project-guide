@@ -105,7 +105,7 @@ For a high-level concept (why), see [`concept.md`](concept.md). For implementati
 **`.project-guide.yml`** (created in project root):
 ```yaml
 version: '2.0'
-installed_version: 2.0.15
+installed_version: 2.17.0
 target_dir: docs/project-guide
 metadata_file: .metadata.yml
 current_mode: default
@@ -155,21 +155,27 @@ project-root/
             │   ├── plan-concept-mode.md
             │   ├── plan-features-mode.md
             │   ├── plan-tech-spec-mode.md
+            │   ├── plan-envs-mode.md
             │   ├── plan-stories-mode.md
             │   ├── plan-phase-mode.md
+            │   ├── plan-production-phase-mode.md
             │   ├── scaffold-project-mode.md
-            │   ├── code-velocity-mode.md
+            │   ├── code-direct-mode.md
             │   ├── code-test-first-mode.md
             │   ├── debug-mode.md
             │   ├── document-brand-mode.md
             │   ├── document-landing-mode.md
+            │   ├── archive-stories-mode.md
             │   ├── refactor-plan-mode.md
             │   └── refactor-document-mode.md
             └── artifacts/          # Artifact templates (structure guides)
                 ├── concept.md
                 ├── features.md
                 ├── tech-spec.md
+                ├── env-dependencies.md
                 ├── stories.md
+                ├── project-essentials.md
+                ├── pyve-essentials.md
                 └── brand-descriptions.md
 ```
 
@@ -177,7 +183,7 @@ project-root/
 
 **`project-guide status` (happy path):**
 ```
-project-guide v2.0.15
+project-guide v2.17.0
 
 Mode: default — Getting started -- full project lifecycle overview
   Run 'project-guide mode' to see available modes.
@@ -190,9 +196,9 @@ Files: 33 current
 
 **`project-guide status` (with problems):**
 ```
-project-guide v2.0.15 (installed: v2.0.13)
+project-guide v2.17.0 (installed: v2.16.1)
 
-Mode: code_direct — Generate code with velocity
+Mode: code_direct — Generate code directly, test after
   Prerequisites: all met
   Run 'project-guide mode' to see available modes.
 
@@ -448,7 +454,7 @@ Changing the `.project-guide.yml` filename, removing any of the contract fields,
 
 ```yaml
 version: '2.0'                      # Config schema version
-installed_version: '2.0.15'         # Package version when last synced
+installed_version: '2.17.0'         # Package version when last synced
 target_dir: 'docs/project-guide'    # Where templates are installed
 metadata_file: '.metadata.yml'      # Metadata filename (within target_dir)
 current_mode: 'default'             # Active mode
