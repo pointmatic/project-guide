@@ -10,7 +10,7 @@ The `.project-guide.yml` file is created automatically when you run `project-gui
 
 ```yaml
 version: "2.0"
-installed_version: "2.13.0"
+installed_version: "2.17.0"
 target_dir: "docs/project-guide"
 metadata_file: ".metadata.yml"
 current_mode: "code_direct"

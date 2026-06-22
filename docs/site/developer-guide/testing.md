@@ -4,7 +4,7 @@ Comprehensive guide to testing project-guide.
 
 ## Test Suite Overview
 
-project-guide has 90% test coverage with 596 tests across 12 test files covering:
+project-guide has 90% test coverage with 629 tests across 12 test files covering:
 
 - CLI commands
 - Deterministic actions (archive) and the `archive_stories` mode

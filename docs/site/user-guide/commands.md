@@ -199,7 +199,7 @@ Each file shows one of:
 ### Example Output
 
 ```
-project-guide v2.13.0
+project-guide v2.17.0
 
 Mode: code_direct — Generate code directly, test after
   Prerequisites: all met

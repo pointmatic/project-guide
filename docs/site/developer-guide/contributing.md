@@ -95,7 +95,7 @@ For template improvements or new features:
 - Maintain or improve test coverage (minimum 85%, currently 90%)
 - Run tests with `pyve test` (pytest lives in the dev testenv)
 - Test edge cases and error conditions
-- 596 tests across 12 test files
+- 629 tests across 12 test files
 
 ### Documentation
 
@@ -135,7 +135,7 @@ project-guide/
 │               ├── modes/      # Mode templates (*.md)
 │               ├── artifacts/  # Artifact templates (*.md)
 │               └── go.md       # Go template
-├── tests/                      # Test suite (596 tests, 90% coverage)
+├── tests/                      # Test suite (629 tests, 90% coverage)
 │   ├── test_cli.py             # CLI command tests (~200)
 │   ├── test_render.py          # Render tests, incl. per-mode (~170)
 │   ├── test_actions.py         # Deterministic actions / archive (~53)

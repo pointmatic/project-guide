@@ -1064,7 +1064,7 @@ Bundled release at end-of-subphase as **v2.15.0** (minor — new readiness-gated
 
 ---
 
-### Story Q.ab: End-of-Phase-Q documentation-artifact drift sweep — `README.md` + `docs/site` MkDocs + landing page [Planned]
+### Story Q.ab: End-of-Phase-Q documentation-artifact drift sweep — `README.md` + `docs/site` MkDocs + landing page [Done]
 
 **Problem.** The published documentation set still advertises a stale test count: the landing page (`docs/site/index.html`) and two MkDocs developer-guide pages (`developer-guide/testing.md`, `developer-guide/contributing.md`) all say "**596 tests**" (actual: **629**). External readers should see accurate numbers before Phase Q is archived. These are `refactor_document`-class artifacts; the work is mechanical count alignment plus a straggler grep — right-sized for a sweep story, mirroring Q.e.2.
 
@@ -1081,12 +1081,12 @@ Bundled release at end-of-subphase as **v2.15.0** (minor — new readiness-gated
 - **New tail story (`Q.ab`).** Monotonic letter after `Q.aa`; end-of-phase cleanup appended under the existing structure (no new subphase/phase heading — `code_direct` authority).
 
 **Tasks:**
-- [ ] `docs/site/index.html`: "596 tests with 90% coverage" → accurate count (629) / verified coverage, or count-agnostic.
-- [ ] `docs/site/developer-guide/testing.md` and `docs/site/developer-guide/contributing.md`: refresh the "596 tests" occurrences to 629; verify the "12 test files" claim (currently correct) and coverage %.
-- [ ] `README.md`: verification pass; refresh the stale `installed_version` example if warranted.
-- [ ] Grep the full `docs/site/` tree + `README.md` for residual stale counts / retired names; fix stragglers. (The `pyve testenv → pyve env` command modernization of these files is owned by Q.z.2 — out of scope here.)
-- [ ] Run `pyve test` (to confirm the current count for the docs) plus `pyve env run ruff` / `mypy` for hygiene.
-- [ ] Flip story status `[Planned]` → `[Done]` and check off tasks.
+- [x] `docs/site/index.html`: "596 tests with 90% coverage" → accurate count (629) / verified coverage, or count-agnostic. *(→ 629; coverage verified at **90.63%** via `--cov`, so "90%" stays accurate.)*
+- [x] `docs/site/developer-guide/testing.md` and `docs/site/developer-guide/contributing.md`: refresh the "596 tests" occurrences to 629; verify the "12 test files" claim (currently correct) and coverage %. *(All "596 tests" → "629 tests" (1 + 2 occurrences); "12 test files" confirmed correct; coverage 90% confirmed.)*
+- [x] `README.md`: verification pass; refresh the stale `installed_version` example if warranted. *(Config example `installed_version` `2.13.0` → `2.17.0`; no stale counts/names found.)*
+- [x] Grep the full `docs/site/` tree + `README.md` for residual stale counts / retired names; fix stragglers. (The `pyve testenv → pyve env` command modernization of these files is owned by Q.z.2 — out of scope here.) *(Refreshed two more illustrative version examples — `configuration.md` config snippet + `commands.md` status output, `2.13.0` → `2.17.0`. **Kept** the correct "v2.13.0+" feature-introduction refs (commands.md, README) and a test-code fixture value in testing.md. No `596` / `15-16 modes` / `code_velocity` / `project_scaffold` remain.)*
+- [x] Run `pyve test` (to confirm the current count for the docs) plus `pyve env run ruff` / `mypy` for hygiene. *(629 passed; ruff clean; mypy clean.)*
+- [x] Flip story status `[Planned]` → `[Done]` and check off tasks.
 
 **Out of scope:**
 - **`plan_envs` freeze markers in published docs.** The `(frozen — pending Pyve work)` annotations in `README.md` and `docs/site/user-guide/modes.md` are owned by Q.z.1; this story only verifies consistency.
