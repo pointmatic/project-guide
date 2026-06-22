@@ -918,7 +918,7 @@ Bundled release at end-of-subphase as **v2.15.0** (minor — new readiness-gated
 
 ---
 
-### Story Q.y: v2.17.0 — cycle-mode story-guidance & strategic-context grounding (bundled release) [Planned]
+### Story Q.y: v2.17.0 — cycle-mode story-guidance & strategic-context grounding (bundled release) [Done]
 
 **Problem.** Stories Q.w and Q.x are template-only edits to the rendered mode headers — Q.w loosens the **Story execution order** policy and adds a **Story scope & splitting** subsection to `_header-cycle.md`; Q.x adds a **Ground yourself in the strategic context** block to `_header-common.md`. Both run unversioned during work. Q.y is the release-marker story that bumps the package and authors the CHANGELOG entry covering both. Per developer direction (2026-06-22), these guidance changes are expected to meaningfully reduce the "wound-up" / short-sighted cycle-mode behavior, so they ship as a deliberate minor release rather than riding silently into the repo.
 
@@ -932,16 +932,170 @@ Bundled release at end-of-subphase as **v2.15.0** (minor — new readiness-gated
 - **CHANGELOG entry covers Q.w and Q.x** and references them by story ID so future readers can reconstruct the bundle.
 
 **Implementation:**
-- [ ] Confirm Q.w and Q.x are both `[Done]` before bumping (release-marker stories ship last).
-- [ ] Bump `project_guide/version.py` to `2.17.0`.
-- [ ] Bump `pyproject.toml` to `2.17.0`.
-- [ ] Add `## [2.17.0]` entry to `CHANGELOG.md` with a `### Changed` subsection (the loosened `_header-cycle.md` story scope/sequencing guidance, Q.w) and an `### Added` subsection (the `_header-common.md` strategic-context grounding instruction, Q.x). Reference Q.w and Q.x by story ID.
-- [ ] Verify all three CI gates: `pyve test`, `pyve testenv run ruff check project_guide/ tests/`, `pyve testenv run mypy project_guide/`.
-- [ ] Flip story status `[Planned]` → `[Done]` and check off tasks.
+- [x] Confirm Q.w and Q.x are both `[Done]` before bumping (release-marker stories ship last). *(Both flipped to `[Done]` earlier this session.)*
+- [x] Bump `project_guide/version.py` to `2.17.0`.
+- [x] Bump `pyproject.toml` to `2.17.0`.
+- [x] Add `## [2.17.0]` entry to `CHANGELOG.md` with a `### Changed` subsection (the loosened `_header-cycle.md` story scope/sequencing guidance, Q.w) and an `### Added` subsection (the `_header-common.md` strategic-context grounding instruction, Q.x). Reference Q.w and Q.x by story ID. *(Dated 2026-06-22.)*
+- [x] Verify all three CI gates: `pyve test`, `pyve testenv run ruff check project_guide/ tests/`, `pyve testenv run mypy project_guide/`. *(629 passed; ruff clean; mypy clean (12 source files, via direct-module invocation — stale testenv shebangs). `project-guide --version` confirms 2.17.0 across all three version sites.)*
+- [x] Flip story status `[Planned]` → `[Done]` and check off tasks.
 
 **Out of scope:**
 - **Implementing Q.w / Q.x themselves.** Those are separate stories with their own checklists; Q.y is only the release marker that bumps the package once both have shipped.
 - **Git tag / PyPI publish of v2.17.0.** Per the *Approval gate discipline* rule in [project-essentials.md](project-essentials.md), the developer pushes the tag and triggers publish on their own schedule.
+
+---
+
+### Story Bundle Q.z: Pyve-related Staleness
+
+---
+
+### Story Q.z.1: Freeze the `plan_envs` mode (soft-freeze + sequence bypass) pending Pyve unblock [Planned]
+
+**Problem.** `plan_envs` (added Subphase Q-2, shipped v2.12.0) is in a stale, not-useful state: the env-spec vocabulary and `env-dependencies.md` template it vendors (`spec_version "3.0"`) are ahead of what Pyve can actually operate, so the mode cannot produce a spec that round-trips through current Pyve. Improving it is **blocked on additional Pyve work**. Until Pyve unblocks it and the mode is updated to match Pyve's functionality and capabilities, `plan_envs` must be **frozen and not used** (developer direction, 2026-06-22). Today the opposite is true: the bundled metadata wires the recommended planning sequence as `plan_tech_spec → plan_envs → plan_stories`, actively steering every new project *into* the frozen mode, and the docs advertise it as a live planning step.
+
+**Approach (soft freeze + bypass).** Keep the mode present and invocable by explicit name — so the breadcrumb that it is coming back survives — but (a) make it loudly self-identify as frozen, (b) remove it from the recommended sequence so no one is routed into it, and (c) annotate every doc surface that lists it. Developer-selected over hard-unlisting (which loses the breadcrumb) and docs-only (which leaves the sequence steering users in).
+
+**Behavior (post-story).**
+
+- **Mode template banner.** `plan-envs-mode.md` opens with a prominent `> ⚠️ FROZEN — DO NOT USE` callout: the mode is stale pending Pyve work, its output does not round-trip through current Pyve, and the reader should skip to `plan_stories`. The banner renders at the top of `go.md` whenever the mode is (inadvisably) selected.
+- **Sequence bypass.** `.metadata.yml`: revert `plan_tech_spec.next_mode` from `plan_envs` back to `plan_stories` (undoing the Q.d wiring) so the recommended chain is once again `plan_tech_spec → plan_stories`. `plan_envs.next_mode` stays `plan_stories` (harmless; only reached on explicit invocation). The mode is **not** removed from `modes:` — it stays listed (annotated frozen) so explicit invocation still works.
+- **`project-essentials.md` record.** A new short subsection records the freeze as a durable must-know fact: `plan_envs` is frozen pending Pyve work — do not use / recommend / run / polish it — and the `env-dependencies` vendored-template contract is paused, cross-referencing the existing "Pyve env-spec vendored-template contract" section.
+- **Doc annotations.** Every surface that lists `plan_envs` as a live mode gets a `(frozen — pending Pyve work)` annotation: `concept.md` Scope mode list, `features.md` FR-1 modes table row, `README.md` Quick Start switch block + Available Modes → Project Planning table, and `docs/site/user-guide/modes.md`. The spec-document-count decision lives here too: `concept.md`'s "four spec documents" stays **four** (env-dependencies is frozen, not a live planning artifact) — overriding the bare "→ five" the audit story would otherwise make — and README's Available Modes preamble (set to "five" in Q.g) is reconciled to describe env-dependencies as the frozen fifth.
+
+**Why these defaults.**
+
+- **Soft freeze, not unlist (developer-selected).** Keep the visible breadcrumb so it is clear the mode returns once Pyve unblocks it; loud in-template + in-listing warnings enforce "do not use" without deleting wiring that will be restored.
+- **Bypass via `next_mode` revert.** The single highest-leverage change: it stops new projects being routed into the frozen mode while leaving explicit invocation intact. It is the precise inverse of Q.d's sequence edit.
+- **Freeze story owns all `plan_envs` doc edits.** The two end-of-phase audit sweeps (Q.aa, Q.ab) deliberately defer every `plan_envs`/`env-dependencies` mention to this story, so the freeze framing is decided in one reviewable place rather than split across three stories.
+- **Count stays four.** Treating a frozen mode's artifact as a live "fifth spec document" would contradict the freeze; the audit's mechanical "four → five" bump is explicitly overridden here.
+
+**Tasks:**
+- [ ] `plan-envs-mode.md`: add the `> ⚠️ FROZEN — DO NOT USE` banner at the top (skip to `plan_stories`; output doesn't round-trip through current Pyve; frozen pending Pyve work).
+- [ ] `.metadata.yml`: revert `plan_tech_spec.next_mode` → `plan_stories`; leave `plan_envs` listed with `next_mode: plan_stories`.
+- [ ] `project-essentials.md`: add the freeze-record subsection (cross-reference the "Pyve env-spec vendored-template contract" section).
+- [ ] Annotate `(frozen — pending Pyve work)` in `concept.md` Scope, `features.md` FR-1 table, `README.md` (switch block + Project Planning table), `docs/site/user-guide/modes.md`; reconcile the spec-document count to **four** in `concept.md` and README's "five spec documents" preamble.
+- [ ] `pyve run project-guide update` to re-render installed copies; verify the frozen banner renders in the `plan_envs` `go.md` and the listing/sequence reflect the bypass (`project-guide mode` still shows `plan_envs`; `plan_tech_spec` now points to `plan_stories`).
+- [ ] Run `pyve test`, `pyve env run ruff check project_guide/ tests/`, `pyve env run mypy project_guide/`.
+- [ ] Flip story status `[Planned]` → `[Done]` and check off tasks.
+
+**Out of scope:**
+- **Removing `plan_envs` / `env-dependencies.md` / the vendored-template contract.** This is a freeze, not a deletion — everything is restored when Pyve unblocks it (a future unfreeze story re-wires the sequence and drops the banner).
+- **The non-`plan_envs` documentation drift** (stale line/test counts, the `code-velocity-mode.md` name, the "596 tests" count). Owned by Q.aa (planning artifacts) and Q.ab (published docs).
+- **Pyve-side env-spec work.** The unblock is Pyve's; project-guide only freezes its consuming surface.
+- **Version bump / CHANGELOG entry.** This is a behavior change (sequence rewire + frozen mode), so it is the natural release-owner if the developer wants a final Phase-Q-closeout release; magnitude (patch vs. minor) and whether the doc-only audits (Q.aa/Q.ab) ride it is the developer's call. Title left version-agnostic until decided.
+
+---
+
+### Story Q.z.2: Modernize Pyve 2.x command/path references to Pyve 3.x (`pyve env`, `.pyve/envs/`) [Planned]
+
+**Problem.** project-guide's Pyve-invocation guidance is pinned to the Pyve **2.x** command surface, which Pyve **3.x** renamed and restructured. The drift is concentrated in the bundled, auto-rendered `pyve-essentials.md` artifact (FR-13 — surfaced in *every* consumer's `go.md` under `### Pyve Essentials`) and echoed across the project's own developer docs. Three stale shapes, all confirmed against the vendored Pyve 3.x source at [`docs/specs/pyve/`](pyve/) (concept / features / tech-spec / README):
+
+- **`pyve testenv …` → `pyve env …`.** Pyve 3.x renamed the `testenv` subcommand group to `env`: `pyve testenv init/install/run` → `pyve env init/install/run`; `pyve env purge` removes an environment (`pyve env list` / `prune` also exist). The legacy `testenv` form still works but emits a deprecation warning (`'pyve testenv' is deprecated and has been renamed to 'pyve env'`) and is slated for removal in Pyve v4.0.
+- **Env path layout `.pyve/testenvs/<name>/{venv,conda}/` → `.pyve/envs/<name>/<backend>/`.** Pyve 3.0.x moved the on-disk layout (default test env is now `.pyve/envs/testenv/venv/`). The v2.8.0 `.pyve/testenvs/…` paragraph in `pyve-essentials.md` (authored by Q.b) is itself now stale.
+- **The two-step `testenv init && install` ceremony is over-described.** Pyve 3.x auto-establishes the default `testenv` (venv backend) on the first `pyve test` and auto-installs `pytest`, so "run `pyve testenv init` first" overstates what the common case needs. Explicit `pyve env init/install [<name>]` is for *pre-provisioning dev tools* or *additional named environments* (e.g. `pytorch`, `dev`, `prod`, `featureA`) — `testenv` remains the default single-env name.
+
+**Behavior (post-story).** project-guide's Pyve guidance reads as Pyve 3.x throughout the **live** surfaces, without importing the full 3.x env model (per developer direction — a targeted form/path correction, not a Pyve-3.x tutorial):
+
+- **`pyve-essentials.md` (bundled artifact — highest priority).** All `pyve testenv …` → `pyve env …`; all `.pyve/testenvs/<name>/{venv,conda}/` → `.pyve/envs/<name>/<backend>/` (default `.pyve/envs/testenv/venv/`); reframe the testenv-init guidance to "the default `testenv` auto-creates on first `pyve test` (venv backend; `pytest` auto-installed); use `pyve env init/install [<name>]` to pre-provision dev tools or create additional named envs"; fix the stale `…/usage/#testenv-subcommand` doc URL; verify the named-env pyproject config table name (`[tool.pyve.testenvs]`) against the Pyve source and update if 3.x renamed it.
+- **Other bundled surfaces.** `developer/python-editable-install.md` and `modes/plan-tech-spec-mode.md`: same `testenv → env` / path modernization.
+- **This project's own dev docs.** `README.md` (Development + Contributing snippets), `CONTRIBUTING.md`, `docs/specs/project-essentials.md` (the "Story verification" CI-gate commands — the canonical source for how a story is verified), `docs/specs/tech-spec.md`, and `docs/site/developer-guide/{development,contributing}.md`: modernize every runnable command snippet to the 3.x forms.
+
+**Why these defaults.**
+
+- **Targeted form/path fix, not a Pyve-3.x tutorial.** Per developer direction, update the command/path *forms* and lean into the auto-create simplification; do **not** import Pyve's full named-env / polyglot-backend model into project-guide's templates — Pyve owns that vocabulary (same boundary as the env-spec vendored-template contract).
+- **`pyve-essentials.md` first.** It is the auto-rendered surface every consumer's `go.md` shows; fixing it is the highest-leverage edit (same rationale as Q.b's v2.8.0 refresh).
+- **Skip historical / frozen text.** `.archive/*`, the `phase-q-*.md` plan docs, and completed-story bodies in `stories.md` quote commands as they were at authoring time; they are not modernized. The vendored `docs/specs/pyve/` tree is Pyve's source-of-truth reference, not project-guide-owned prose — left as-is.
+- **Defer the `env-dependencies.md` artifact.** Its `pyve testenv` refs live in the frozen `plan_envs` artifact (Q.z.1); modernizing frozen content is low-value and folds into the eventual unfreeze.
+
+**Tasks:**
+- [ ] `pyve-essentials.md`: `pyve testenv …` → `pyve env …`; `.pyve/testenvs/…` → `.pyve/envs/…` (default `.pyve/envs/testenv/venv/`); reframe the testenv-init bullet for 3.x auto-create-on-`pyve test`; fix the `#testenv-subcommand` URL; verify/update the `[tool.pyve.testenvs]` table name against `docs/specs/pyve/`.
+- [ ] `developer/python-editable-install.md` and `modes/plan-tech-spec-mode.md`: `testenv → env` + path modernization.
+- [ ] `README.md` + `CONTRIBUTING.md`: modernize the Dev-setup / Running-tests / Code-quality snippets to `pyve env …`.
+- [ ] `docs/specs/project-essentials.md` (Story-verification CI-gate commands) and `docs/specs/tech-spec.md`: modernize (`pyve testenv run` → `pyve env run`).
+- [ ] `docs/site/developer-guide/development.md` and `docs/site/developer-guide/contributing.md`: modernize.
+- [ ] `pyve run project-guide update`; spot-check the rendered `### Pyve Essentials` block in a `go.md` shows the 3.x forms; grep the live surfaces to confirm zero remaining `pyve testenv` / `.pyve/testenvs` outside the skip-list.
+- [ ] Run the three CI gates: `pyve test`; `pyve env run ruff check project_guide/ tests/`; `pyve env run mypy project_guide/` (fall back to direct-module mypy if the env's console-script shebangs are stale).
+- [ ] Flip story status `[Planned]` → `[Done]` and check off tasks.
+
+**Out of scope:**
+- **Importing Pyve's full 3.x env model** (polyglot backends, every named-env recipe) into project-guide templates. Correct command forms + the auto-create simplification only; Pyve owns the vocabulary.
+- **Historical / frozen text** — `.archive/*`, `phase-q-*.md` plan docs, completed-story bodies in `stories.md`, and the vendored `docs/specs/pyve/` source itself.
+- **`env-dependencies.md` artifact's `pyve testenv` refs** — frozen with `plan_envs` (Q.z.1); modernized at unfreeze.
+- **The non-Pyve documentation drift** (stale line/test counts, `code-velocity-mode.md`, "596 tests"). Owned by Q.aa / Q.ab.
+- **Version bump / CHANGELOG entry.** Template/doc refresh that ships via the bundled `pyve-essentials.md`; rides the Pyve-staleness bundle's release (owned by Q.z.1, the bundle's behavior-change story), not a separate bump.
+
+---
+
+### Story Q.aa: End-of-Phase-Q planning-artifact drift sweep — `concept.md`, `features.md`, `tech-spec.md`, `project-essentials.md` [Planned]
+
+**Problem.** Before Phase Q is closed out (archived), the planning artifacts must be accurate against the code as it actually stands at end-of-phase. An audit (2026-06-22) found drift that accumulated across the phase — some predating Phase Q, some introduced by it — that the earlier Q.e.1 planning sweep did not catch because it was scoped to mode-count/name alignment, not module/test inventories or illustrative trees. These are `refactor_plan`-class documents; the drift is mechanical (stale line counts, a retired mode-file name, a missing artifact, a stale spec-doc count, a stale test-count table) and right-sized for a sweep story rather than a `refactor_plan` mode switch.
+
+**Behavior (post-story).** Every planning-artifact reference to module sizes, the test inventory, the artifact set, mode-file names, and spec-document counts is accurate against the current tree.
+
+- **`concept.md`.** Spot-check the Scope CLI/mode lists (17 modes + future `code_production`; CLI command list) and reconcile any **non-`plan_envs`** count that flags. The spec-document-count phrasing ("four spec documents") and the `plan_envs` Scope annotation are **owned by the Q.z.1 freeze story**, which keeps the count at **four** because env-dependencies is frozen — do not re-bump it to "five" here.
+- **`features.md`.** Output → File Structure tree: replace the retired **`code-velocity-mode.md`** with `code-direct-mode.md`; bring the `modes/` and `artifacts/` illustrative lists current (representative entries or an explicit elision; add `env-dependencies.md`, `project-essentials.md`, `pyve-essentials.md` to the artifacts list — these are bundled template files that exist regardless of the `plan_envs` freeze). Refresh the obviously stale `installed_version: 2.0.15` / `v2.0.15` example strings (or make count-agnostic). The FR-1 modes-table `plan_envs` row's `(frozen)` annotation is owned by Q.z.1.
+- **`tech-spec.md`.** Module line-count parentheticals: `cli.py` (695 → ~2607), `config.py` (138 → ~197), `exceptions.py` (52 → ~65), `sync.py` (250 → ~247) — prefer count-agnostic wording ("~N lines" drifts every story; consider dropping exact counts). Package Structure: add the missing modules `stories.py`, `actions.py`, `runtime.py` and the missing test files (`test_actions.py`, `test_stories.py`, `test_cross_repo_contract.py`, `test_runtime.py`, `test_archive_stories_mode.py`). Testing Strategy → Test Structure table: "Total: 129 tests, ~91% coverage" → **629 tests across 12 files**; refresh per-file approximate counts or make them count-agnostic. Bounded reconciliation of the `cli.py` command/key-function lists with the Phase Q additions that aren't yet reflected (readiness-gate helpers `_query_pyve_provision_status` / `_warn_if_local_install_under_pyve`; branch-aware git-push helpers `_get_current_branch` / `_presume_committed_on_branch`; the `stories.py` heading-depth parser) — name them; do not restructure the document.
+- **`project-essentials.md`.** Light spot-check only — it has been actively maintained through Phase Q. Fix any stale count/name that flags; no structural change expected.
+
+**Why this default.**
+
+- **Sweep story, not `refactor_plan` mode.** Same rationale as Q.e.1: find-and-align mechanical work, not a feature-driven rewrite or legacy migration. A mode switch right before archiving the phase is over-provisioned.
+- **Split from Q.ab along the artifact-class boundary.** Planning artifacts (this story) vs. published documentation artifacts (Q.ab) map to the `refactor_plan` / `refactor_document` division and are reviewed with different focus — two clean commit boundaries beat one mega-diff, exactly as Q.e.1 / Q.e.2 were split.
+- **New tail story (`Q.aa`), appended under the existing structure.** Subphase Q-4's release (v2.17.0 tail, Q.y) already shipped in document order; a new monotonic letter at the tail is the correct shape for end-of-phase cleanup. `code_direct` appends under an existing heading and does not create new subphase/phase headings — a dedicated audit subphase would be `plan_production_phase`'s call, not warranted for a mechanical sweep.
+- **Count-agnostic where practical.** Exact line/test counts re-drift on every subsequent story; preferring "the suite" / "~N" / eliding exact numbers reduces the maintenance tax this very story is paying down.
+
+**Tasks:**
+- [ ] `concept.md`: spot-check Scope CLI/mode lists and reconcile any **non-`plan_envs`** flagged count. Do **not** change "four spec documents" or annotate `plan_envs` here — owned by Q.z.1.
+- [ ] `features.md`: `code-velocity-mode.md` → `code-direct-mode.md`; refresh the Output File-Structure `modes/` + `artifacts/` lists (add `env-dependencies.md`, `project-essentials.md`, `pyve-essentials.md`; curate/elide retired entries); refresh stale `2.0.15` example strings. The FR-1 `plan_envs` row `(frozen)` annotation is Q.z.1's.
+- [ ] `tech-spec.md`: refresh/de-emphasize module line counts; add `stories.py`/`actions.py`/`runtime.py` and the five missing test files to Package Structure; fix Test Structure table (129 → 629 across 12 files); name the Phase Q `cli.py`/`stories.py` helpers in the command/key-function lists without restructuring. (The `pyve testenv → pyve env` modernization of `tech-spec.md` is owned by Q.z.2 — do not touch those here.)
+- [ ] `project-essentials.md`: light spot-check; fix any stale count/name. (The `plan_envs` freeze-record subsection is added by Q.z.1, and the `pyve testenv → pyve env` CI-gate modernization by Q.z.2 — not here.)
+- [ ] Run `pyve test`, `pyve env run ruff check project_guide/ tests/`, and `pyve env run mypy project_guide/` (hygiene; doc-only, no code change expected to affect them).
+- [ ] Flip story status `[Planned]` → `[Done]` and check off tasks.
+
+**Out of scope:**
+- **All `plan_envs` / `env-dependencies` freeze framing** — the frozen annotations, the spec-document-count decision ("four", not "five"), and the FR-1 row marker. Owned by Q.z.1.
+- **Pyve `testenv → env` command/path modernization** in `project-essentials.md` and `tech-spec.md`. Owned by Q.z.2.
+- **Published documentation (`README.md`, `docs/site/`).** Owned by Q.ab.
+- **Archived stories under `docs/specs/.archive/`.** Frozen historical records — never edited; retired-name references are correct in their historical context.
+- **The `phase-q-*.md` plan documents.** Point-in-time planning records; they reflect their authoring moment and are not drift-swept.
+- **Backfilling `env-dependencies.md` for this project.** Running `plan_envs` on project-guide itself remains out of scope (per Q.d) and doubly so while frozen; the artifacts *template* exists, but this project has not authored its own env-dependencies spec.
+- **Substantive content rewrites / `bump-version` removal.** This is drift alignment, not a restructure; the deferred `bump-version` removal is tracked separately under `## Future`.
+- **Version bump / CHANGELOG entry.** Doc-only; rides the Pyve-staleness / Phase-Q-closeout bundle release (owned by Q.z.1) if one ships, else no bump. Developer's call at the gate.
+
+---
+
+### Story Q.ab: End-of-Phase-Q documentation-artifact drift sweep — `README.md` + `docs/site` MkDocs + landing page [Planned]
+
+**Problem.** The published documentation set still advertises a stale test count: the landing page (`docs/site/index.html`) and two MkDocs developer-guide pages (`developer-guide/testing.md`, `developer-guide/contributing.md`) all say "**596 tests**" (actual: **629**). External readers should see accurate numbers before Phase Q is archived. These are `refactor_document`-class artifacts; the work is mechanical count alignment plus a straggler grep — right-sized for a sweep story, mirroring Q.e.2.
+
+**Behavior (post-story).** Every published-documentation reference to the test count (and any other stale count/name) is accurate or made count-agnostic.
+
+- **Test count → 629.** `docs/site/index.html` (Operational Benefits card, "596 tests with 90% coverage"), `docs/site/developer-guide/testing.md` (line ~7, "90% test coverage with 596 tests across 12 test files" — the "12 test files" part is now correct), and `docs/site/developer-guide/contributing.md` (two occurrences, "596 tests across 12 test files" and the tests-tree comment). Refresh the count to 629; verify the coverage % against an actual `--cov` run (or make count-agnostic, e.g. "comprehensive test suite").
+- **`README.md`.** Verification pass — Q.e.2 + Q.g already swept counts/names; refresh the illustrative `installed_version: "2.13.0"` example only if it reads as stale. No mode-count or retired-name fixes expected.
+- **Straggler grep.** Sweep the full `docs/site/` tree and `README.md` for any remaining stale count (`596`, `15/16 modes`, `90% coverage` if the real number differs) or retired names (`code_velocity`, `project_scaffold`); fix anything found. The `plan_envs` `(frozen — pending Pyve work)` markers in published docs (`README.md`, `docs/site/user-guide/modes.md`) are added by Q.z.1 — verify they are present and consistent, but do not author them here.
+
+**Why this default.**
+
+- **Sweep story, not `refactor_document` mode.** Same rationale as Q.e.2: mechanical count alignment, not a documentation rewrite. A mode switch right before archiving the phase is over-provisioned.
+- **Split from Q.aa.** Published-doc review (audience: external users) is a different focus from spec-doc review (audience: future LLMs / maintainers); separate commit boundaries, exactly as Q.e.1 / Q.e.2.
+- **New tail story (`Q.ab`).** Monotonic letter after `Q.aa`; end-of-phase cleanup appended under the existing structure (no new subphase/phase heading — `code_direct` authority).
+
+**Tasks:**
+- [ ] `docs/site/index.html`: "596 tests with 90% coverage" → accurate count (629) / verified coverage, or count-agnostic.
+- [ ] `docs/site/developer-guide/testing.md` and `docs/site/developer-guide/contributing.md`: refresh the "596 tests" occurrences to 629; verify the "12 test files" claim (currently correct) and coverage %.
+- [ ] `README.md`: verification pass; refresh the stale `installed_version` example if warranted.
+- [ ] Grep the full `docs/site/` tree + `README.md` for residual stale counts / retired names; fix stragglers. (The `pyve testenv → pyve env` command modernization of these files is owned by Q.z.2 — out of scope here.)
+- [ ] Run `pyve test` (to confirm the current count for the docs) plus `pyve env run ruff` / `mypy` for hygiene.
+- [ ] Flip story status `[Planned]` → `[Done]` and check off tasks.
+
+**Out of scope:**
+- **`plan_envs` freeze markers in published docs.** The `(frozen — pending Pyve work)` annotations in `README.md` and `docs/site/user-guide/modes.md` are owned by Q.z.1; this story only verifies consistency.
+- **Pyve `testenv → env` command modernization** in `README.md` and the `docs/site` dev docs. Owned by Q.z.2.
+- **Planning artifacts (`concept.md`, `features.md`, `tech-spec.md`, `project-essentials.md`).** Owned by Q.aa.
+- **MkDocs build/deploy, theme, or `mkdocs.yml` structure changes.** Content alignment only.
+- **Landing-page redesign / brand-copy rewrite.** Only the stale count is touched; `index.html` prose and `brand-descriptions.md` are otherwise untouched.
+- **Archived stories under `docs/specs/.archive/`.** Frozen historical records.
+- **Version bump / CHANGELOG entry.** Doc-only; rides the Pyve-staleness / Phase-Q-closeout bundle release (owned by Q.z.1) if one ships, else no bump. Developer's call at the gate.
 
 ---
 
