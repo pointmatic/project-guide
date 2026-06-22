@@ -185,6 +185,14 @@ The `plan_envs` mode (added Subphase Q-2) authors `docs/specs/env-dependencies.m
 - **Authoritative upstream.** Pyve's `docs/specs/project-guide-requests/env-dependencies-template.md` (in the Pyve repo) is the source the bundled copy is vendored from.
 - **Relationship to `### Pyve Essentials`.** The auto-rendered `### Pyve Essentials` block (sourced from the bundled `pyve-essentials.md` artifact via FR-13) is about Pyve *invocation* — workflow rules, canonical command forms, environment conventions. This contract is about Pyve *env-spec vocabulary* — the data contract `plan_envs` output must conform to. Complementary, not overlapping.
 
+### `plan_envs` is frozen — do not use (added 2026-06-22)
+
+`plan_envs` (Subphase Q-2, shipped v2.12.0) is **frozen and must not be used, recommended, run, or polished**. It is stale: the env-spec vocabulary and `env-dependencies.md` template it vendors (`spec_version "3.0"`, see the preceding "Pyve env-spec vendored-template contract" section) are ahead of what current Pyve can operate, so its output does not round-trip. Improving it is **blocked on upstream Pyve work**; it stays frozen until Pyve unblocks it and the mode is re-aligned to Pyve's current functionality and capabilities.
+
+**How the freeze is enforced (Story Q.z.1):** the `plan-envs-mode.md` template opens with a `FROZEN — DO NOT USE` banner; the recommended planning sequence **bypasses** it (`plan_tech_spec.next_mode` is `plan_stories`, **not** `plan_envs`); the mode stays *listed* (its `.metadata.yml` `info` is annotated `(FROZEN …)`) so explicit invocation still works but is loudly discouraged; and every doc surface that lists it carries a `(frozen — pending Pyve work)` marker.
+
+**The vendored-template contract above is paused, not retired.** Do **not** refresh `env-dependencies.md`'s `spec_version` or re-vendor the template while frozen — that work folds into the eventual unfreeze story (which re-wires the sequence back through `plan_envs`, drops the banner, and removes the markers).
+
 ### Pyve cross-repo contracts (added v2.13.0)
 
 Pyve hosts project-guide as a globally-shimmed tool in its toolchain venv (Pyve Story N.aw): one install on `PATH` via `~/.local/bin/project-guide`, not a per-project `pip install`. Four behavioral contracts make that hosting model safe; three are pinned by `tests/test_cross_repo_contract.py` (Story Q.l), the fourth is the pyve-managed-hosting awareness behavior (Story Q.m). The functional enumeration lives in `features.md` → "Cross-Repo Contracts"; the contract source is [`phase-q-pyve-toolchain-hosting.md`](phase-q-pyve-toolchain-hosting.md). The architectural invariants future LLMs must respect:

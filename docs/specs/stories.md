@@ -949,7 +949,7 @@ Bundled release at end-of-subphase as **v2.15.0** (minor — new readiness-gated
 
 ---
 
-### Story Q.z.1: Freeze the `plan_envs` mode (soft-freeze + sequence bypass) pending Pyve unblock [Planned]
+### Story Q.z.1: Freeze the `plan_envs` mode (soft-freeze + sequence bypass) pending Pyve unblock [Done]
 
 **Problem.** `plan_envs` (added Subphase Q-2, shipped v2.12.0) is in a stale, not-useful state: the env-spec vocabulary and `env-dependencies.md` template it vendors (`spec_version "3.0"`) are ahead of what Pyve can actually operate, so the mode cannot produce a spec that round-trips through current Pyve. Improving it is **blocked on additional Pyve work**. Until Pyve unblocks it and the mode is updated to match Pyve's functionality and capabilities, `plan_envs` must be **frozen and not used** (developer direction, 2026-06-22). Today the opposite is true: the bundled metadata wires the recommended planning sequence as `plan_tech_spec → plan_envs → plan_stories`, actively steering every new project *into* the frozen mode, and the docs advertise it as a live planning step.
 
@@ -970,13 +970,13 @@ Bundled release at end-of-subphase as **v2.15.0** (minor — new readiness-gated
 - **Count stays four.** Treating a frozen mode's artifact as a live "fifth spec document" would contradict the freeze; the audit's mechanical "four → five" bump is explicitly overridden here.
 
 **Tasks:**
-- [ ] `plan-envs-mode.md`: add the `> ⚠️ FROZEN — DO NOT USE` banner at the top (skip to `plan_stories`; output doesn't round-trip through current Pyve; frozen pending Pyve work).
-- [ ] `.metadata.yml`: revert `plan_tech_spec.next_mode` → `plan_stories`; leave `plan_envs` listed with `next_mode: plan_stories`.
-- [ ] `project-essentials.md`: add the freeze-record subsection (cross-reference the "Pyve env-spec vendored-template contract" section).
-- [ ] Annotate `(frozen — pending Pyve work)` in `concept.md` Scope, `features.md` FR-1 table, `README.md` (switch block + Project Planning table), `docs/site/user-guide/modes.md`; reconcile the spec-document count to **four** in `concept.md` and README's "five spec documents" preamble.
-- [ ] `pyve run project-guide update` to re-render installed copies; verify the frozen banner renders in the `plan_envs` `go.md` and the listing/sequence reflect the bypass (`project-guide mode` still shows `plan_envs`; `plan_tech_spec` now points to `plan_stories`).
-- [ ] Run `pyve test`, `pyve env run ruff check project_guide/ tests/`, `pyve env run mypy project_guide/`.
-- [ ] Flip story status `[Planned]` → `[Done]` and check off tasks.
+- [x] `plan-envs-mode.md`: add the `> ⚠️ FROZEN — DO NOT USE` banner at the top (skip to `plan_stories`; output doesn't round-trip through current Pyve; frozen pending Pyve work). *(Banner prepended; cross-references the new `project-essentials.md` freeze record.)*
+- [x] `.metadata.yml`: revert `plan_tech_spec.next_mode` → `plan_stories`; leave `plan_envs` listed with `next_mode: plan_stories`. *(Also annotated the `plan_envs` `info` field `(FROZEN — pending Pyve work; do not use)` so the `project-guide mode` listing shows the freeze.)*
+- [x] `project-essentials.md`: add the freeze-record subsection (cross-reference the "Pyve env-spec vendored-template contract" section). *(New "### `plan_envs` is frozen — do not use" section inserted before "### Pyve cross-repo contracts".)*
+- [x] Annotate `(frozen — pending Pyve work)` in `concept.md` Scope, `features.md` FR-1 table, `README.md` (switch block + Project Planning table), `docs/site/user-guide/modes.md`; reconcile the spec-document count. *(concept.md Value-Mapping "four spec documents" left at **four**; README Project-Planning preamble made count-agnostic + a frozen note added under the table; modes.md `plan_envs` section banner + `plan_tech_spec` Next field + New-Project flow diagram all updated to the bypass. **Scope addition beyond the literal list:** softened two README marketing mentions — the intro tagline (line 10) and the Pyve Integration feature bullet — that actively promoted `plan_envs` as a working capability, since leaving them would contradict the freeze.)*
+- [x] `pyve run project-guide update` to re-render installed copies; verify the frozen banner renders in the `plan_envs` `go.md` and the listing/sequence reflect the bypass. *(Installed `.metadata.yml`: `plan_tech_spec.next_mode = plan_stories`, `plan_envs.info` annotated; programmatic render of `plan_envs` shows the `FROZEN — DO NOT USE` banner; `project-guide mode` listing shows the frozen annotation.)*
+- [x] Run `pyve test`, `pyve env run ruff check project_guide/ tests/`, `pyve env run mypy project_guide/`. *(629 passed; ruff clean; mypy clean (12 files, via direct-module invocation — stale env console-script shebangs).)*
+- [x] Flip story status `[Planned]` → `[Done]` and check off tasks.
 
 **Out of scope:**
 - **Removing `plan_envs` / `env-dependencies.md` / the vendored-template contract.** This is a freeze, not a deletion — everything is restored when Pyve unblocks it (a future unfreeze story re-wires the sequence and drops the banner).

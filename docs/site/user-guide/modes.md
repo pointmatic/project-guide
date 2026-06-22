@@ -69,7 +69,7 @@ project-guide mode plan_features
 | Field | Value |
 |-|-|
 | **Type** | Sequence |
-| **Next** | `plan_envs` |
+| **Next** | `plan_stories` (`plan_envs` is frozen — skipped) |
 | **Artifacts** | `docs/specs/tech-spec.md`, `docs/specs/project-essentials.md` (initial) |
 | **Prerequisites** | `concept.md`, `features.md` |
 
@@ -82,6 +82,8 @@ project-guide mode plan_tech_spec
 ```
 
 #### plan_envs
+
+> ⚠️ **Frozen — do not use** (pending upstream Pyve work). The recommended sequence skips it: go from `plan_tech_spec` straight to `plan_stories`. It stays listed only so it can be restored once Pyve unblocks it and the mode is re-aligned to Pyve's current functionality.
 
 | Field | Value |
 |-|-|
@@ -314,9 +316,8 @@ default
   └─> plan_concept
         └─> plan_features
               └─> plan_tech_spec
-                    └─> plan_envs
-                          └─> plan_stories
-                                └─> scaffold_project
+                    └─> plan_stories          (plan_envs is frozen — skipped, pending Pyve work)
+                          └─> scaffold_project
                                       └─> code_direct (cycle)
 ```
 

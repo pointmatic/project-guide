@@ -7,7 +7,7 @@
 [![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://pointmatic.github.io/project-guide/)
 [![codecov](https://codecov.io/gh/pointmatic/project-guide/graph/badge.svg)](https://codecov.io/gh/pointmatic/project-guide)
 
-A Python-friendly CLI tool that installs, renders, and synchronizes battle-tested LLM workflow prompts across projects using mode-driven Jinja2 templates, with content-hash sync and project-specific overrides to keep documentation consistent while preserving customizations. Install globally with [pyve](https://pointmatic.github.io/pyve/), and Project-Guide will help you define your named environments with the `plan_envs` mode, and get pyve-aware onboarding.
+A Python-friendly CLI tool that installs, renders, and synchronizes battle-tested LLM workflow prompts across projects using mode-driven Jinja2 templates, with content-hash sync and project-specific overrides to keep documentation consistent while preserving customizations. Install globally with [pyve](https://pointmatic.github.io/pyve/) for pyve-aware onboarding.
 
 ## Why project-guide?
 
@@ -33,7 +33,7 @@ When you customize a file for your project, mark it as overridden so future pack
 ## Key Features
 - **Battle-Tested Workflows** - Crafted workflow prompts from concept through production release in one place
 - **Mode-Driven Templates** - 17 modes rendered via Jinja2 so `go.md` always matches your current task
-- **Pyve Integration** - First-class [pyve](https://pointmatic.github.io/pyve/) support: install globally with `pyve self install`, generate your project's named environment spec with the `plan_envs` mode, and get pyve-aware onboarding plus a `status` host footer and `heal` drift warnings when pyve manages the install
+- **Pyve Integration** - First-class [pyve](https://pointmatic.github.io/pyve/) support: install globally with `pyve self install` and get pyve-aware onboarding plus a `status` host footer and `heal` drift warnings when pyve manages the install
 - **Content-Hash Sync** - SHA-256 hash comparison detects changes without relying on version numbers
 - **Custom File Lock** - Lock customized files to prevent update overwrites
 - **Gentle Force Updates** - Automatic `.bak` files created if you `--force` update a custom file
@@ -124,7 +124,7 @@ The LLM follows the instructions, asks clarifying questions, and generates artif
 project-guide mode plan_concept      # Define problem & solution
 project-guide mode plan_features     # Define requirements
 project-guide mode plan_tech_spec    # Define architecture
-project-guide mode plan_envs         # Define named environments & dependencies
+project-guide mode plan_envs         # FROZEN (pending Pyve work) — skip; do not use
 project-guide mode plan_stories      # Break into stories
 project-guide mode plan_phase        # Add a new phase to stories (pre-1.0)
 project-guide mode plan_production_phase # Add a new phase to stories (post-1.0, with readiness checklist)
@@ -546,15 +546,17 @@ metadata_overrides:             # optional — per-project mode field patches
 
 ### Project Planning Modes
 
-One-time-per-project work — the five spec documents that establish the project before any code lands.
+One-time-per-project work — the spec documents that establish the project before any code lands. (The **Environments** step is currently **frozen** — see the note below the table.)
 
 | Mode | Command | Output |
 |------|---------|--------|
 | **Concept** | `project-guide mode plan_concept` | `docs/specs/concept.md` |
 | **Features** | `project-guide mode plan_features` | `docs/specs/features.md` |
 | **Tech Spec** | `project-guide mode plan_tech_spec` | `docs/specs/tech-spec.md` + `docs/specs/project-essentials.md` (initial population) |
-| **Environments** | `project-guide mode plan_envs` | `docs/specs/env-dependencies.md` |
+| **Environments** *(frozen)* | `project-guide mode plan_envs` | `docs/specs/env-dependencies.md` |
 | **Stories** | `project-guide mode plan_stories` | `docs/specs/stories.md` |
+
+> **`plan_envs` is frozen** pending upstream Pyve work and should not be used. The recommended flow goes straight from **Tech Spec** to **Stories**; the mode stays listed so it can be restored once Pyve unblocks it.
 
 ### Coding Modes
 

@@ -50,7 +50,7 @@ modes:
     sequence_or_cycle: sequence
     generation_type: document
     mode_template: "{{mode_templates_path}}/plan-tech-spec-mode.md"
-    next_mode: plan_envs
+    next_mode: plan_stories
     artifacts:
       - file: "{{spec_artifacts_path}}/tech-spec.md"
         action: create
@@ -60,7 +60,7 @@ modes:
       - "{{spec_artifacts_path}}/concept.md"
       - "{{spec_artifacts_path}}/features.md"
   - name: plan_envs
-    info: Define named environments and their dependencies
+    info: "Define named environments and their dependencies (FROZEN — pending Pyve work; do not use)"
     description: Guide the developer through enumerating named environments (root + test envs), backends, frameworks, packaging, and advisory fields. Authors docs/specs/env-dependencies.md from the vendored Pyve env-spec template at spec_version "3.0".
     sequence_or_cycle: sequence
     generation_type: document

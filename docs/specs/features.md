@@ -227,7 +227,7 @@ The system renders a single entry-point document (`go.md`) from Jinja2 templates
 | `plan_concept` | sequence | Define problem and solution space |
 | `plan_features` | sequence | Define feature requirements |
 | `plan_tech_spec` | sequence | Define technical specification |
-| `plan_envs` | sequence | Define named environments and their dependencies |
+| `plan_envs` | sequence | Define named environments and their dependencies **(frozen — pending Pyve work; do not use)** |
 | `plan_stories` | sequence | Break down into implementation stories |
 | `plan_phase` | sequence | Add a new feature phase to an existing project |
 | `plan_production_phase` | sequence | Plan a production-grade phase post-1.0 with readiness checklist and breaking-change negotiation |
