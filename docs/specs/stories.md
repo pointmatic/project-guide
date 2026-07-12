@@ -1099,6 +1099,40 @@ Bundled release at end-of-subphase as **v2.15.0** (minor — new readiness-gated
 
 ---
 
+### Story Q.ac: v2.18.0 Remove the `bump-version` command [Done]
+
+Rip out `project-guide bump-version` entirely. It is a Python-/`pyproject.toml`-centric mechanical version writer (added Story O.o, v2.5.13) that stamps `X.Y.Z` into three hardcoded Python sites: `pyproject.toml [project] version`, an auto-detected `__version__` source, and a `CHANGELOG.md` entry.
+
+**Why remove rather than extend.** project-guide is now tightly integrated into Pyve, which is **polyglot** (Python + JavaScript/TypeScript today; venv / micromamba / pnpm / npm backends; Ruby, Rust, C++, Go, Java and their canonical backends/frameworks to come). Generalizing a mechanical version-write across every ecosystem's version file + manifest (`Cargo.toml`, `package.json`, `*.gemspec`, `build.gradle`/`pom.xml`, `go.mod`, …) and CHANGELOG conventions would be a brittle, fragile maintenance nightmare. Version stamping is per-ecosystem and increasingly Pyve's domain; project-guide should not own a Python-shaped command that mis-serves every other stack. (Removing `bump-version` also *unblocks and simplifies* the separately-considered hatchling **dynamic-version / single-source-of-truth** change: with no command needing a static `version =` line to rewrite, making `pyproject.toml` derive its version from `version.py` becomes a trivial config edit rather than one that must also teach `bump-version` to skip a dynamic pyproject. That dynamic-version change is still worthwhile on its own — it is *enabled*, not obviated, by this removal.)
+
+**Removal surface (audited 2026-06-11):**
+- **Code** — `project_guide/cli.py`: the `bump-version` command (`bump_version`, `@main.command(name="bump-version")`) and its helpers `_bump_pyproject_version`, `_bump_version_file`, `_bump_changelog`, `_find_version_file`, plus `_SEMVER_RE` (used *only* by this command).
+- **Mode template** — `templates/.../modes/plan-production-phase-mode.md` instructs the LLM to run `project-guide bump-version` at end-of-phase; rewrite that step to point at the manual per-story bump convention (or a Pyve-delegated bump) instead. `developer/best-practices-guide.md` also references it.
+- **Tests** — `tests/test_cli.py` (the `bump-version` suite) and any `tests/test_render.py` assertion that the production-phase template mentions the command.
+- **Docs** — `README.md` (`### bump-version` section), `tech-spec.md` (CLI command table), `concept.md`, `docs/site/user-guide/commands.md`. Re-render installed `docs/project-guide/` copies after editing the source templates. Leave `.archive/` and historical `stories-vX.Y.Z.md` bodies untouched.
+
+**Open decisions (planning-time):**
+- **Hard-remove vs. deprecate-then-remove.** project-guide is post-1.0 and `bump-version` is a shipped, consumer-facing command — a clean removal is a breaking change. Decide whether to ship a one-release deprecation shim (command prints a removal notice + exits non-zero) or hard-remove. Coordinate with the Pyve integration if Pyve invokes it anywhere.
+- **Replacement guidance.** What the production-phase mode and best-practices guide tell the LLM to do for version bumps post-removal (manual edits to the per-ecosystem version sites + CHANGELOG, per the Version Cadence rule).
+
+Surfaced 2026-06-11 while weighing a hatchling dynamic-version change — concluded the command itself is the liability, not its sync mechanics.
+
+**Decisions (resolved 2026-07-11):**
+- **Hard-remove** (no deprecation shim). Audited the Pyve repo: no Python code invokes `bump-version` — only doc/spec text in Pyve's installed `docs/project-guide/` copies and vendored specs, which refresh on Pyve's next `project-guide update`. With no programmatic consumer, the CHANGELOG removal notice suffices for human users.
+- **Replacement guidance:** point the production-phase mode step and `developer/best-practices-guide.md` at the manual per-story bump convention (Version Cadence rule: edit the per-ecosystem version sites + `CHANGELOG.md` when the owning story ships), noting version stamping is per-ecosystem and Pyve's domain.
+
+Tasks:
+- [x] Red: add failing tests asserting `bump-version` is no longer a registered CLI command and that the rendered production-phase template no longer mentions it (5 tests, all red before removal)
+- [x] Remove from `project_guide/cli.py`: `bump_version` command, `_bump_pyproject_version`, `_bump_version_file`, `_bump_changelog`, `_find_version_file`, `_SEMVER_RE`
+- [x] Remove the `bump-version` suite from `tests/test_cli.py` (Story O.p block incl. `_seed_minimal_python_project`); `tests/test_render.py` had no assertions requiring the command's presence
+- [x] Rewrite the end-of-phase version step in `templates/.../modes/plan-production-phase-mode.md` to the manual Version Cadence convention; update `developer/best-practices-guide.md` accordingly
+- [x] Update docs: `README.md` (drop `### bump-version`), `tech-spec.md` (CLI command table), `concept.md`, `docs/site/user-guide/commands.md`; also `CONTRIBUTING.md` release-process step 2 (live instruction found during the removal sweep); left `.archive/` and historical story bodies untouched
+- [x] Re-render installed `docs/project-guide/` copies via `project-guide update`
+- [x] Bump v2.18.0 (`project_guide/version.py`, `pyproject.toml`) + dated `CHANGELOG.md` entry with removal notice
+- [x] Verify: full `pyve test` suite green (628 passed), `ruff check` clean, `mypy project_guide/` clean
+
+---
+
 ## Future
 
 ### Installation/Config Discovery Hierarchy (global vs. project context) [Deferred]
@@ -1142,20 +1176,3 @@ Future modes: `audit_security`, `audit_architecture`, `audit_performance`, `audi
 
 `mypy project_guide/` emits `note: unused section(s): module = ['tests.*']` on every run — the `[[tool.mypy.overrides]]` block targeting `tests.*` in `pyproject.toml` matches nothing, because the checked target is `project_guide/` only (tests are never passed to mypy). Harmless (a note, not an error — exit stays 0 on success) but it's noise on every type-check, and a dead config stanza invites confusion about whether tests are meant to be type-checked. Resolve by deciding intent, then either: (a) **remove** the dead `tests.*` override from `pyproject.toml` (if tests are intentionally out of mypy's scope), or (b) **bring `tests/` into the mypy target** (CI step + local convention) if the override implies test type-checking was once intended. Surfaced 2026-06-11 during the Q.u mypy CI fix. Low priority — cosmetic until someone wants test type-checking.
 
-### Remove the `bump-version` command [Deferred]
-
-Rip out `project-guide bump-version` entirely. It is a Python-/`pyproject.toml`-centric mechanical version writer (added Story O.o, v2.5.13) that stamps `X.Y.Z` into three hardcoded Python sites: `pyproject.toml [project] version`, an auto-detected `__version__` source, and a `CHANGELOG.md` entry.
-
-**Why remove rather than extend.** project-guide is now tightly integrated into Pyve, which is **polyglot** (Python + JavaScript/TypeScript today; venv / micromamba / pnpm / npm backends; Ruby, Rust, C++, Go, Java and their canonical backends/frameworks to come). Generalizing a mechanical version-write across every ecosystem's version file + manifest (`Cargo.toml`, `package.json`, `*.gemspec`, `build.gradle`/`pom.xml`, `go.mod`, …) and CHANGELOG conventions would be a brittle, fragile maintenance nightmare. Version stamping is per-ecosystem and increasingly Pyve's domain; project-guide should not own a Python-shaped command that mis-serves every other stack. (Removing `bump-version` also *unblocks and simplifies* the separately-considered hatchling **dynamic-version / single-source-of-truth** change: with no command needing a static `version =` line to rewrite, making `pyproject.toml` derive its version from `version.py` becomes a trivial config edit rather than one that must also teach `bump-version` to skip a dynamic pyproject. That dynamic-version change is still worthwhile on its own — it is *enabled*, not obviated, by this removal.)
-
-**Removal surface (audited 2026-06-11):**
-- **Code** — `project_guide/cli.py`: the `bump-version` command (`bump_version`, `@main.command(name="bump-version")`) and its helpers `_bump_pyproject_version`, `_bump_version_file`, `_bump_changelog`, `_find_version_file`, plus `_SEMVER_RE` (used *only* by this command).
-- **Mode template** — `templates/.../modes/plan-production-phase-mode.md` instructs the LLM to run `project-guide bump-version` at end-of-phase; rewrite that step to point at the manual per-story bump convention (or a Pyve-delegated bump) instead. `developer/best-practices-guide.md` also references it.
-- **Tests** — `tests/test_cli.py` (the `bump-version` suite) and any `tests/test_render.py` assertion that the production-phase template mentions the command.
-- **Docs** — `README.md` (`### bump-version` section), `tech-spec.md` (CLI command table), `concept.md`, `docs/site/user-guide/commands.md`. Re-render installed `docs/project-guide/` copies after editing the source templates. Leave `.archive/` and historical `stories-vX.Y.Z.md` bodies untouched.
-
-**Open decisions (planning-time):**
-- **Hard-remove vs. deprecate-then-remove.** project-guide is post-1.0 and `bump-version` is a shipped, consumer-facing command — a clean removal is a breaking change. Decide whether to ship a one-release deprecation shim (command prints a removal notice + exits non-zero) or hard-remove. Coordinate with the Pyve integration if Pyve invokes it anywhere.
-- **Replacement guidance.** What the production-phase mode and best-practices guide tell the LLM to do for version bumps post-removal (manual edits to the per-ecosystem version sites + CHANGELOG, per the Version Cadence rule).
-
-Surfaced 2026-06-11 while weighing a hatchling dynamic-version change — concluded the command itself is the liability, not its sync mechanics.

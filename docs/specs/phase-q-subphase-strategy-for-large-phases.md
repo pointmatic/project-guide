@@ -159,7 +159,7 @@ No change recommended. These are inclusion partials for cycle/sequence headers; 
 - **Parser-safe.** Subphase headings use `##` (already a heading level the rendered docs handle); subphase IDs use a hyphen-separated form (`N-1`) that does not collide with story IDs (`N.a`), sub-numbered stories (`N.m.1`), or phase letters (`N`, `AA`).
 - **Consumers** that already grep for `## Phase` continue to work — they will not see false matches against `## Subphase X-N:`.
 - **Consumers** that grep for `### Story X.y` continue to work — story letters retain their existing format; subphases live one level up.
-- **No tooling rename required.** `project-guide bump-version`, the `archive_stories` mode, and downstream version detection continue to operate on the phase boundary, not the subphase boundary.
+- **No tooling rename required.** ~~`project-guide bump-version`~~ (removed in v2.18.0), the `archive_stories` mode, and downstream version detection continue to operate on the phase boundary, not the subphase boundary.
 
 ---
 

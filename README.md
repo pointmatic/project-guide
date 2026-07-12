@@ -283,28 +283,6 @@ If any pre-check fails (no versioned stories, archive target already exists, sou
 
 This command is intended to be run by the LLM after the developer has approved the archive in `project-guide mode archive_stories`.
 
-### `bump-version`
-
-Bump the package version across all three canonical sites in one step. Use it at end-of-phase when shipping a bundled release.
-
-```bash
-project-guide bump-version [VERSION]
-```
-
-**Argument:**
-- `VERSION` - the `X.Y.Z` version to write
-
-**Writes:**
-- `pyproject.toml` `[project] version`
-- the package `__version__` source (auto-detected: `<package>/version.py`, `_version.py`, `__init__.py`, and `src/` variants)
-- a new `## [VERSION] - YYYY-MM-DD` entry in `CHANGELOG.md`, inserted directly below `## [Unreleased]` (idempotent — re-running refreshes the date and preserves the body)
-
-**Options:**
-- `--no-input` - Skip prompts; fail loudly if a default is missing (also auto-enabled by `CI=1` or non-TTY stdin)
-- `--quiet` - Suppress success-path stdout; errors and warnings still print to stderr
-
-The version magnitude (patch / minor / major) is a decision made per the Version Cadence rule in `docs/specs/stories.md`; this command performs only the mechanical write.
-
 ### `status`
 
 Show status of all installed files and current mode. Output is compact and grouped into Mode, Guide, and Files sections with color.

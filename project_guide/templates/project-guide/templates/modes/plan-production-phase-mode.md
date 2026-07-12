@@ -91,7 +91,7 @@ If the package version is below v1.0.0 and this is **not** the first-time crossi
 
 9. **Append any new must-know facts to `project-essentials.md`** — same shape as `plan_phase` step 7. New architecture boundaries, workflow rules, hidden coupling, deferred-but-documented items. Skip if the phase introduces no new invariants.
 
-10. **End-of-phase release** (after all phase stories are marked `[Done]` — typically a separate session, not part of this mode's run): the developer invokes `project-guide bump-version <X.Y.Z>` to bump the version and seed a `## [X.Y.Z] - <date>` CHANGELOG entry. The version is the target recorded in step 5; if implementation introduced unanticipated breaking changes, the developer revisits the target before bumping.
+10. **End-of-phase release** (after all phase stories are marked `[Done]` — typically a separate session, not part of this mode's run): the developer bumps the version manually per the Version Cadence rule — edit the per-ecosystem version sites (e.g. the manifest and the `__version__` source for Python; the equivalent files for other stacks) and add a `## [X.Y.Z] - <date>` CHANGELOG entry. Version stamping is per-ecosystem and increasingly the toolchain's (Pyve's) domain; project-guide does not provide a mechanical version-write command. The version is the target recorded in step 5; if implementation introduced unanticipated breaking changes, the developer revisits the target before bumping.
 
 {% set next_mode = 'code_test_first' if test_first else 'code_direct' %}
 {% include "modes/_header-sequence.md" %}

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.18.0] - 2026-07-11
+
+**Removed the `bump-version` command (Story Q.ac).** project-guide no longer ships a mechanical version writer. The command (added Story O.o, v2.5.13) was Python-/`pyproject.toml`-centric — it stamped `X.Y.Z` into `pyproject.toml`, an auto-detected `__version__` source, and `CHANGELOG.md`. project-guide is now tightly integrated into Pyve, which is polyglot; generalizing a mechanical version-write across every ecosystem's manifest and changelog conventions would be brittle, and version stamping is per-ecosystem and increasingly Pyve's domain. Hard removal, no deprecation shim: an audit found no programmatic consumer (Pyve invokes it nowhere in code — only in doc text that refreshes on its next `project-guide update`).
+
+### Removed
+- **`project-guide bump-version`** and its helpers (`_bump_pyproject_version`, `_bump_version_file`, `_bump_changelog`, `_find_version_file`, `_SEMVER_RE`) from `project_guide/cli.py`, plus the Story O.p CLI test suite. Invoking `project-guide bump-version` now exits 2 with click's standard "No such command" error.
+
+### Changed
+- **Replacement guidance — manual bumps per the Version Cadence rule.** The `plan_production_phase` end-of-phase release step and `developer/best-practices-guide.md` now direct the developer to bump the version manually per the Version Cadence rule (edit the per-ecosystem version sites + `CHANGELOG.md` when the owning story/phase ships) instead of invoking the removed command. `README.md`, `tech-spec.md`, `concept.md`, `docs/site/user-guide/commands.md`, and `CONTRIBUTING.md` drop their `bump-version` sections/rows accordingly.
+
 ## [2.17.0] - 2026-06-22
 
 **Cycle-mode story-guidance & strategic-context grounding (Stories Q.w, Q.x).** Two template-only edits to the rendered mode headers that shape LLM behavior across modes. Q.w loosens the cycle modes' story scope/sequencing guidance — the previous absolute "work strictly in document order, regardless of any developer signal" framing was too rigid and even contradicted the shipped `git-push` Q.p single-story out-of-sequence opt-in. Q.x adds a universal "ground yourself in the strategic context" instruction so a fresh-context LLM reads the *why* / *what* before the *how*, curbing short-sighted, mechanics-only implementation. No Python change; ships as a deliberate minor release because the rendered-prompt surface is project-guide's product.

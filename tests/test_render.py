@@ -2319,3 +2319,56 @@ def test_header_common_pip_branch_when_pyve_absent():
 
 
 # --- End Story Q.m ----------------------------------------------------------
+
+
+# --- Story Q.ac (v2.18.0) ----------------------------------------------------
+# The bump-version command is removed; the production-phase mode's
+# end-of-phase release step points at the manual Version Cadence
+# convention instead of a mechanical project-guide command.
+
+
+def test_plan_production_phase_release_step_is_manual_not_bump_version():
+    """plan_production_phase's end-of-phase step no longer cites bump-version.
+
+    The replacement wording pins the manual per-story bump convention:
+    edit the per-ecosystem version sites + CHANGELOG.md per the Version
+    Cadence rule. Version stamping is per-ecosystem and Pyve's domain.
+    """
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        result = runner.invoke(main, ['mode', 'plan_production_phase'])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    assert 'bump-version' not in content
+    # Replacement guidance: manual edits per the Version Cadence rule.
+    assert "manually per the Version Cadence rule" in content
+
+
+def test_best_practices_guide_no_longer_references_bump_version():
+    """The installed best-practices guide no longer mentions bump-version."""
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        guide = Path(
+            "docs/project-guide/developer/best-practices-guide.md"
+        ).read_text(encoding="utf-8")
+
+    assert 'bump-version' not in guide
+
+
+# --- End Story Q.ac -----------------------------------------------------------

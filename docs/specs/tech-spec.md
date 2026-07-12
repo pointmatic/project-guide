@@ -125,7 +125,6 @@ project-guide/
 | `init` | Copy template tree, render `go.md`, create config, update `.gitignore` |
 | `mode [name]` | Switch mode and re-render `go.md`, or list available modes |
 | `archive-stories` | Archive `stories.md` to `.archive/stories-vX.Y.Z.md` and re-render a fresh one |
-| `bump-version <X.Y.Z>` | Update `pyproject.toml`, `<package>/version.py`, and seed a `CHANGELOG.md` heading |
 | `status` | Grouped status: Mode, Guide, Files (with `--verbose`) |
 | `update` | Hash-based sync with prompt/force/dry-run |
 | `heal` | Silent-when-clean drift repair with create-missing semantics; fires automatically before every other command via the group-level auto-hook |

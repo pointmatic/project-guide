@@ -1742,133 +1742,6 @@ def test_archive_stories_drift_warning_when_cwd_differs_from_config(runner, tmp_
 # --- End Story N.s -----------------------------------------------------------
 
 
-# --- Story O.p (v2.5.14) -----------------------------------------------------
-# Pin the bump-version CLI command behavior:
-#   - Writes the supplied version to pyproject.toml + auto-detected version
-#     source file + CHANGELOG.md
-#   - Validates semver format
-#   - --no-input contract: missing positional fails loud, exit 2
-#   - Idempotent on re-run for the same version
-
-
-def _seed_minimal_python_project(project_dir: Path, project_name: str = "demo") -> None:
-    """Write a minimal Python project layout with pyproject.toml, version
-    source, and CHANGELOG.md — used by bump-version tests."""
-    (project_dir / "pyproject.toml").write_text(
-        f'[project]\nname = "{project_name}"\nversion = "0.1.0"\n',
-        encoding="utf-8",
-    )
-    pkg = project_dir / project_name.replace("-", "_")
-    pkg.mkdir(parents=True, exist_ok=True)
-    (pkg / "version.py").write_text(
-        '__version__ = "0.1.0"\n',
-        encoding="utf-8",
-    )
-    (project_dir / "CHANGELOG.md").write_text(
-        "# Changelog\n\n## [Unreleased]\n\n## [0.1.0] - 2026-01-01\n\n"
-        "### Added\n- Initial release.\n",
-        encoding="utf-8",
-    )
-
-
-def test_bump_version_writes_three_files(runner, tmp_path):
-    """bump-version updates pyproject.toml, version source, and CHANGELOG."""
-    with runner.isolated_filesystem(temp_dir=tmp_path):
-        _seed_minimal_python_project(Path.cwd(), "demo")
-
-        result = runner.invoke(main, ['bump-version', '0.2.0'])
-        assert result.exit_code == 0, result.output
-
-        # pyproject.toml updated
-        assert 'version = "0.2.0"' in Path("pyproject.toml").read_text(encoding="utf-8")
-        # version source updated
-        assert '__version__ = "0.2.0"' in (
-            Path("demo/version.py").read_text(encoding="utf-8")
-        )
-        # CHANGELOG inserted a new section just below ## [Unreleased]
-        changelog = Path("CHANGELOG.md").read_text(encoding="utf-8")
-        assert "## [0.2.0] -" in changelog
-        # The new section appears before the older [0.1.0] section
-        new_idx = changelog.find("## [0.2.0]")
-        old_idx = changelog.find("## [0.1.0]")
-        assert 0 < new_idx < old_idx
-        # Success line on stdout
-        assert "Bumped version to 0.2.0" in result.output
-
-
-def test_bump_version_is_idempotent(runner, tmp_path):
-    """Re-running bump-version with the same version updates the date but
-    leaves pyproject.toml / version source unchanged on disk content (modulo
-    the date refresh in CHANGELOG)."""
-    with runner.isolated_filesystem(temp_dir=tmp_path):
-        _seed_minimal_python_project(Path.cwd(), "demo")
-
-        first = runner.invoke(main, ['bump-version', '0.2.0'])
-        assert first.exit_code == 0
-        second = runner.invoke(main, ['bump-version', '0.2.0'])
-        assert second.exit_code == 0
-        assert "updated date on existing ## [0.2.0]" in second.output
-
-
-def test_bump_version_rejects_invalid_semver(runner, tmp_path):
-    """A non-semver argument fails with exit 2 and a clear message."""
-    with runner.isolated_filesystem(temp_dir=tmp_path):
-        _seed_minimal_python_project(Path.cwd(), "demo")
-
-        result = runner.invoke(main, ['bump-version', 'v1.2.3'])
-        assert result.exit_code == 2
-        assert "not a valid semver" in (result.stderr or result.output)
-
-
-def test_bump_version_no_input_contract(runner, tmp_path):
-    """--no-input without a positional VERSION fails loud, exit 2.
-
-    Per the M.b --no-input contract, commands must fail loudly when a
-    required setting has no default under --no-input. bump-version's
-    required setting is the version positional itself.
-    """
-    with runner.isolated_filesystem(temp_dir=tmp_path):
-        _seed_minimal_python_project(Path.cwd(), "demo")
-
-        result = runner.invoke(main, ['bump-version', '--no-input'])
-        assert result.exit_code == 2
-        # The error message names the missing arg and the canonical fix.
-        msg = (result.stderr or "") + (result.output or "")
-        assert "VERSION argument" in msg
-        assert "--no-input" in msg
-
-
-def test_bump_version_quiet_suppresses_success_stdout(runner, tmp_path):
-    """--quiet on a successful bump produces no stdout (warnings still go
-    to stderr; errors fail loud regardless)."""
-    with runner.isolated_filesystem(temp_dir=tmp_path):
-        _seed_minimal_python_project(Path.cwd(), "demo")
-
-        result = runner.invoke(main, ['bump-version', '0.2.0', '--quiet'])
-        assert result.exit_code == 0
-        # The success-line stdout is suppressed
-        assert "Bumped version to" not in result.output
-
-
-def test_bump_version_warns_when_no_version_file_found(runner, tmp_path):
-    """When no __version__ source is auto-detectable, bump-version still
-    succeeds (pyproject + CHANGELOG updated) but warns to stderr."""
-    with runner.isolated_filesystem(temp_dir=tmp_path):
-        _seed_minimal_python_project(Path.cwd(), "demo")
-        # Remove the version.py so auto-detect finds nothing.
-        Path("demo/version.py").unlink()
-
-        result = runner.invoke(main, ['bump-version', '0.2.0'])
-        assert result.exit_code == 0
-        msg = (result.stderr or "") + (result.output or "")
-        assert "No __version__ source file auto-detected" in msg
-        # pyproject was still updated
-        assert 'version = "0.2.0"' in Path("pyproject.toml").read_text(encoding="utf-8")
-
-
-# --- End Story O.p (CLI tests) -----------------------------------------------
-
-
 # --- Story O.q (v2.5.15) -----------------------------------------------------
 # Pin the mode-section rename, _CATEGORY_ORDER reorder, and CLI help expansion:
 #   - Planning → Project Planning
@@ -4334,3 +4207,46 @@ def test_auto_hook_never_prompts_to_provision(runner, tmp_path, monkeypatch):
 
 
 # --- End Story Q.q ----------------------------------------------------------
+
+
+# --- Story Q.ac (v2.18.0) -----------------------------------------------------
+# Pin the removal of the bump-version command. Version stamping is
+# per-ecosystem (and increasingly Pyve's domain); project-guide no longer
+# ships a Python-shaped mechanical version writer.
+
+
+def test_bump_version_command_is_removed(runner, tmp_path):
+    """`project-guide bump-version` is no longer a registered command."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(main, ['bump-version', '0.2.0'])
+        assert result.exit_code == 2
+        msg = (result.stderr or "") + (result.output or "")
+        assert "No such command" in msg
+
+
+def test_bump_version_absent_from_help(runner, tmp_path):
+    """The top-level --help output no longer lists bump-version."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(main, ['--help'])
+        assert result.exit_code == 0
+        assert 'bump-version' not in result.output
+
+
+def test_bump_version_helpers_are_removed():
+    """The bump-version helper functions and its private regex are gone."""
+    import project_guide.cli as cli_module
+
+    for name in (
+        'bump_version',
+        '_bump_pyproject_version',
+        '_bump_version_file',
+        '_bump_changelog',
+        '_find_version_file',
+        '_SEMVER_RE',
+    ):
+        assert not hasattr(cli_module, name), (
+            f"project_guide.cli.{name} should have been removed with bump-version"
+        )
+
+
+# --- End Story Q.ac -----------------------------------------------------------

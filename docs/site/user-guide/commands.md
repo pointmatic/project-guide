@@ -9,7 +9,6 @@ project-guide provides twelve commands for managing LLM workflow files across yo
 | `init` | Install files into a new project |
 | `mode` | Switch workflow mode or list available modes |
 | `archive-stories` | Archive `stories.md` and re-render a fresh one for the next phase |
-| `bump-version` | Bump the package version across `pyproject.toml`, the version source, and `CHANGELOG.md` |
 | `status` | Show file status grouped by category |
 | `update` | Update non-overridden files to latest versions |
 | `heal` | Repair the install — create missing templates and refresh stale ones |
@@ -143,29 +142,6 @@ If any pre-check fails (no versioned stories in the source, archive target alrea
 ### Usage
 
 This command is intended to be run by the LLM after the developer has approved the archive in `project-guide mode archive_stories`. The conversational-vs-deterministic split is deliberate: the mode template walks the developer through the decision; the CLI command performs the transaction.
-
-## bump-version
-
-Bump the package version across all three canonical sites in one step — used at end-of-phase when shipping a bundled release.
-
-```bash
-project-guide bump-version [VERSION]
-```
-
-### Options
-
-- `--no-input` - Skip prompts; fail loudly if a default is missing (also auto-enabled by `CI=1` or non-TTY stdin)
-- `--quiet` - Suppress success-path stdout; errors and warnings still print to stderr
-
-### What It Does
-
-Writes the supplied `X.Y.Z` to:
-
-1. `pyproject.toml` `[project] version`
-2. the package `__version__` source (auto-detected: `<package>/version.py`, `_version.py`, `__init__.py`, and `src/` variants)
-3. a new `## [VERSION] - YYYY-MM-DD` entry in `CHANGELOG.md`, inserted directly below `## [Unreleased]` (idempotent — re-running refreshes the date and preserves the body)
-
-The version magnitude (patch / minor / major) is decided per the Version Cadence rule in `docs/specs/stories.md`; this command performs only the mechanical write.
 
 ## status
 

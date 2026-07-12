@@ -140,8 +140,8 @@ Releases are cut by the maintainer at end-of-phase per the **Version
 Cadence** rule documented at the top of `docs/specs/stories.md`:
 
 1. Land all stories in the phase via direct commits or merged PRs.
-2. Run `project-guide bump-version <X.Y.Z>` — this updates
-   `pyproject.toml`, `project_guide/version.py`, and adds the
+2. Bump the version manually per the Version Cadence rule — edit
+   `pyproject.toml` and `project_guide/version.py`, and add the
    `## [X.Y.Z] - <date>` heading to `CHANGELOG.md`.
 3. Use `project-guide mode plan_production_phase` (post-1.0) to negotiate
    the bump magnitude when applicable.
