@@ -85,6 +85,9 @@ For a high-level concept (why), see [`concept.md`](concept.md). For implementati
 - Optional positional `BRANCH_NAME` — passed through to gitbetter's `git-push` for branch-aware push flows
 - No other flags — the wrapped command is fully interactive (preview, confirm, branch cleanup, reject/recovery menu), so `--no-input` / `--quiet` would be no-ops; for those, route through raw `git-push` instead
 
+**`project-guide git-commit [BRANCH_NAME]`**
+- Identical interface and behavior to `git-push` (FR-15), but invokes gitbetter's `git-commit` for a local commit instead of a push
+
 **`project-guide override FILE_NAME REASON`**
 - Required: file name (template-relative path)
 - Required: reason for override
@@ -417,6 +420,8 @@ Consumers migrating from a pre-Phase-P install run `project-guide init --force` 
 
 **`spec_artifacts_path` resolution.** The wrapper reads `spec_artifacts_path` from project-guide metadata when available; otherwise falls back to `docs/specs`. This lets the wrapper work in projects that haven't yet run `project-guide init`, including this project itself before metadata renders.
 
+**`git-commit` sibling (Story R.a, v2.18.1).** `project-guide git-commit [BRANCH_NAME]` has an identical interface and behavior — same message derivation, bundle offer, header filter, out-of-sequence handling, branch-aware presumption, exit codes — but shells out to gitbetter's `git-commit` binary to perform a **local commit** instead of a push, so the developer can iterate on commits locally and push a batch to GitHub later (saving CI minutes). Both commands share a single implementation (`_run_gitbetter_wrapper(tool_name, …)` in `cli.py`); `tool_name` selects the gitbetter binary and drives every tool-naming message.
+
 ### FR-7: Shell Completion
 
 Tab completion for `project-guide` commands, flags, and mode names in bash, zsh, and fish.
@@ -558,4 +563,4 @@ modes:
 14. Package is published to PyPI as `project-guide`
 15. `project-guide heal` (FR-14) is **silent on no drift** and applies fixes after the `[Y/n]` prompt on drift; under `--no-input` / `CI=1` / non-TTY the prompt is replaced with auto-yes plus the `Auto-healing N templates under --no-input.` stderr notice
 16. The auto-hook fires for every CLI invocation including `--help` and `--version`, is silent in the steady state, recursion-guarded by `PROJECT_GUIDE_HEALING=1`, and never blocks the original subcommand on prompt decline
-17. `project-guide git-push [BRANCH_NAME]` (FR-15) derives the commit message from the last `[Done]` story, hard-errors on already-committed or multi-uncommitted-Done states or missing gitbetter, and propagates gitbetter's child exit code unchanged
+17. `project-guide git-push [BRANCH_NAME]` (FR-15) derives the commit message from the last `[Done]` story, hard-errors on already-committed or multi-uncommitted-Done states or missing gitbetter, and propagates gitbetter's child exit code unchanged; `project-guide git-commit [BRANCH_NAME]` behaves identically against gitbetter's `git-commit` binary

@@ -1854,6 +1854,79 @@ def git_push(branch_name: str | None, no_input: bool):
     This is a developer-lane convenience command. The LLM still does not
     initiate commits — the approval-gate discipline rule remains in force.
     """
+    _run_gitbetter_wrapper("git-push", branch_name, no_input)
+
+
+@main.command(name="git-commit")
+@click.argument("branch_name", required=False)
+@click.option(
+    '--no-input',
+    'no_input',
+    is_flag=True,
+    default=False,
+    help=(
+        'Do not read from stdin; auto-decline both the duplicate-story-ID '
+        'warning and the bundle-offer prompt (so CI never silently bundles '
+        'or papers over a history anomaly). Also auto-enabled by CI=1 or '
+        'non-TTY stdin.'
+    ),
+)
+def git_commit(branch_name: str | None, no_input: bool):
+    """Wrap gitbetter's `git-commit` with the most-recently-completed story ID.
+
+    \b
+    Identical interface and behavior to `project-guide git-push` (Story R.a),
+    but shells out to gitbetter's `git-commit` to perform a local commit
+    instead of a push — iterate on commits locally, then push a batch to
+    GitHub later. Derives the commit message from `[Done]` story headings in
+    `docs/specs/stories.md`, verifies the stories have not already been
+    committed, and passes optional `BRANCH_NAME` through to gitbetter.
+
+    \b
+    [Done] stories whose body contains no `- [ ]` / `- [x]` checklist items
+    are treated as decorative group-overview headers (Story P.v) and filtered
+    out of the uncommitted-detection flow — headers do not produce commits.
+
+    \b
+    Single uncommitted [Done] story: derives `<id>: <title>` and commits.
+    Multiple uncommitted [Done] stories: proposes a bundled subject
+    `<id1>[: <ver1>], <id2>[: <ver2>], ... <title1> + <title2> + ...`
+    and asks `[Y/n]`. Decline → exit 1 with the manual-resolution hint.
+
+    \b
+    Out-of-sequence detection (Story P.v) applies on `main`/`master` (or when
+    the branch is undeterminable); a single uncommitted offender gets the
+    `[y/N]` opt-in prompt (Story Q.p). On any other branch (Story Q.u) the
+    squash-merge presumption heuristics replace the out-of-sequence
+    error/prompt. --no-input auto-declines every prompt.
+
+    \b
+    Exit 0 (success):
+      - Commit completed successfully
+      - Nothing real to commit — every commit-worthy [Done] story is in git log
+
+    \b
+    Hard errors (exit 1): same set as `git-push` — no `[Done]` story,
+    unresolved out-of-sequence state, declined bundle offer, declined
+    duplicate-ID continuation, or `git-commit` not on PATH (install
+    gitbetter: `brew install pointmatic/tap/gitbetter`).
+
+    This is a developer-lane convenience command. The LLM still does not
+    initiate commits — the approval-gate discipline rule remains in force.
+    """
+    _run_gitbetter_wrapper("git-commit", branch_name, no_input)
+
+
+def _run_gitbetter_wrapper(tool_name: str, branch_name: str | None, no_input: bool):
+    """Shared body for the `git-push` / `git-commit` wrappers (Story R.a).
+
+    ``tool_name`` is the gitbetter binary to discover on PATH and invoke
+    (``"git-push"`` or ``"git-commit"``); every tool-naming message (the
+    not-on-PATH error, the bundle-decline hint, the out-of-sequence manual-
+    resolution hint) is derived from it. Both wrappers have an identical
+    interface and behavior from the project-guide perspective — the only
+    difference is which gitbetter binary performs the actual git operation.
+    """
     skip_input = should_skip_input(no_input)
     spec_artifacts_path = _resolve_spec_artifacts_path()
     done_stories = _read_done_stories(spec_artifacts_path)
@@ -1913,7 +1986,7 @@ def git_push(branch_name: str | None, no_input: bool):
             uncommitted_oos = [s for s in commit_units if s.story_id not in committed]
             single = len(uncommitted_oos) == 1
             if not (single and _prompt_commit_out_of_sequence(uncommitted_oos[0], skip_input)):
-                _emit_out_of_sequence_error(offenders, commit_units, committed)
+                _emit_out_of_sequence_error(offenders, commit_units, committed, tool_name)
                 sys.exit(1)
             # Accepted single out-of-sequence story → fall through to the normal
             # single-story commit path below.
@@ -1950,7 +2023,7 @@ def git_push(branch_name: str | None, no_input: bool):
             ids = ", ".join(s.story_id for s in uncommitted)
             click.secho(
                 f"Multiple uncommitted [Done] stories: {ids}. "
-                f"Use 'git-push' directly to commit them one at a time with explicit messages.",
+                f"Use '{tool_name}' directly to commit them one at a time with explicit messages.",
                 fg='red',
                 err=True,
             )
@@ -1958,17 +2031,17 @@ def git_push(branch_name: str | None, no_input: bool):
     else:
         message = derive_commit_message(uncommitted[0])
 
-    git_push_path = shutil.which("git-push")
-    if git_push_path is None:
+    tool_path = shutil.which(tool_name)
+    if tool_path is None:
         click.secho(
-            "git-push not found on PATH. "
+            f"{tool_name} not found on PATH. "
             "Install gitbetter: brew install pointmatic/tap/gitbetter",
             fg='red',
             err=True,
         )
         sys.exit(1)
 
-    argv = [git_push_path, message]
+    argv = [tool_path, message]
     if branch_name:
         argv.append(branch_name)
 
@@ -2100,6 +2173,7 @@ def _emit_out_of_sequence_error(
     offenders: list[tuple[str, list[str]]],
     commit_units: list,
     committed: set[str],
+    tool_name: str = "git-push",
 ) -> None:
     """Print the out-of-sequence error block to stderr.
 
@@ -2140,7 +2214,7 @@ def _emit_out_of_sequence_error(
 
     click.echo("", err=True)
     click.secho(
-        "Commit out-of-sequence stories manually with raw git-push, or "
+        f"Commit out-of-sequence stories manually with raw {tool_name}, or "
         "investigate the history gap.",
         fg='red',
         err=True,

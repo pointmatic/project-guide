@@ -13,6 +13,7 @@ project-guide provides twelve commands for managing LLM workflow files across yo
 | `update` | Update non-overridden files to latest versions |
 | `heal` | Repair the install — create missing templates and refresh stale ones |
 | `git-push` | Commit the latest completed story via gitbetter (optional dependency) |
+| `git-commit` | Local-commit variant of `git-push` via gitbetter (optional dependency) |
 | `override` | Mark a file as overridden to prevent updates |
 | `unoverride` | Remove override status from a file |
 | `overrides` | List all overridden files |
@@ -275,6 +276,16 @@ project-guide git-push [BRANCH_NAME]
 3. Propagates gitbetter's exit code unchanged.
 
 It hard-errors (exit 1) when there is no `[Done]` story, when the latest one is already committed, when multiple `[Done]` stories are uncommitted, or when gitbetter is not installed (`brew install pointmatic/tap/gitbetter`).
+
+## git-commit
+
+Identical interface and behavior to `git-push`, but wraps gitbetter's `git-commit`: the same story-derived message becomes a **local commit** instead of a push, so you can iterate on commits locally and push a batch to GitHub later (saving CI minutes).
+
+```bash
+project-guide git-commit [BRANCH_NAME]
+```
+
+Everything documented for `git-push` above — message derivation, bundle offer, out-of-sequence handling, exit codes, the gitbetter optional dependency — applies unchanged.
 
 ## override
 

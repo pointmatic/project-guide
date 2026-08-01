@@ -129,6 +129,7 @@ project-guide/
 | `update` | Hash-based sync with prompt/force/dry-run |
 | `heal` | Silent-when-clean drift repair with create-missing semantics; fires automatically before every other command via the group-level auto-hook |
 | `git-push [BRANCH_NAME]` | Wrap gitbetter's `git-push` with a commit message derived from the last `[Done]` story heading; shells out via `shutil.which` + `subprocess.run`, propagates child exit code |
+| `git-commit [BRANCH_NAME]` | Identical interface/behavior to `git-push` (both share `_run_gitbetter_wrapper`), but invokes gitbetter's `git-commit` for a local commit instead of a push |
 | `override` | Lock a file from updates |
 | `unoverride` | Remove a file lock |
 | `overrides` | List all locked files |
@@ -141,10 +142,11 @@ project-guide/
 - `_apply_heal(config, config_path)` — apply pending template syncs and re-render `go.md`. Sets `PROJECT_GUIDE_HEALING=1` in `os.environ` before doing any writes so nested subprocess invocations don't re-enter the auto-hook.
 - `_run_pre_invoke_hook()` — group-level auto-heal hook (Story P.b/c). Calls `should_skip_input()` to honor the `--no-input` contract via env / TTY signals; silent when no drift; prompts on drift in interactive mode; auto-yes + `Auto-healing N templates under --no-input.` stderr notice in skip-input mode.
 - `HealGroup(click.Group)` — custom Click group whose overridden `main()` runs `_run_pre_invoke_hook()` before `super().main()`, so `--help` and `--version` (eager flags that would otherwise short-circuit during arg parsing) still trigger the hook.
-- `_get_committed_story_ids()` — parses `git log --pretty=%s` and extracts story IDs from any subject line whose prefix matches `<id>: ` (regex `^([A-Z]\.[a-z]+):\s`). Returns an empty set on `git`-not-found, non-git cwd, or empty history. Used by the `git-push` wrapper to decide which `[Done]` stories are uncommitted.
-- `_resolve_spec_artifacts_path()` — best-effort resolver for the `spec_artifacts_path` metadata value used by `git-push` to locate `stories.md`. Falls back to `docs/specs` when config / metadata are unavailable so the wrapper works in projects that haven't yet run `init`.
-- `project_guide/stories.py:_read_done_stories()` / `derive_commit_message()` — pure helpers used by `git-push`. `_read_done_stories` returns all `[Done]` headings as `StoryHeading(story_id, title)` tuples in file order; `derive_commit_message` produces the gitbetter-ready subject `"<id>: <transformed title>"` (backticks → single quotes, double quotes → single quotes, single quotes pass through, colon preserved).
-- **Phase Q additions (named for navigation; the contracts live in `project-essentials.md`):** `_query_pyve_provision_status()` / `_warn_if_local_install_under_pyve()` / `_provision_pyve_hosting()` (Subphase Q-4 readiness-gated local-install warning); `_get_current_branch()` / `_presume_committed_on_branch()` (Q.u branch-aware squash-merge presumption for `git-push`); `_prompt_commit_out_of_sequence()` (Q.p single-story out-of-sequence opt-in). The git-log subject parser is `parse_committed_ids_from_subject()` in `stories.py` (P.u, superseding the single-regex form); `stories.py`'s `_STORY_RE` recognizes `#{3,5}` heading depths (Q.v).
+- `_run_gitbetter_wrapper(tool_name, branch_name, no_input)` — shared body of the `git-push` / `git-commit` commands (Story R.a); `tool_name` selects the gitbetter binary (`"git-push"` / `"git-commit"`) and drives every tool-naming message (not-on-PATH error, bundle-decline hint, out-of-sequence manual-resolution hint).
+- `_get_committed_story_ids()` — parses `git log --pretty=%s` and extracts story IDs from any subject line whose prefix matches `<id>: ` (regex `^([A-Z]\.[a-z]+):\s`). Returns an empty set on `git`-not-found, non-git cwd, or empty history. Used by the gitbetter wrappers to decide which `[Done]` stories are uncommitted.
+- `_resolve_spec_artifacts_path()` — best-effort resolver for the `spec_artifacts_path` metadata value used by the gitbetter wrappers to locate `stories.md`. Falls back to `docs/specs` when config / metadata are unavailable so the wrappers work in projects that haven't yet run `init`.
+- `project_guide/stories.py:_read_done_stories()` / `derive_commit_message()` — pure helpers used by the gitbetter wrappers. `_read_done_stories` returns all `[Done]` headings as `StoryHeading(story_id, title)` tuples in file order; `derive_commit_message` produces the gitbetter-ready subject `"<id>: <transformed title>"` (backticks → single quotes, double quotes → single quotes, single quotes pass through, colon preserved).
+- **Phase Q additions (named for navigation; the contracts live in `project-essentials.md`):** `_query_pyve_provision_status()` / `_warn_if_local_install_under_pyve()` / `_provision_pyve_hosting()` (Subphase Q-4 readiness-gated local-install warning); `_get_current_branch()` / `_presume_committed_on_branch()` (Q.u branch-aware squash-merge presumption for `git-push`); `_prompt_commit_out_of_sequence()` (Q.p single-story out-of-sequence opt-in) — all shared by both gitbetter wrappers. The git-log subject parser is `parse_committed_ids_from_subject()` in `stories.py` (P.u, superseding the single-regex form); `stories.py`'s `_STORY_RE` recognizes `#{3,5}` heading depths (Q.v).
 
 ### Module: `config.py`
 
@@ -373,12 +375,12 @@ Fail fast with actionable messages:
 
 ### External CLI Dependencies (Story P.k pattern)
 
-`git-push` is the first `project-guide` subcommand that **depends on an external CLI being on PATH** (gitbetter's `git-push` binary). Future workflow-integration commands (potential `git-tag`, `git-rebase`, etc.) should follow the same pattern:
+`git-push` is the first `project-guide` subcommand that **depends on an external CLI being on PATH** (gitbetter's `git-push` binary); `git-commit` (Story R.a) is the second — same gitbetter toolchain, same shape, sharing `_run_gitbetter_wrapper` with only the binary name differing. Future workflow-integration commands (potential `git-tag`, `git-rebase`, etc.) should follow the same pattern:
 
 1. **Discover** via `shutil.which(name)`. If `None`, exit 1 with stderr that names the missing tool and the canonical install command. Never silently fall back to a degraded behavior.
 2. **Invoke** via `subprocess.run(argv, check=False)` with **no captured output** so the external tool inherits the parent's stdin/stdout/stderr (interactive flows like prompts and progress reporting must reach the developer unaltered).
 3. **Propagate** the child's exit code with `sys.exit(result.returncode)`. The wrapper's own exit semantics are a passthrough — the external tool's reject/recovery semantics are the source of truth, not the wrapper's.
-4. **Tests** mock both `shutil.which` (to control discovery) and `subprocess.run` (to control the child's behavior and capture argv). See `tests/test_cli.py::test_git_push_*` for the reference test shape.
+4. **Tests** mock both `shutil.which` (to control discovery) and `subprocess.run` (to control the child's behavior and capture argv). See `tests/test_cli.py::test_git_push_*` and `test_git_commit_*` for the reference test shape.
 
 This deliberately keeps each wrapper a thin convenience layer rather than a parallel implementation. The tested invariants are: discovery error message, argv shape (including positional passthrough), and exit-code propagation. Nothing else.
 

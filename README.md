@@ -403,6 +403,16 @@ project-guide git-push feature/heal-command
 brew install pointmatic/tap/gitbetter
 ```
 
+### `git-commit`
+
+Identical interface and behavior to `git-push`, but wraps gitbetter's `git-commit`: derive the same story-aware commit message, then perform a **local commit** instead of a push. Iterate on commits locally and push a batch to GitHub later (saves CI minutes).
+
+```bash
+project-guide git-commit [BRANCH_NAME]
+```
+
+Everything documented for `git-push` above — message derivation, bundle offer, out-of-sequence handling, exit codes, the gitbetter optional dependency — applies unchanged.
+
 ### `override`
 
 Mark a file as customized to prevent automatic updates.

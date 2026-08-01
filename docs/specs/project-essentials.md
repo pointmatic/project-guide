@@ -124,6 +124,8 @@ The notice is **non-suppressible** (always emitted even with `--quiet`) so CI lo
 
 `project-guide git-push` is a thin wrapper over [gitbetter](https://github.com/pointmatic/gitbetter)'s `git-push` that auto-derives the commit message from `[Done]` story headings. It is a **developer-lane convenience command** — the LLM **must not** initiate it. The approval-gate discipline rule earlier in this file ("do not propose commits, pushes, or bundling options ... do not offer 'want me to also …?' follow-ups") remains in force, and applies to this wrapper just as it does to raw `git`. The wrapper exists to shorten the developer's typing at commit time, not to give the LLM a new excuse to volunteer commits.
 
+**`git-commit` sibling (Story R.a, v2.18.1).** `project-guide git-commit` wraps gitbetter's `git-commit` (local commit instead of push — iterate locally, push a batch later to save CI minutes) with an **identical interface and behavior**: both commands share `_run_gitbetter_wrapper(tool_name, …)` in `cli.py`, differing only in which gitbetter binary is discovered and invoked. Everything in this section — heading-to-message rules, bundle offer, duplicate-ID warning, header filter, out-of-sequence handling, branch-aware presumption, exit-code semantics — applies to both wrappers unchanged.
+
 **Heading-to-message rules (single story):**
 - Output is `"<id>: <title>"`. The colon after the story ID is preserved — it is the anchor the already-committed check searches for in `git log --pretty=%s`.
 - Backticks (`` ` ``) in the title become single quotes.

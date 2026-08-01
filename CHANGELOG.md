@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.18.1] - 2026-08-01
+
+**`project-guide git-commit` subcommand (Story R.a).** gitbetter added a `git-commit` subcommand for iterating on commits locally and pushing a batch to GitHub later (saving GitHub Actions CI minutes). project-guide gains the sibling wrapper with an identical interface and behavior to `git-push`.
+
+### Added
+- **`project-guide git-commit [BRANCH_NAME]`** — identical interface and behavior to `project-guide git-push` (commit-message derivation from `[Done]` story headings, bundle offer, duplicate-ID warning, header-story filter, out-of-sequence handling with the Q.p single-story opt-in, Q.u branch-aware squash-merge presumption, exit-code semantics, `--no-input` contract), but discovers and invokes gitbetter's `git-commit` binary to perform a local commit instead of a push. Both commands share `_run_gitbetter_wrapper(tool_name, branch_name, no_input)` in `project_guide/cli.py`; `tool_name` selects the gitbetter binary and drives every tool-naming message (not-on-PATH error, bundle-decline hint, out-of-sequence manual-resolution hint). `_emit_out_of_sequence_error` gains a `tool_name` parameter (default `"git-push"`). Eight new `test_git_commit_*` tests pin the delta; the shared flow stays pinned by the existing `test_git_push_*` suite. Docs updated: `README.md`, `docs/site/user-guide/commands.md`, `docs/specs/concept.md`, `docs/specs/features.md` (FR-15), `docs/specs/tech-spec.md` (command table, key functions, External CLI Dependencies), `docs/specs/project-essentials.md`.
+
 ## [2.18.0] - 2026-07-11
 
 **Removed the `bump-version` command (Story Q.ac).** project-guide no longer ships a mechanical version writer. The command (added Story O.o, v2.5.13) was Python-/`pyproject.toml`-centric — it stamped `X.Y.Z` into `pyproject.toml`, an auto-detected `__version__` source, and `CHANGELOG.md`. project-guide is now tightly integrated into Pyve, which is polyglot; generalizing a mechanical version-write across every ecosystem's manifest and changelog conventions would be brittle, and version stamping is per-ecosystem and increasingly Pyve's domain. Hard removal, no deprecation shim: an audit found no programmatic consumer (Pyve invokes it nowhere in code — only in doc text that refreshes on its next `project-guide update`).

@@ -3639,6 +3639,188 @@ def test_git_push_nonmain_duplicate_id_warning_still_fires(runner, tmp_path, mon
 # --- End Story Q.u ----------------------------------------------------------
 
 
+# --- Story R.a: project-guide git-commit subcommand -------------------------
+
+
+def _mock_git_commit_on_path(monkeypatch, path: str | None = "/usr/local/bin/git-commit"):
+    """Patch `shutil.which("git-commit")` to return the given path (or None)."""
+    import project_guide.cli as cli_module
+
+    def fake_which(name):
+        if name == "git-commit":
+            return path
+        return None  # other lookups don't matter for these tests
+
+    monkeypatch.setattr(cli_module.shutil, "which", fake_which)
+
+
+def test_git_commit_happy_path_invokes_gitbetter_with_derived_message(runner, tmp_path, monkeypatch):
+    """Last [Done] story, not yet committed → git-commit called with derived message."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 Hello World [Done]",
+        )
+        _mock_git_commit_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(monkeypatch, subjects=[], git_push_argv_capture=captured)
+
+        result = runner.invoke(main, ['git-commit'])
+
+        assert result.exit_code == 0, result.output
+        assert len(captured) == 1, captured
+        argv = captured[0]
+        assert argv[0] == "/usr/local/bin/git-commit"
+        assert argv[1] == "A.a: v0.1.0 Hello World"
+
+
+def test_git_commit_passes_branch_name_through(runner, tmp_path, monkeypatch):
+    """BRANCH_NAME positional appears as second argument to git-commit."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 Hello World [Done]",
+        )
+        _mock_git_commit_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(monkeypatch, subjects=[], git_push_argv_capture=captured)
+
+        result = runner.invoke(main, ['git-commit', 'feature/xyz'])
+
+        assert result.exit_code == 0, result.output
+        argv = captured[0]
+        assert argv == ["/usr/local/bin/git-commit", "A.a: v0.1.0 Hello World", "feature/xyz"]
+
+
+def test_git_commit_not_on_path_errors_with_install_hint(runner, tmp_path, monkeypatch):
+    """git-commit missing from PATH → exit 1 naming the tool + gitbetter install hint."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 Hello World [Done]",
+        )
+        _mock_git_commit_on_path(monkeypatch, path=None)
+        captured: list = []
+        _mock_git_log_subjects(monkeypatch, subjects=[], git_push_argv_capture=captured)
+
+        result = runner.invoke(main, ['git-commit'])
+
+        assert result.exit_code == 1
+        assert "git-commit not found on PATH" in result.output
+        assert "brew install pointmatic/tap/gitbetter" in result.output
+        assert captured == []
+
+
+def test_git_commit_no_done_stories_errors(runner, tmp_path, monkeypatch):
+    """No [Done] story in stories.md → exit 1 (stories.md authoring problem)."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 Hello World [Planned]",
+        )
+        _mock_git_commit_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(monkeypatch, subjects=[], git_push_argv_capture=captured)
+
+        result = runner.invoke(main, ['git-commit'])
+
+        assert result.exit_code == 1
+        assert "No completed story found" in result.output
+        assert captured == []
+
+
+def test_git_commit_nothing_to_commit_exits_zero(runner, tmp_path, monkeypatch):
+    """Every real [Done] story already committed → exit 0, no git-commit invocation."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 Hello World [Done]",
+        )
+        _mock_git_commit_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(
+            monkeypatch,
+            subjects=["A.a: v0.1.0 Hello World"],
+            git_push_argv_capture=captured,
+        )
+
+        result = runner.invoke(main, ['git-commit'])
+
+        assert result.exit_code == 0, result.output
+        assert "Nothing to commit" in result.output
+        assert captured == []
+
+
+def test_git_commit_bundle_offer_accepted_invokes_git_commit(runner, tmp_path, monkeypatch):
+    """2+ uncommitted [Done] stories → bundled subject offered [Y/n]; accepting
+    invokes git-commit with the bundled message."""
+    import project_guide.cli as cli_module
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 first [Done]",
+            "### Story A.b: v0.2.0 second [Done]",
+        )
+        _mock_git_commit_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(monkeypatch, subjects=[], git_push_argv_capture=captured)
+        monkeypatch.setattr(cli_module, 'should_skip_input', lambda *a, **kw: False)
+
+        result = runner.invoke(main, ['git-commit'], input='y\n')
+
+        assert result.exit_code == 0, result.output
+        assert len(captured) == 1, captured
+        assert captured[0][0] == "/usr/local/bin/git-commit"
+        assert captured[0][1] == "A.a: v0.1.0, A.b: v0.2.0 first + second"
+
+
+def test_git_commit_bundle_declined_under_no_input_names_git_commit(runner, tmp_path, monkeypatch):
+    """--no-input auto-declines the bundle offer → exit 1; the manual-resolution
+    hint names git-commit (not git-push)."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 first [Done]",
+            "### Story A.b: v0.2.0 second [Done]",
+        )
+        _mock_git_commit_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(monkeypatch, subjects=[], git_push_argv_capture=captured)
+
+        result = runner.invoke(main, ['git-commit', '--no-input'])
+
+        assert result.exit_code == 1
+        assert "Multiple uncommitted [Done] stories" in result.output
+        assert "'git-commit'" in result.output
+        assert captured == []
+
+
+def test_git_commit_single_out_of_sequence_accepted_invokes_gitbetter(runner, tmp_path, monkeypatch):
+    """A single uncommitted [Done] story sitting out of sequence → the wrapper
+    offers [y/N]; accepting derives the single-story message and invokes
+    git-commit (mirrors the Q.p git-push flow)."""
+    import project_guide.cli as cli_module
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 First [Done]",
+            "### Story A.b: v0.2.0 Second [Done]",
+        )
+        _mock_git_commit_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(
+            monkeypatch,
+            subjects=["A.b: v0.2.0 Second"],
+            git_push_argv_capture=captured,
+        )
+        monkeypatch.setattr(cli_module, 'should_skip_input', lambda *a, **kw: False)
+
+        result = runner.invoke(main, ['git-commit'], input='y\n')
+
+        assert result.exit_code == 0, result.output
+        assert "Out-of-sequence" not in result.output
+        assert len(captured) == 1
+        assert captured[0][0] == "/usr/local/bin/git-commit"
+        assert captured[0][1] == "A.a: v0.1.0 First"
+
+
+# --- End Story R.a ----------------------------------------------------------
+
+
 # --- Story P.o: untracked-by-default go.md policy ---------------------------
 
 

@@ -30,16 +30,16 @@ This is the authoritative cadence rule. **Do not extrapolate the bump magnitude 
 
 ---
 
-### Story R.a: Gitbetter `git-commit` subcommand
+### Story R.a: v2.18.1 Gitbetter `git-commit` subcommand [Done]
 
 Gitbetter just added a `git-commit` subcommand to allow iterations on commits locally and then pushing a batch to GitHub, which will save substantially on GitHub Actions CI minutes. 
 
 This new `project-guide git-commit` subcommand is nearly identical to its sibling `project-guide git-push`. From the Project Guide perspective, the two commands have the identical interface and behavior. 
 
-- [ ] Add `project-guide git-commit` subcommand that mirrors `project-guide git-push` functionality
-- [ ] Update tests to cover the new command
-- [ ] Update documentation to reflect the new command
-- [ ] Bump patch version to `v2.18.1`
+- [x] Add `project-guide git-commit` subcommand that mirrors `project-guide git-push` functionality — both share `_run_gitbetter_wrapper(tool_name, …)` in `cli.py`
+- [x] Update tests to cover the new command — 8 new `test_git_commit_*` tests (636 passed total)
+- [x] Update documentation to reflect the new command — README, site commands.md, concept/features/tech-spec/project-essentials
+- [x] Bump patch version to `v2.18.1` — `version.py`, `pyproject.toml`, CHANGELOG dated 2026-08-01
 
 ---
 
