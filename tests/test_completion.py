@@ -20,6 +20,9 @@ integration spike; see `docs/specs/phase-r-subphase-1-shell-completion-plan.md`
 """
 
 import os
+import shlex
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -29,6 +32,7 @@ from click.testing import CliRunner
 from project_guide import completion
 from project_guide.cli import main
 from project_guide.exceptions import CompletionError
+from project_guide.version import __version__
 
 
 @pytest.fixture
@@ -214,16 +218,25 @@ def test_build_script_post_processes_an_absolute_bin_path(shell):
 
 
 @pytest.mark.parametrize("shell", ["zsh", "bash"])
-def test_build_script_emits_click_output_verbatim_for_a_bare_name(shell):
+def test_build_script_skips_post_processing_for_a_bare_name(shell):
     """The baked guard is a filesystem test, so a bare name must not be baked in.
 
     R.b Amendment 3 — the bare-name `PATH` fallback keeps Click's historical
-    behavior rather than emitting `[[ -x project-guide ]]`, which would test a
-    file relative to `$PWD`.
+    resolution behavior rather than emitting `[[ -x project-guide ]]`, which
+    would test a file relative to `$PWD`.
+
+    Narrowed in R.d from "byte-identical to Click's output": bash additionally
+    gets the 3.2 registration fallback, which is a defect in Click's template
+    independent of how the callback resolves its binary.
     """
     result = completion.build_script(shell, "project-guide")
 
-    assert result == completion.generate_script(shell)
+    assert "[[ -x" not in result
+    assert "_PROJECT_GUIDE_COMPLETE=zsh_complete project-guide" in result or (
+        "_PROJECT_GUIDE_COMPLETE=bash_complete $1" in result
+    )
+    if shell == "zsh":
+        assert result == completion.generate_script(shell)
 
 
 # ---------------------------------------------------------------------------
@@ -496,3 +509,471 @@ def test_completion_help_lists_show(runner):
 
     assert result.exit_code == 0
     assert "show" in result.output
+
+
+def test_completion_help_lists_install_and_uninstall(runner):
+    """The writing half of the group is discoverable too."""
+    result = runner.invoke(main, ["completion", "--help"])
+
+    assert result.exit_code == 0
+    assert "install" in result.output
+    assert "uninstall" in result.output
+
+
+# ---------------------------------------------------------------------------
+# bash 3.2 compatibility — Amendment 4
+# ---------------------------------------------------------------------------
+
+
+def test_bash_compat_falls_back_when_nosort_is_unsupported():
+    """`complete -o nosort` is bash >= 4.4; on 3.2 the whole line fails.
+
+    Stock macOS bash then registers *nothing* — `complete -p` reports no
+    specification at all. Rather than strip `-o nosort` unconditionally
+    (losing Click's ordering everywhere), the line is rewritten to try it and
+    fall back, so modern bash keeps the ordering and 3.2 still registers.
+    """
+    script = completion.build_script("bash", "/opt/pg/project-guide")
+
+    assert (
+        "complete -o nosort -F _project_guide_completion project-guide 2>/dev/null || "
+        "complete -F _project_guide_completion project-guide" in script
+    )
+
+
+def test_bash_compat_is_applied_exactly_once():
+    """The fallback must not stack if the transform is applied twice."""
+    script = completion.build_script("bash", "/opt/pg/project-guide")
+
+    assert script.count("2>/dev/null ||") == 1
+
+
+def test_bash_compat_applies_on_the_bare_name_fallback():
+    """The `nosort` defect is independent of `--bin`, so the fix must be too.
+
+    Post-processing is skipped for a non-absolute bin (Amendment 3), but a
+    bash 3.2 user on the `PATH` fallback still needs the line to register.
+    """
+    script = completion.build_script("bash", "project-guide")
+
+    assert "2>/dev/null || complete -F" in script
+    assert "[[ -x" not in script  # post-processing correctly skipped
+
+
+def test_bash_compat_is_not_applied_to_zsh():
+    """`complete` is a bash builtin; the zsh script has no such line."""
+    script = completion.build_script("zsh", "/opt/pg/project-guide")
+
+    assert "2>/dev/null" not in script
+
+
+def test_bash_compat_fails_loudly_if_clicks_tail_line_changes():
+    """Same exactly-once discipline as the other substitutions."""
+    with pytest.raises(CompletionError, match="registration line"):
+        completion.apply_bash_compat("no completion registration here\n")
+
+
+# ---------------------------------------------------------------------------
+# rc-block assembly
+# ---------------------------------------------------------------------------
+
+
+def test_build_block_is_sentinel_bracketed():
+    """The block is delimited by an exact, greppable sentinel pair."""
+    block = completion.build_block("echo hi")
+
+    lines = block.splitlines()
+    assert lines[0] == completion.SENTINEL_START
+    assert lines[-1] == completion.SENTINEL_END
+    assert "echo hi" in lines
+    assert block.endswith("\n")
+
+
+def test_build_block_records_the_generating_version():
+    """The block says what wrote it, so a reader can date it without guessing."""
+    block = completion.build_block("echo hi")
+
+    assert __version__ in block
+    assert "completion install" in block
+
+
+# ---------------------------------------------------------------------------
+# rc-file writing — install
+# ---------------------------------------------------------------------------
+
+
+def test_install_block_creates_a_missing_rc_file(tmp_path):
+    """A user with no `~/.bashrc` still gets working completion."""
+    rc = tmp_path / ".bashrc"
+
+    result = completion.install_block(rc, completion.build_block("echo hi"))
+
+    assert result.outcome is completion.RcOutcome.CREATED
+    assert rc.read_text().startswith(completion.SENTINEL_START)
+    assert result.backup is None
+
+
+def test_install_block_appends_after_existing_content(tmp_path):
+    """Prior rc content is preserved verbatim, separated by one blank line."""
+    rc = tmp_path / ".bashrc"
+    rc.write_text("export EDITOR=vim\nalias ll='ls -l'\n")
+
+    result = completion.install_block(rc, completion.build_block("echo hi"))
+
+    text = rc.read_text()
+    assert result.outcome is completion.RcOutcome.CREATED
+    assert text.startswith("export EDITOR=vim\nalias ll='ls -l'\n\n")
+    assert completion.SENTINEL_START in text
+
+
+def test_install_block_is_a_no_op_when_already_current(tmp_path):
+    """Idempotent: an unchanged block means no write and no backup."""
+    rc = tmp_path / ".bashrc"
+    rc.write_text("export EDITOR=vim\n")
+    block = completion.build_block("echo hi")
+    completion.install_block(rc, block)
+    after_first = rc.read_text()
+    backups_after_first = set(tmp_path.glob(".bashrc.bak.*"))
+
+    result = completion.install_block(rc, block)
+
+    assert result.outcome is completion.RcOutcome.UNCHANGED
+    assert rc.read_text() == after_first
+    assert result.backup is None
+    assert set(tmp_path.glob(".bashrc.bak.*")) == backups_after_first
+
+
+def test_install_block_refreshes_a_stale_block_in_place(tmp_path):
+    """A changed `--bin` rewrites the block where it sits, not at the tail."""
+    rc = tmp_path / ".bashrc"
+    rc.write_text("first\n")
+    completion.install_block(rc, completion.build_block("OLD"))
+    rc.write_text(rc.read_text() + "\nlast\n")
+
+    result = completion.install_block(rc, completion.build_block("NEW"))
+
+    text = rc.read_text()
+    assert result.outcome is completion.RcOutcome.UPDATED
+    assert "OLD" not in text
+    assert "NEW" in text
+    assert text.startswith("first\n")
+    assert text.endswith("last\n")
+
+
+def test_install_block_backs_up_before_modifying(tmp_path):
+    """The first write outside the project directory is reversible by hand."""
+    rc = tmp_path / ".bashrc"
+    rc.write_text("original\n")
+    completion.install_block(rc, completion.build_block("OLD"))
+
+    result = completion.install_block(rc, completion.build_block("NEW"))
+
+    assert result.backup is not None
+    assert result.backup.exists()
+    assert "OLD" in result.backup.read_text()
+
+
+def test_install_block_rejects_an_unterminated_block(tmp_path):
+    """A start sentinel with no end is damage, not a block — refuse to guess."""
+    rc = tmp_path / ".bashrc"
+    rc.write_text(f"{completion.SENTINEL_START}\nhalf a block\n")
+
+    with pytest.raises(CompletionError, match="unterminated"):
+        completion.install_block(rc, completion.build_block("echo hi"))
+
+
+# ---------------------------------------------------------------------------
+# rc-file writing — uninstall and round-trip
+# ---------------------------------------------------------------------------
+
+
+def test_install_uninstall_round_trips_the_rc_file_byte_for_byte(tmp_path):
+    """The safety contract: the rc file comes back exactly as it was."""
+    rc = tmp_path / ".bashrc"
+    original = "export EDITOR=vim\n\n# my stuff\nalias ll='ls -l'\n"
+    rc.write_text(original)
+
+    completion.install_block(rc, completion.build_block("echo hi"))
+    assert rc.read_text() != original
+    completion.remove_block(rc)
+
+    assert rc.read_text() == original
+
+
+def test_remove_block_preserves_content_that_follows_it(tmp_path):
+    """Removal is bounded by the sentinels; nothing downstream shifts."""
+    rc = tmp_path / ".bashrc"
+    rc.write_text("first\n")
+    completion.install_block(rc, completion.build_block("echo hi"))
+    rc.write_text(rc.read_text() + "\nlast\n")
+
+    result = completion.remove_block(rc)
+
+    assert result.outcome is completion.RcOutcome.REMOVED
+    assert rc.read_text() == "first\n\nlast\n"
+
+
+def test_remove_block_reports_absent_when_there_is_no_block(tmp_path):
+    """Uninstalling what was never installed is a success, not an error."""
+    rc = tmp_path / ".bashrc"
+    rc.write_text("export EDITOR=vim\n")
+
+    result = completion.remove_block(rc)
+
+    assert result.outcome is completion.RcOutcome.ABSENT
+    assert rc.read_text() == "export EDITOR=vim\n"
+
+
+def test_remove_block_reports_absent_when_the_rc_file_is_missing(tmp_path):
+    """A missing rc file is the same nothing-to-do case, and creates nothing."""
+    rc = tmp_path / ".bashrc"
+
+    result = completion.remove_block(rc)
+
+    assert result.outcome is completion.RcOutcome.ABSENT
+    assert not rc.exists()
+
+
+def test_remove_block_backs_up_before_modifying(tmp_path):
+    """Removal is a modification, so it is reversible too."""
+    rc = tmp_path / ".bashrc"
+    rc.write_text("original\n")
+    completion.install_block(rc, completion.build_block("echo hi"))
+
+    result = completion.remove_block(rc)
+
+    assert result.backup is not None
+    assert completion.SENTINEL_START in result.backup.read_text()
+
+
+# ---------------------------------------------------------------------------
+# ours-vs-foreign — never touch a block we did not write
+# ---------------------------------------------------------------------------
+
+PYVE_LEGACY_BLOCK = (
+    "# >>> project-guide completion (added by pyve) >>>\n"
+    'eval "$(_PROJECT_GUIDE_COMPLETE=bash_source project-guide)"\n'
+    "# <<< project-guide completion <<<\n"
+)
+
+
+def test_install_leaves_a_foreign_block_untouched(tmp_path):
+    """pyve's legacy block is not ours to rewrite — adoption lands in R.g."""
+    rc = tmp_path / ".bashrc"
+    rc.write_text(PYVE_LEGACY_BLOCK)
+
+    result = completion.install_block(rc, completion.build_block("echo hi"))
+
+    text = rc.read_text()
+    assert PYVE_LEGACY_BLOCK in text
+    assert completion.SENTINEL_START in text
+    assert any("added by pyve" in w for w in result.warnings)
+
+
+def test_uninstall_leaves_a_foreign_block_untouched(tmp_path):
+    """Symmetrically, uninstall removes only what project-guide itself wrote."""
+    rc = tmp_path / ".bashrc"
+    rc.write_text(PYVE_LEGACY_BLOCK)
+    completion.install_block(rc, completion.build_block("echo hi"))
+
+    completion.remove_block(rc)
+
+    assert rc.read_text() == PYVE_LEGACY_BLOCK
+
+
+def test_no_foreign_warning_for_our_own_block(tmp_path):
+    """The predicate must not misfire on the block we just wrote."""
+    rc = tmp_path / ".bashrc"
+    completion.install_block(rc, completion.build_block("echo hi"))
+
+    result = completion.install_block(rc, completion.build_block("echo bye"))
+
+    assert result.warnings == ()
+
+
+# ---------------------------------------------------------------------------
+# `completion install` / `completion uninstall` — CLI
+# ---------------------------------------------------------------------------
+
+
+def test_completion_install_writes_the_bash_block(runner, tmp_path):
+    """End to end: the rc file gains a block carrying the baked path."""
+    rc = tmp_path / ".bashrc"
+
+    result = runner.invoke(
+        main,
+        ["completion", "install", "--shell", "bash", "--rc", str(rc),
+         "--bin", "/opt/pg/project-guide"],
+    )
+
+    assert result.exit_code == 0
+    text = rc.read_text()
+    assert "[[ -x /opt/pg/project-guide ]] || return 1" in text
+    assert "_PROJECT_GUIDE_COMPLETE=bash_complete /opt/pg/project-guide)" in text
+    assert str(rc) in result.output
+
+
+def test_completion_install_is_idempotent(runner, tmp_path):
+    """Re-running reports the no-op rather than stacking blocks."""
+    rc = tmp_path / ".bashrc"
+    args = ["completion", "install", "--shell", "bash", "--rc", str(rc),
+            "--bin", "/opt/pg/project-guide"]
+    runner.invoke(main, args)
+    first = rc.read_text()
+
+    result = runner.invoke(main, args)
+
+    assert result.exit_code == 0
+    assert rc.read_text() == first
+    assert first.count(completion.SENTINEL_START) == 1
+    assert "already" in result.output.lower()
+
+
+def test_completion_install_quiet_prints_nothing_on_success(runner, tmp_path):
+    """`--quiet` is for host tools (pyve) shelling out during provisioning."""
+    rc = tmp_path / ".bashrc"
+
+    result = runner.invoke(
+        main,
+        ["completion", "install", "--shell", "bash", "--rc", str(rc),
+         "--bin", "/opt/pg/project-guide", "--quiet"],
+    )
+
+    assert result.exit_code == 0
+    assert result.stdout == ""
+    assert rc.exists()
+
+
+def test_completion_uninstall_removes_the_block(runner, tmp_path):
+    """The CLI round-trip, not just the helper's."""
+    rc = tmp_path / ".bashrc"
+    rc.write_text("export EDITOR=vim\n")
+    runner.invoke(
+        main,
+        ["completion", "install", "--shell", "bash", "--rc", str(rc),
+         "--bin", "/opt/pg/project-guide"],
+    )
+
+    result = runner.invoke(
+        main, ["completion", "uninstall", "--shell", "bash", "--rc", str(rc)]
+    )
+
+    assert result.exit_code == 0
+    assert rc.read_text() == "export EDITOR=vim\n"
+
+
+def test_completion_uninstall_on_a_missing_rc_file_succeeds(runner, tmp_path):
+    """Nothing to do is exit 0 — uninstall must be safe to run blind."""
+    rc = tmp_path / "nonexistent" / ".bashrc"
+
+    result = runner.invoke(
+        main, ["completion", "uninstall", "--shell", "bash", "--rc", str(rc)]
+    )
+
+    assert result.exit_code == 0
+    assert not rc.exists()
+
+
+def test_completion_install_defaults_to_the_home_bashrc(runner, tmp_path, monkeypatch):
+    """Without `--rc`, bash resolves to `~/.bashrc`."""
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+    result = runner.invoke(
+        main,
+        ["completion", "install", "--shell", "bash", "--bin", "/opt/pg/project-guide"],
+    )
+
+    assert result.exit_code == 0
+    assert (tmp_path / ".bashrc").exists()
+
+
+def test_completion_install_warns_about_a_foreign_block_on_stderr(runner, tmp_path):
+    """The warning is diagnostic, so it must not pollute stdout."""
+    rc = tmp_path / ".bashrc"
+    rc.write_text(PYVE_LEGACY_BLOCK)
+
+    result = runner.invoke(
+        main,
+        ["completion", "install", "--shell", "bash", "--rc", str(rc),
+         "--bin", "/opt/pg/project-guide"],
+    )
+
+    assert result.exit_code == 0
+    assert "added by pyve" in result.stderr
+    assert "added by pyve" not in result.stdout
+
+
+def test_completion_install_refuses_zsh_until_its_route_exists(runner, tmp_path):
+    """zsh needs an autoload file plus a `compinit` bootstrap (Story R.e).
+
+    Writing the bash-shaped block into `~/.zshrc` would half-work at best, so
+    the command refuses rather than installing the wrong thing.
+    """
+    rc = tmp_path / ".zshrc"
+
+    result = runner.invoke(
+        main,
+        ["completion", "install", "--shell", "zsh", "--rc", str(rc),
+         "--bin", "/opt/pg/project-guide"],
+    )
+
+    assert result.exit_code != 0
+    assert not rc.exists()
+    assert "zsh" in result.output
+
+
+# ---------------------------------------------------------------------------
+# Real-shell verification — silent degradation is mandatory
+# ---------------------------------------------------------------------------
+
+BASH = shutil.which("bash")
+
+
+@pytest.mark.skipif(not BASH, reason="bash is not installed")
+def test_installed_block_registers_completion_in_a_real_bash(tmp_path):
+    """Sourcing the rc file must actually register, on bash 3.2 and 5.x alike.
+
+    This is the portable proof for Amendment 4: on stock macOS bash the
+    `-o nosort` attempt fails and the fallback registers; on modern bash the
+    first form wins. Either way `complete -p` reports a specification.
+    """
+    rc = tmp_path / "rc"
+    bin_path = tmp_path / "project-guide"
+    bin_path.write_text("#!/bin/sh\nexit 0\n")
+    bin_path.chmod(0o755)
+    rc.write_text(completion.build_block(completion.build_script("bash", str(bin_path))))
+
+    proc = subprocess.run(
+        [BASH, "--norc", "--noprofile", "-c",
+         f"source {shlex.quote(str(rc))}; complete -p project-guide"],
+        capture_output=True, text=True,
+    )
+
+    assert proc.returncode == 0, proc.stderr
+    assert "_project_guide_completion" in proc.stdout
+    assert proc.stderr == ""
+
+
+@pytest.mark.skipif(not BASH, reason="bash is not installed")
+def test_a_stale_install_degrades_silently_in_a_real_bash(tmp_path):
+    """Amendment 2, verified on the installed artifact rather than the source.
+
+    Without the inserted `[[ -x ]]` guard, a `--bin` that no longer resolves
+    makes `env` print "No such file or directory" on *every* TAB press — a
+    worse regression than the missing completion it replaces.
+    """
+    rc = tmp_path / "rc"
+    dead = tmp_path / "gone" / "project-guide"
+    rc.write_text(completion.build_block(completion.build_script("bash", str(dead))))
+
+    proc = subprocess.run(
+        [BASH, "--norc", "--noprofile", "-c",
+         f"source {shlex.quote(str(rc))}; "
+         "COMP_WORDS='project-guide '; COMP_CWORD=1; "
+         "_project_guide_completion project-guide; echo done"],
+        capture_output=True, text=True,
+    )
+
+    assert proc.stdout.strip() == "done"
+    assert proc.stderr == ""

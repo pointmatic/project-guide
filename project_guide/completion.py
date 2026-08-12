@@ -51,10 +51,15 @@ import re
 import shlex
 import shutil
 import sys
+from dataclasses import dataclass
+from datetime import datetime
+from enum import Enum
+from pathlib import Path
 
 from click.shell_completion import get_completion_class
 
 from project_guide.exceptions import CompletionError
+from project_guide.version import __version__
 
 #: The command name users type, and the name Click registers completion against.
 COMMAND_NAME = "project-guide"
@@ -81,6 +86,11 @@ _CALLBACK_RE = {
 # The whole callback line in the bash script, so a guard can be inserted above it.
 _BASH_CALLBACK_LINE_RE = re.compile(
     r"^([ \t]*)response=\$\(env .*_COMPLETE=bash_complete.*$", re.MULTILINE
+)
+
+# The bash script's self-registration line: `complete -o nosort -F <func> <name>`.
+_BASH_REGISTER_RE = re.compile(
+    r"^([ \t]*)complete[ \t]+-o[ \t]+nosort[ \t]+(-F[ \t]+\S+[ \t]+\S+)[ \t]*$", re.MULTILINE
 )
 
 
@@ -159,6 +169,38 @@ def _require_one(count: int, what: str, shell: str) -> None:
         )
 
 
+def apply_bash_compat(script: str) -> str:
+    """Make Click's self-registration line survive bash 3.2 (Story R.d).
+
+    Click ends its bash script with ``complete -o nosort -F … project-guide``.
+    ``-o nosort`` is bash >= 4.4; on stock macOS bash 3.2 the whole line fails
+    with ``complete: nosort: invalid option name`` and **nothing registers at
+    all** — not "completion works but unsorted", but no completion whatsoever.
+
+    Stripping ``-o nosort`` outright would fix 3.2 at the cost of Click's
+    deliberate ordering on every modern shell. Instead the line is rewritten to
+    attempt the modern form and fall back:
+
+    .. code-block:: bash
+
+        complete -o nosort -F _f project-guide 2>/dev/null || complete -F _f project-guide
+
+    bash 5.x takes the first form; 3.2's error is swallowed by ``2>/dev/null``
+    (silent degradation is mandatory) and the fallback registers. Verified on
+    bash 3.2.57 and 5.3.15.
+
+    This is independent of ``--bin``, so unlike :func:`postprocess_script` it
+    applies even on the bare-name ``PATH`` fallback.
+    """
+    script, count = _BASH_REGISTER_RE.subn(
+        lambda m: f"{m.group(1)}complete -o nosort {m.group(2)} 2>/dev/null "
+        f"|| complete {m.group(2)}",
+        script,
+    )
+    _require_one(count, "bash completion registration line", "bash")
+    return script
+
+
 def build_script(shell: str, bin_path: str) -> str:
     """Return the completion script to install or print for ``shell``.
 
@@ -167,11 +209,16 @@ def build_script(shell: str, bin_path: str) -> str:
     fallback from :func:`resolve_bin`) would become ``[[ -x project-guide ]]``
     — a test against ``$PWD``. In that case Click's script is emitted verbatim,
     keeping the historical ``PATH``-dependent behavior rather than a broken one.
+
+    The bash 3.2 registration fix is applied either way — it fixes a defect
+    Click's template has regardless of which binary the callback invokes.
     """
     script = generate_script(shell)
-    if not os.path.isabs(bin_path):
-        return script
-    return postprocess_script(script, shell=shell, bin_path=bin_path)
+    if os.path.isabs(bin_path):
+        script = postprocess_script(script, shell=shell, bin_path=bin_path)
+    if shell == "bash":
+        script = apply_bash_compat(script)
+    return script
 
 
 def resolve_shell(requested: str | None) -> str:
@@ -220,3 +267,193 @@ def resolve_bin(explicit: str | None) -> str:
         return on_path
 
     return COMMAND_NAME
+
+
+# ---------------------------------------------------------------------------
+# rc-file blocks
+#
+# This is the first project-guide code that writes outside the project
+# directory, so the safety contract is deliberately narrow: an exact sentinel
+# pair marks what we own, we touch nothing else, every content-changing write
+# is preceded by a timestamped backup, and `install` -> `uninstall` restores
+# the file byte-for-byte.
+# ---------------------------------------------------------------------------
+
+#: Exact delimiters of the block project-guide owns. The conda-style pair is
+#: the shape pyve's legacy block already uses, so it reads as familiar in an
+#: rc file. Only a block bracketed by *both* of these is ever rewritten.
+SENTINEL_START = "# >>> project-guide completion >>>"
+SENTINEL_END = "# <<< project-guide completion <<<"
+
+#: A comment that mentions project-guide completion but is not our own
+#: sentinel — pyve's legacy header, or a user's hand-rolled wiring. Detected so
+#: it can be *reported*, never edited. Adopting pyve's block is Story R.g.
+_FOREIGN_SENTINEL_RE = re.compile(r"^\s*#.*project-guide completion", re.IGNORECASE)
+
+
+class RcOutcome(Enum):
+    """What an rc-file write actually did, for honest reporting."""
+
+    CREATED = "created"
+    UPDATED = "updated"
+    UNCHANGED = "unchanged"
+    REMOVED = "removed"
+    ABSENT = "absent"
+
+
+@dataclass(frozen=True)
+class RcResult:
+    """Result of an rc-file operation.
+
+    ``warnings`` carries foreign-block notices for the caller to route to
+    stderr; they are diagnostics, not failures, so they never change the
+    outcome or the exit code.
+    """
+
+    outcome: RcOutcome
+    path: Path
+    backup: Path | None = None
+    warnings: tuple[str, ...] = ()
+
+
+def default_rc_path(shell: str) -> Path:
+    """Return the rc file ``shell`` reads by default."""
+    _require_supported(shell)
+    return Path.home() / (".bashrc" if shell == "bash" else ".zshrc")
+
+
+def build_block(body: str) -> str:
+    """Wrap ``body`` in the sentinel pair, with provenance for a human reader.
+
+    The version stamp is what makes an old block identifiable on sight; it also
+    means a re-run after an upgrade refreshes the block rather than reporting a
+    stale one as current.
+    """
+    return "\n".join(
+        [
+            SENTINEL_START,
+            f"# Added by `project-guide completion install` (project-guide v{__version__}).",
+            "# Do not edit: re-run that command to refresh, or "
+            "`project-guide completion uninstall` to remove.",
+            body.rstrip("\n"),
+            SENTINEL_END,
+        ]
+    ) + "\n"
+
+
+def _find_block_span(lines: list[str]) -> tuple[int, int] | None:
+    """Locate our block as an inclusive ``(start, end)`` line range.
+
+    A start sentinel with no matching end is damage rather than a block, and
+    guessing where it ought to stop risks eating the user's rc file — so it is
+    an error the caller must surface.
+    """
+    try:
+        start = lines.index(SENTINEL_START)
+    except ValueError:
+        return None
+    for index in range(start + 1, len(lines)):
+        if lines[index] == SENTINEL_END:
+            return start, index
+    raise CompletionError(
+        f"Found an unterminated `{SENTINEL_START}` block (no closing "
+        f"`{SENTINEL_END}`). Repair or delete it by hand; refusing to guess "
+        "where the block ends."
+    )
+
+
+def _foreign_warnings(lines: list[str], span: tuple[int, int] | None) -> tuple[str, ...]:
+    """Report completion wiring outside our own block that we must not touch.
+
+    Mirrors ``_ensure_gitignore_entry()``'s ours-vs-foreign predicate: anything
+    we did not write is left exactly as found and merely reported. The block we
+    own is excluded from the scan, since its own header mentions the command.
+    """
+    ours = range(span[0], span[1] + 1) if span else range(0)
+    found = [
+        line.strip()
+        for index, line in enumerate(lines)
+        if index not in ours
+        and line.strip() not in (SENTINEL_START, SENTINEL_END)
+        and _FOREIGN_SENTINEL_RE.match(line)
+    ]
+    return tuple(
+        f"⚠ Leaving a completion block we did not write untouched: {line}" for line in found
+    )
+
+
+def _backup(path: Path) -> Path:
+    """Copy ``path`` aside before a content-changing write."""
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    backup_path = path.with_name(f"{path.name}.bak.{timestamp}")
+    counter = 1
+    while backup_path.exists():
+        backup_path = path.with_name(f"{path.name}.bak.{timestamp}.{counter}")
+        counter += 1
+    shutil.copy2(path, backup_path)
+    return backup_path
+
+
+def install_block(rc_path: Path, block: str) -> RcResult:
+    """Write ``block`` into ``rc_path``, creating or refreshing it in place.
+
+    Idempotent: an already-current block is a no-op with no write and no
+    backup. An existing block is replaced *where it sits* rather than moved to
+    the tail, so a user who repositioned it keeps their layout.
+    """
+    existed = rc_path.exists()
+    content = rc_path.read_text() if existed else ""
+    lines = content.splitlines()
+    span = _find_block_span(lines)
+    warnings = _foreign_warnings(lines, span)
+    block_lines = block.rstrip("\n").split("\n")
+
+    if span is not None:
+        start, end = span
+        if lines[start : end + 1] == block_lines:
+            return RcResult(RcOutcome.UNCHANGED, rc_path, warnings=warnings)
+        new_lines = lines[:start] + block_lines + lines[end + 1 :]
+        outcome = RcOutcome.UPDATED
+    else:
+        # One blank line separates the block from whatever came before, and
+        # `remove_block` consumes exactly that line again on the way out.
+        separator = [""] if lines else []
+        new_lines = lines + separator + block_lines
+        outcome = RcOutcome.CREATED
+
+    backup = _backup(rc_path) if existed else None
+    rc_path.parent.mkdir(parents=True, exist_ok=True)
+    rc_path.write_text("\n".join(new_lines) + "\n")
+    return RcResult(outcome, rc_path, backup=backup, warnings=warnings)
+
+
+def remove_block(rc_path: Path) -> RcResult:
+    """Remove our block from ``rc_path``, restoring the file byte-for-byte.
+
+    Safe to run blind: a missing file or a file without our block is reported
+    as :attr:`RcOutcome.ABSENT`, not an error. Nothing outside the sentinel
+    pair is modified, so a foreign block survives untouched.
+    """
+    if not rc_path.exists():
+        return RcResult(RcOutcome.ABSENT, rc_path)
+
+    content = rc_path.read_text()
+    lines = content.splitlines()
+    span = _find_block_span(lines)
+    warnings = _foreign_warnings(lines, span)
+    if span is None:
+        return RcResult(RcOutcome.ABSENT, rc_path, warnings=warnings)
+
+    start, end = span
+    new_lines = lines[:start] + lines[end + 1 :]
+
+    # Reclaim the blank separator `install_block` inserted — but only when it
+    # is genuinely adjacent slack (the block ended the file, or a second blank
+    # line follows), never a blank line structuring the user's own content.
+    if start > 0 and new_lines[start - 1] == "":
+        if start == len(new_lines) or new_lines[start] == "":
+            del new_lines[start - 1]
+
+    backup = _backup(rc_path)
+    rc_path.write_text("\n".join(new_lines) + "\n" if new_lines else "")
+    return RcResult(RcOutcome.REMOVED, rc_path, backup=backup, warnings=warnings)

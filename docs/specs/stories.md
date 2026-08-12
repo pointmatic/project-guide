@@ -94,18 +94,24 @@ End-to-end verified with the shipped code, binary off `PATH`: bash rc-eval yield
 
 No version bump — Subphase R-1 ships bundled as `v2.19.0` at R.i, which owns the CHANGELOG entry.
 
-### Story R.d: `completion install` / `uninstall` — bash rc-block route [Planned]
+### Story R.d: `completion install` / `uninstall` — bash rc-block route [Done]
 
 The rc-block writer and its sentinel machinery. This is the first project-guide code that writes **outside the project directory**, so the safety contract is the story.
 
-- [ ] Write a sentinel-bracketed block to the resolved rc file (`--rc` override; default `~/.bashrc`)
-- [ ] Idempotent: re-running with an already-current block is a no-op
-- [ ] `uninstall` removes the block **byte-clean**, so `install` → `uninstall` round-trips the rc file exactly
-- [ ] Ours-vs-foreign predicate: only project-guide's own sentinel is touched; foreign content under a similar header is left alone with a stderr warning (mirrors `_ensure_gitignore_entry()`)
-- [ ] Back up the rc file before first modification
-- [ ] Degrade silently at shell startup — a broken or stale block must never print. Also silent **at completion time**: the R.b Amendment 2 `[[ -x <bin> ]]` guard, or bash prints `env: …: No such file or directory` on every TAB against a stale `--bin`
-- [ ] Decide whether to strip `complete -o nosort` (bash ≥ 4.4) so completion registers at all on macOS system bash 3.2 — R.b Amendment 4; verified that stripping restores registration, at the cost of Click's unsorted ordering
-- [ ] Tests: fresh install, idempotent re-install, round-trip byte-equality, foreign-block refusal, missing rc file
+- [x] Write a sentinel-bracketed block to the resolved rc file (`--rc` override; default `~/.bashrc`) — `SENTINEL_START` / `SENTINEL_END` (conda-style pair, the shape pyve's legacy block already uses) plus `build_block`, which stamps the generating version so an old block is identifiable on sight
+- [x] Idempotent: re-running with an already-current block is a no-op — no write, no backup, reported as `RcOutcome.UNCHANGED`. An existing block is refreshed **where it sits** rather than moved to the tail, so a user who repositioned it keeps their layout
+- [x] `uninstall` removes the block **byte-clean**, so `install` → `uninstall` round-trips the rc file exactly — including the blank separator line `install` inserted, which is reclaimed only when it is genuinely adjacent slack (block at EOF, or a second blank line follows), never a blank line structuring the user's own content
+- [x] Ours-vs-foreign predicate: only project-guide's own sentinel is touched; foreign content under a similar header is left alone with a stderr warning (mirrors `_ensure_gitignore_entry()`) — `_foreign_warnings`; pyve's legacy block is reported and survives both `install` and `uninstall` untouched. Ours is installed **alongside** it, which is the duplicate-registration state R.g exists to resolve
+- [x] Back up the rc file before first modification — `.bak.<timestamp>` beside the rc file, on every content-changing write (install *and* uninstall), skipped on the no-op path
+- [x] Degrade silently at shell startup — a broken or stale block must never print. Also silent **at completion time**: the R.b Amendment 2 `[[ -x <bin> ]]` guard, or bash prints `env: …: No such file or directory` on every TAB against a stale `--bin` — nothing is *executed* at startup at all: the script is written **inline** rather than as an `eval "$(…)"`, so a stale install cannot print and no Python subprocess runs per shell start
+- [x] Decide whether to strip `complete -o nosort` (bash ≥ 4.4) so completion registers at all on macOS system bash 3.2 — R.b Amendment 4; verified that stripping restores registration, at the cost of Click's unsorted ordering — **decided: neither strip nor keep, but fall back at runtime.** `apply_bash_compat` rewrites the line to `complete -o nosort -F … 2>/dev/null || complete -F …`, so bash ≥ 4.4 keeps Click's ordering and 3.2 swallows the error and registers via the fallback. Applied independently of `--bin` (the defect is in Click's template, not the callback's binary resolution)
+- [x] Tests: fresh install, idempotent re-install, round-trip byte-equality, foreign-block refusal, missing rc file — 32 new tests in `tests/test_completion.py` (716 passed total), including two that source the installed block in a **real bash** to pin registration (3.2 and 5.x alike) and silence against a dead `--bin`
+
+**Two implementation decisions worth flagging.** (1) The plan's "rc-block eval" is implemented as the script's **bytes inline** in the sentinel block, not `eval "$(project-guide completion show)"` — same rc-time evaluation, but no Python subprocess on every interactive shell start and nothing that can print when the install goes stale. (2) `install --shell zsh` **refuses** rather than writing the bash-shaped block into `~/.zshrc`; the zsh route needs its own fpath artifact and `compinit` bootstrap (R.e).
+
+Verified end-to-end with the shipped code, binary off `PATH`: **13 completions on bash 3.2.57 and 5.3.15** — the first time completion has registered at all on stock macOS bash. Byte-clean round-trip and stale-install silence confirmed against a real rc file.
+
+No version bump — Subphase R-1 ships bundled as `v2.19.0` at R.i, which owns the CHANGELOG entry.
 
 ### Story R.e: `completion install` / `uninstall` — zsh fpath route [Planned]
 
@@ -155,7 +161,7 @@ Documentation and the single release tag for the subphase.
 - [ ] Rewrite `features.md` FR-7 — replace the hand-copied-snippet framing with the `completion` command group; remove the "Known limitations" block added in R.z's `features.md` pass, now that both defects are closed; **state the fish gap explicitly** so the docs stop over-promising
 - [ ] Document the implementation in `tech-spec.md` — the two route mechanisms, post-processing, sentinel machinery, and rc-file safety contract
 - [ ] Update `README.md` and `docs/site/user-guide/commands.md` with the new command group; revise the Shell Completion sections in `README.md` and `docs/site/user-guide/install-options.md`
-- [ ] Record the macOS system-bash 3.2 limitation accurately: **`complete -o nosort` (bash ≥ 4.4) means nothing registers at all** unless R.d strips it, and `compopt` (bash ≥ 4.0) additionally breaks dir/file completion — the pre-spike wording understated this (R.b Amendment 4)
+- [ ] Record the macOS system-bash 3.2 limitation accurately — **narrowed by R.d**: the registration half is *closed* (the emitted `complete -o nosort … 2>/dev/null || complete …` fallback registers on 3.2), so what remains is only `compopt` (bash ≥ 4.0) breaking **dir/file** completions there. Document the residual limitation, not the pre-spike "nothing works" wording and not R.b Amendment 4's "nothing registers at all," which R.d superseded
 - [ ] `CHANGELOG.md` entry for `v2.19.0`, dated
 - [ ] Bump `project_guide/version.py` and `pyproject.toml` to `2.19.0`
 - [ ] Verification per CI-gate parity: `pyve test`, `pyve env run ruff check project_guide/ tests/`, `pyve env run mypy project_guide/`

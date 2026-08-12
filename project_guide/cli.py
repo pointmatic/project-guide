@@ -26,7 +26,12 @@ import click
 from project_guide.actions import ActionType, perform_archive
 from project_guide.completion import (
     SUPPORTED_SHELLS,
+    RcOutcome,
+    build_block,
     build_script,
+    default_rc_path,
+    install_block,
+    remove_block,
     resolve_bin,
     resolve_shell,
 )
@@ -2486,6 +2491,163 @@ def completion_show(shell: str, bin_path: str | None):
         raise click.ClickException(str(e)) from e
 
     click.echo(script.rstrip("\n"))
+
+
+def _resolve_install_shell(shell: str) -> str:
+    """Resolve `--shell` for the writing subcommands, refusing routes we lack.
+
+    zsh's install is not a variation on bash's: it wants the fpath autoload
+    file its `#compdef` header is built for plus a `compinit` bootstrap, which
+    is Story R.e. Writing the bash-shaped rc block into `~/.zshrc` would
+    half-work at best, so this refuses rather than installing the wrong thing.
+    """
+    resolved = resolve_shell(shell)
+    if resolved != "bash":
+        raise CompletionError(
+            f"`completion install` / `uninstall` support bash today; {resolved} is not "
+            f"wired up yet (it needs an fpath autoload file plus a compinit bootstrap). "
+            f"Use `project-guide completion show --shell {resolved}` and source the "
+            f"output for now."
+        )
+    return resolved
+
+
+def _emit_rc_warnings(warnings: tuple[str, ...]) -> None:
+    """Route foreign-block notices to stderr, where --quiet never hides them."""
+    for warning in warnings:
+        click.secho(warning, fg='yellow', err=True)
+
+
+@completion.command(name="install")
+@click.option(
+    '--shell',
+    'shell',
+    type=click.Choice(['auto', *SUPPORTED_SHELLS]),
+    default='auto',
+    show_default=True,
+    help='Shell to install for. `auto` detects from $SHELL and errors if unrecognized.',
+)
+@click.option(
+    '--bin',
+    'bin_path',
+    default=None,
+    help=(
+        'Absolute path to bake into the completion callback. Defaults to the '
+        'path project-guide was invoked as, then a PATH lookup.'
+    ),
+)
+@click.option(
+    '--rc',
+    'rc',
+    default=None,
+    help='Shell rc file to write into. Defaults to ~/.bashrc.',
+)
+@click.option(
+    '--quiet', '-q',
+    is_flag=True,
+    default=False,
+    help='Emit nothing to stdout on success. Warnings still go to stderr.',
+)
+def completion_install(shell: str, bin_path: str | None, rc: str | None, quiet: bool):
+    """Write the completion script into your shell's rc file.
+
+    \b
+    The script is written inline, sentinel-bracketed, so nothing is executed at
+    shell startup and completion keeps working even with project-guide off
+    `PATH`. Re-run after a move or upgrade to refresh the baked path.
+
+    \b
+    Safety contract for this first write outside the project directory:
+      - Only the `# >>> project-guide completion >>>` block is ever touched;
+        a block project-guide did not write is reported, never edited.
+      - The rc file is backed up (`.bak.<timestamp>`) before any change.
+      - Re-running with an already-current block writes nothing.
+      - `completion uninstall` restores the file byte-for-byte.
+
+    \b
+    zsh is not wired up yet — it needs an fpath autoload file rather than an
+    rc block. Use `completion show --shell zsh` in the meantime.
+    """
+    rc_path: Path | None = None
+    try:
+        resolved_shell = _resolve_install_shell(shell)
+        resolved_bin = resolve_bin(bin_path)
+        script = build_script(resolved_shell, resolved_bin)
+        rc_path = Path(rc).expanduser() if rc else default_rc_path(resolved_shell)
+        result = install_block(rc_path, build_block(script))
+    except CompletionError as e:
+        raise click.ClickException(str(e)) from e
+    except OSError as e:
+        raise click.ClickException(f"Could not write {rc_path}: {e}") from e
+
+    _emit_rc_warnings(result.warnings)
+
+    if quiet:
+        return
+
+    if result.outcome is RcOutcome.UNCHANGED:
+        click.echo(f"{resolved_shell} completion in {result.path} is already current.")
+        return
+
+    verb = "Installed" if result.outcome is RcOutcome.CREATED else "Refreshed"
+    click.secho(f"✓ {verb} {resolved_shell} completion in {result.path}", fg='green')
+    click.echo(f"  Binary: {resolved_bin}")
+    if result.backup:
+        click.echo(f"  Backup: {result.backup}")
+    click.echo(f"  Restart your shell or run: source {result.path}")
+
+
+@completion.command(name="uninstall")
+@click.option(
+    '--shell',
+    'shell',
+    type=click.Choice(['auto', *SUPPORTED_SHELLS]),
+    default='auto',
+    show_default=True,
+    help='Shell to uninstall for. `auto` detects from $SHELL.',
+)
+@click.option(
+    '--rc',
+    'rc',
+    default=None,
+    help='Shell rc file to remove the block from. Defaults to ~/.bashrc.',
+)
+@click.option(
+    '--quiet', '-q',
+    is_flag=True,
+    default=False,
+    help='Emit nothing to stdout on success. Warnings still go to stderr.',
+)
+def completion_uninstall(shell: str, rc: str | None, quiet: bool):
+    """Remove the completion block from your shell's rc file.
+
+    \b
+    Byte-clean: the rc file is restored exactly as `completion install` found
+    it, including the blank line that separated the block. A missing file or a
+    file without our block is a success — this is safe to run blind.
+    """
+    rc_path: Path | None = None
+    try:
+        resolved_shell = _resolve_install_shell(shell)
+        rc_path = Path(rc).expanduser() if rc else default_rc_path(resolved_shell)
+        result = remove_block(rc_path)
+    except CompletionError as e:
+        raise click.ClickException(str(e)) from e
+    except OSError as e:
+        raise click.ClickException(f"Could not write {rc_path}: {e}") from e
+
+    _emit_rc_warnings(result.warnings)
+
+    if quiet:
+        return
+
+    if result.outcome is RcOutcome.ABSENT:
+        click.echo(f"No project-guide completion block in {result.path} (nothing to do).")
+        return
+
+    click.secho(f"✓ Removed {resolved_shell} completion from {result.path}", fg='green')
+    if result.backup:
+        click.echo(f"  Backup: {result.backup}")
 
 
 if __name__ == "__main__":
