@@ -60,9 +60,7 @@ For a high-level concept (why), see [`concept.md`](concept.md). For implementati
 - Optional: `--target-dir` (default: `docs/project-guide`)
 - Optional: `--force` (overwrite existing files)
 - Optional: `--no-input` (skip stdin; auto-enabled by `CI=1` or non-TTY)
-- Optional: `--test-first` (prefer TDD; planning modes suggest `code_test_first`, persisted as `test_first` in `.project-guide.yml`)
 - Optional: `--quiet` / `-q` (machine mode: **no stdout on success**; errors/warnings on stderr — see FR-9)
-- Optional: `--project-name` (name used in generated artifacts, e.g. the `stories.md` header; first step of the resolution chain — CLI flag → `PROJECT_GUIDE_PROJECT_NAME` → `pyproject.toml` `[project].name` → current directory name)
 
 **`project-guide mode [MODE_NAME]`**
 - Optional: mode name to switch to
@@ -110,7 +108,7 @@ For a high-level concept (why), see [`concept.md`](concept.md). For implementati
 **`.project-guide.yml`** (created in project root):
 ```yaml
 version: '2.0'
-installed_version: 2.18.1
+installed_version: 2.17.0
 target_dir: docs/project-guide
 metadata_file: .metadata.yml
 current_mode: default
@@ -131,14 +129,7 @@ current_mode: default
 
 **After `project-guide init`:**
 
-Only `.project-guide.yml` (config) is **tracked** in the consumer repo. Everything under `docs/project-guide/` is gitignored static bundled data — re-populated by `heal` on first invocation in a fresh clone (Phase P, FR-14) — **except** `docs/project-guide/go.md`, which is **unignored but untracked by default** (v2.8.0 / Story P.o).
-
-Those two properties are independent and both load-bearing:
-
-- **Unignored** because IDE-integrated LLMs (Cursor, Claude Code, etc.) typically hide gitignored files from the LLM's view, and the instruction to `Read docs/project-guide/go.md` requires the file to be visible.
-- **Untracked** because a tracked `go.md` churns in every mode-switch diff and causes `git switch` to abort when a feature branch's tip differs from its base.
-
-See FR-14 for the migration path and the `heal` warning that surfaces a still-tracked `go.md`.
+Only `.project-guide.yml` (config) and `docs/project-guide/go.md` (rendered LLM entry point) are **tracked** in the consumer repo. Everything else under `docs/project-guide/` is gitignored static bundled data — re-populated by `heal` on first invocation in a fresh clone (Phase P, FR-14). The `go.md` file must remain visible to IDE-integrated LLMs (Cursor, Claude Code, etc.) which typically hide gitignored files from the LLM's view; that is the constraint that forces `go.md` to stay tracked even though it churns on every mode switch.
 
 ```
 project-root/
@@ -146,7 +137,7 @@ project-root/
 ├── .gitignore                      # `# project-guide` block: ignore everything under target_dir except go.md
 └── docs/
     └── project-guide/
-        ├── go.md                   # Rendered entry point (unignored for IDE-LLM visibility; untracked by default)
+        ├── go.md                   # Rendered entry point (tracked in git — required for IDE LLM visibility)
         ├── .metadata.yml           # Mode definitions (hidden, gitignored — heal repopulates)
         ├── README.md               # Directory overview
         ├── developer/              # Developer reference docs
@@ -156,15 +147,13 @@ project-root/
         │   ├── debug-guide.md
         │   ├── landing-page-guide.md
         │   ├── production-github-guide.md
-        │   ├── project-guide.md
-        │   └── python-editable-install.md
+        │   └── project-guide.md
         └── templates/
             ├── llm_entry_point.md  # Jinja2 entry point template
             ├── modes/              # Mode templates + header partials
             │   ├── _header-common.md
             │   ├── _header-sequence.md
             │   ├── _header-cycle.md
-            │   ├── _phase-letters.md
             │   ├── default-mode.md
             │   ├── plan-concept-mode.md
             │   ├── plan-features-mode.md
@@ -197,7 +186,7 @@ project-root/
 
 **`project-guide status` (happy path):**
 ```
-project-guide v2.18.1
+project-guide v2.17.0
 
 Mode: default — Getting started -- full project lifecycle overview
   Run 'project-guide mode' to see available modes.
@@ -210,7 +199,7 @@ Files: 33 current
 
 **`project-guide status` (with problems):**
 ```
-project-guide v2.18.1 (installed: v2.17.0)
+project-guide v2.17.0 (installed: v2.16.1)
 
 Mode: code_direct — Generate code directly, test after
   Prerequisites: all met
@@ -330,27 +319,6 @@ The system renders a single entry-point document (`go.md`) from Jinja2 templates
 2. Confirm unless `--force`
 3. Remove target directory and config file
 
-### FR-7: Shell Completion
-
-Tab completion for `project-guide` commands, flags, and mode names in bash, zsh, and fish.
-
-**Behavior:**
-1. **Static completion** (commands and flags) is provided automatically by Click for any user who enables shell completion via the standard `_PROJECT_GUIDE_COMPLETE=<shell>_source` environment variable
-2. **Dynamic mode name completion**: `project-guide mode <TAB>` reads the active project's `.metadata.yml` and returns matching mode names; works with custom modes
-3. Completion callbacks never crash the user's shell — any error returns an empty list silently
-
-**Setup:**
-- bash: `eval "$(_PROJECT_GUIDE_COMPLETE=bash_source project-guide)"` in `~/.bashrc`
-- zsh: `eval "$(_PROJECT_GUIDE_COMPLETE=zsh_source project-guide)"` in `~/.zshrc`
-- fish: `_PROJECT_GUIDE_COMPLETE=fish_source project-guide | source` in `~/.config/fish/completions/project-guide.fish`
-
-**Known limitations of the current (self-service) shape.** project-guide does **not** install its own completion today — the developer hand-copies one of the snippets above. Two consequences, both observed in the field:
-
-- **The zsh snippet has an undocumented precondition.** Click's `zsh_source` output ends in `compdef`, which does not exist until `compinit` has run. On a shell whose startup files never run `compinit`, the `eval` fails with `command not found: compdef`. The snippet as written is incomplete for that configuration.
-- **The snippets resolve the binary through `PATH`.** Under a host tool that installs project-guide outside the user's `PATH` (e.g. pyve's toolchain venv plus a `~/.local/bin` shim), bare-name resolution can fail.
-
-A change request to close both by adding a first-class `completion` command group — `install` / `uninstall` / `show` / `status`, with a `--bin` flag so a host tool can supply a stable path — is recorded in [`shell-completion-ownership.md`](shell-completion-ownership.md). It is **not yet planned or scheduled**; this section documents shipped behavior only.
-
 ### FR-8: Non-Interactive / CI Mode
 
 `--no-input`, `CI=1`, `PROJECT_GUIDE_NO_INPUT=1`, and non-TTY stdin all suppress interactive prompts on `init`, `update`, `purge`, and `heal`. The first matching trigger wins (priority order: explicit flag → env var → CI env → non-TTY).
@@ -403,14 +371,6 @@ The bundled `templates/artifacts/pyve-essentials.md` artifact covers: two-enviro
 
 `project-guide heal` repairs the install in place: detects drift between the bundled package templates and the on-disk template tree under `target_dir`, then creates missing files and refreshes stale (hash-divergent) ones. Unlike `update`, `heal` also creates missing files — so it is the right command after a fresh clone in a repo that gitignores everything under `target_dir` except `go.md`.
 
-**Division of labor — `init` vs. `update` vs. `heal`.** These three commands are deliberately distinct; confusing them leads to recommending the wrong one:
-
-| Command | Creates missing files | Refreshes drifted files | Notes |
-|---|---|---|---|
-| `init` | ✅ (all of them) | n/a | One-time bootstrap: writes `.project-guide.yml`, copies the template tree, renders the initial `go.md`. Refuses a second run without `--force`. |
-| `update` | ❌ | ✅ | Refreshes only files **that exist on disk**. Absent files are `heal`'s job. |
-| `heal` | ✅ | ✅ | `update` plus create-missing, with silent-when-clean behavior and the auto-hook. The right command for a fresh clone whose template tree is gitignored. |
-
 **Inputs:** `--no-input` (auto-yes the prompt; emit stderr notice — see FR-8).
 
 **Behavior:**
@@ -438,49 +398,43 @@ P.l abandoned the negation form because several IDE-integrated tools (Cursor, pa
 
 Consumers migrating from a pre-Phase-P install run `project-guide init --force` to refresh the gitignore block. Consumers upgrading from v2.6.x/v2.7.x to v2.8.0 run `git rm --cached docs/project-guide/go.md && git commit` once on their default branch to migrate the tracking status; `heal` surfaces the warning until the migration is applied. Existing pre-v2.7.1 installs heal to the v2.7.1 explicit-list form on the next `init --force` — every prior shape stays recognized by `_is_recognized_block_line()`.
 
-### FR-15: Story-Aware `git-push` / `git-commit` Wrappers (gitbetter integration)
+### FR-15: Story-Aware `git-push` Wrapper (gitbetter integration)
 
 `project-guide git-push [BRANCH_NAME]` wraps [gitbetter](https://github.com/pointmatic/gitbetter)'s `git-push` with story metadata: it derives the commit message from the most-recently-completed-and-not-yet-committed story in `docs/specs/stories.md` and shells out to gitbetter to perform the actual push. The wrapper collapses the developer's per-story commit step from "find the story ID, format the message, type the command" to a single command, while delegating every real git operation (preview, confirm, branch cleanup, reject/recovery menu) to gitbetter.
-
-**`git-commit` sibling (Story R.a, v2.18.1).** `project-guide git-commit [BRANCH_NAME]` performs a **local commit** instead of a push, so the developer can iterate on commits locally and push a batch to GitHub later (saving CI minutes). Its interface and behavior are **identical** — everything in this requirement applies to both wrappers unchanged, differing only in which gitbetter binary is invoked. Read every "the wrapper" below as "either wrapper."
 
 **Heading-to-message transformation:**
 - Input: `### Story G.a: v1.2.3 New command \`foo\` with "Hello" [Done]`
 - Output: `G.a: v1.2.3 New command 'foo' with 'Hello'`
 - Rules: strip `### Story ` prefix and ` [Done]` suffix; replace backticks and double quotes with single quotes; preserve single quotes and the colon after the story ID. The colon is the anchor the already-committed check searches for in `git log --pretty=%s`.
 
-**Candidate selection.** Before any branch decision, the `[Done]` story list is filtered: a `[Done]` story whose body contains **zero** checklist items of any kind (`- [ ]` and `- [x]`) is a **header** — a group-overview heading for a sub-numbered cluster like `H.m` / `H.m.1` / `H.m.2` — and has no work to commit, so it is excluded from uncommitted-detection. The rule is deliberately forgiving: a `[Done]` story with all-*unchecked* items is still a real story (unchecked items are a developer-discipline concern, not a header signal). This filter is scoped to the wrappers; `status` still counts headers in its totals.
+**Hard errors (exit 1):**
+- `docs/specs/stories.md` is absent.
+- No `[Done]` story in `stories.md`.
+- The last `[Done]` story is already committed (per `git log` subject prefix match) — the wrapper does not second-guess; the developer resolves manually with raw `git-push`.
+- Multiple `[Done]` stories are uncommitted — same reasoning. The wrapper is for the common "one story done, ready to push" case; multi-story batches are explicit-is-better-than-implicit.
+- `git-push` is not on PATH — the wrapper prints the install hint (`brew install pointmatic/tap/gitbetter`) and exits.
 
-**Sequence discipline (`main` / `master` only).** After the header filter, the remaining `[Done]` stories in document order must form a clean **committed-prefix → uncommitted-suffix** partition. An uncommitted story positioned before the last committed story is **out-of-sequence**. Phase boundaries are not respected — the partition is over the flat document-order list.
-
-On **any other branch** this discipline is suspended: squash merges to main rewrite commit subjects (PR titles), so earlier `[Done]` stories may not parse from the branch's `git log` even though they shipped, and the error would be a false positive. Instead, if at least one `[Done]` story parses from the branch log (an **anchor**), every `[Done]` story before it is presumed merged and announced as such; the normal flow then runs on the genuinely uncommitted tail.
-
-**Behavior — the full decision table.** `main`/`master` also covers the branch-undeterminable case (git absent, not a repo, no commits):
-
-| Situation | Branch | Result |
-|---|---|---|
-| `stories.md` absent | any | exit 1 |
-| No `[Done]` story at all | any | exit 1 — `No completed story found in <path>.` (a `stories.md` authoring problem) |
-| Nothing commit-worthy (all committed, or only headers remain) | any | **exit 0** — `Nothing to commit — every real [Done] story is already in git log.`, naming any `[Done]` headers present |
-| Exactly 1 uncommitted, in sequence | any | derive single-story message → invoke the gitbetter tool |
-| 2+ uncommitted, in sequence | any | propose a bundled subject, prompt `[Y/n]` (default `Y`). Decline → exit 1 with the manual-resolution hint |
-| Out-of-sequence, exactly 1 uncommitted | main/master | prompt `Commit this single out-of-sequence story? [y/N]` (default **`N`**). Accept → single-story commit. Decline → offender error block, exit 1 |
-| Out-of-sequence, 2+ uncommitted | main/master | exit 1 with the offender block (each offender + its later-committed context + the eligible tail). **No prompt** — attribution across several stories is genuinely ambiguous |
-| No anchor, 2+ uncommitted | non-main | offer `Commit just the last one? [Y/n]` (default **`Y`**). Decline → fall through to the bundle offer |
-| Same `<id>` in 2+ commit subjects | any | stderr warning listing the offending subjects, prompt `Continue? [Y/n]` (default `Y`) |
-| gitbetter tool not on PATH | any | exit 1 naming the missing tool + install hint (`brew install pointmatic/tap/gitbetter`) |
-
-**Prompt defaults encode risk.** The bundle offer defaults `Y` (bundling is routine); the out-of-sequence offer defaults `N` (committing out of sequence is the surprising state); the no-anchor offer defaults `Y` (low risk — worst case the developer amends the message, and the branch then has an anchor).
-
-**`--no-input` never auto-yeses a judgment call.** Bundling auto-declines (it changes the commit's shape — a developer decision, not a CI default). Out-of-sequence auto-declines to the error block, so CI never silently commits out of sequence. The duplicate-`<id>` warning auto-**aborts** with exit 1 so CI surfaces the history anomaly rather than papering over it.
-
-**Passthrough guarantee.** The wrapper is a thin convenience layer, not a parallel implementation. gitbetter stays **fully interactive** — its prompts, previews, and reject/recovery menu reach the developer unaltered — and its exit code is propagated **unchanged**, so the external tool's semantics are the source of truth rather than the wrapper's. The wrapper adds message derivation and candidate selection; it never reinterprets a git outcome.
+**Child-process semantics.** The wrapper invokes `git-push` via `subprocess.run(argv, check=False)` with no captured output, so gitbetter inherits the parent's stdin/stdout/stderr and stays fully interactive. The child's exit code is propagated to `sys.exit` unchanged so gitbetter's reject/recovery menu surfaces with real semantics.
 
 **LLM-vs-developer-lane.** This is a developer-lane convenience command. The LLM **does not** initiate it — the approval-gate discipline (do not propose commits, pushes, or follow-ups at story-end) remains in force. The wrapper is invoked by the developer after the LLM presents a completed story.
 
 **`spec_artifacts_path` resolution.** The wrapper reads `spec_artifacts_path` from project-guide metadata when available; otherwise falls back to `docs/specs`. This lets the wrapper work in projects that haven't yet run `project-guide init`, including this project itself before metadata renders.
 
-**Implementation.** The bundled-subject emit grammar, the commit-subject parser's permissive-read / strict-emit asymmetry, and the partition and anchor algorithms are implementation concerns — see `tech-spec.md` § "External CLI Dependencies."
+**`git-commit` sibling (Story R.a, v2.18.1).** `project-guide git-commit [BRANCH_NAME]` has an identical interface and behavior — same message derivation, bundle offer, header filter, out-of-sequence handling, branch-aware presumption, exit codes — but shells out to gitbetter's `git-commit` binary to perform a **local commit** instead of a push, so the developer can iterate on commits locally and push a batch to GitHub later (saving CI minutes). Both commands share a single implementation (`_run_gitbetter_wrapper(tool_name, …)` in `cli.py`); `tool_name` selects the gitbetter binary and drives every tool-naming message.
+
+### FR-7: Shell Completion
+
+Tab completion for `project-guide` commands, flags, and mode names in bash, zsh, and fish.
+
+**Behavior:**
+1. **Static completion** (commands and flags) is provided automatically by Click for any user who enables shell completion via the standard `_PROJECT_GUIDE_COMPLETE=<shell>_source` environment variable
+2. **Dynamic mode name completion**: `project-guide mode <TAB>` reads the active project's `.metadata.yml` and returns matching mode names; works with custom modes
+3. Completion callbacks never crash the user's shell — any error returns an empty list silently
+
+**Setup:**
+- bash: `eval "$(_PROJECT_GUIDE_COMPLETE=bash_source project-guide)"` in `~/.bashrc`
+- zsh: `eval "$(_PROJECT_GUIDE_COMPLETE=zsh_source project-guide)"` in `~/.zshrc`
+- fish: `_PROJECT_GUIDE_COMPLETE=fish_source project-guide | source` in `~/.config/fish/completions/project-guide.fish`
 
 ---
 
@@ -495,7 +449,7 @@ project-guide is designed to be hosted by **Pyve** as a globally-shimmed tool in
 | 3 | **`.project-guide.yml` marker shape** | The project-root marker is named exactly `.project-guide.yml` and always carries at least `version`, `installed_version`, `target_dir`, and `current_mode`. Additional fields may exist; their absence is not a violation. | `tests/test_cross_repo_contract.py::test_project_guide_yml_marker_shape` |
 | 4 | **Pyve-managed-hosting awareness (readiness-gated)** | When pyve is detected, templates and CLI output reflect the pyve-managed-hosting context. The local-install warning is **readiness-gated and non-destructive** (Subphase Q-4): it detects pyve *live* (`shutil.which("pyve")`, not the cached `pyve_version`), then consults the read-only `pyve self provision --status --json` query and classifies its exit code — **0** (global ready) → benign-duplicate notice advising `pip uninstall`; **2** (not pyve-managed here) → silent; **1 / 127 / OSError / other**, or a **timed-out/hung probe** (`subprocess.TimeoutExpired`, caught alongside `OSError`, bounded at `timeout=5` per Q.t) → readiness-first guidance that **never** advises removal. The core invariant is **never advise `pip uninstall project-guide` unless the query returns exit 0**. The behavior **degrades safely** when the query is absent/old (treated as non-zero → readiness-first). `heal` additionally offers, interactively, to delegate provisioning to `pyve self provision`. | Implementation only (FR — see Subphase Q-3 / Q.m, refined Subphase Q-4 / Q.q); behavior, not a pinned-format contract. |
 
-Changing the `.project-guide.yml` filename, removing any of the contract fields, or altering the `--version` format requires a coordinated change with Pyve. The readiness-gated warning (#4) carries a **two-way version coordination**: project-guide's gating expects **pyve ≥ the release that ships `pyve self provision --status`** (degrading to readiness-first below that), and pyve adopting this messaging pins **project-guide ≥ v2.15.0** (mirroring the existing `≥ 2.13.0` hosting pin). See `docs/specs/project-essentials.md` → "Pyve cross-repo contracts" for the architectural invariants and [`.archive/phase-q-pyve-toolchain-hosting.md`](.archive/phase-q-pyve-toolchain-hosting.md) for the cross-repo contract source.
+Changing the `.project-guide.yml` filename, removing any of the contract fields, or altering the `--version` format requires a coordinated change with Pyve. The readiness-gated warning (#4) carries a **two-way version coordination**: project-guide's gating expects **pyve ≥ the release that ships `pyve self provision --status`** (degrading to readiness-first below that), and pyve adopting this messaging pins **project-guide ≥ v2.15.0** (mirroring the existing `≥ 2.13.0` hosting pin). See `docs/specs/project-essentials.md` → "Pyve cross-repo contracts" for the architectural invariants and [`phase-q-pyve-toolchain-hosting.md`](phase-q-pyve-toolchain-hosting.md) for the cross-repo contract source.
 
 ---
 
@@ -505,13 +459,12 @@ Changing the `.project-guide.yml` filename, removing any of the contract fields,
 
 ```yaml
 version: '2.0'                      # Config schema version
-installed_version: '2.18.1'         # Package version when last synced
+installed_version: '2.17.0'         # Package version when last synced
 target_dir: 'docs/project-guide'    # Where templates are installed
 metadata_file: '.metadata.yml'      # Metadata filename (within target_dir)
 current_mode: 'default'             # Active mode
 test_first: false                   # Default coding approach (false = code_direct, true = code_test_first)
 pyve_version: '1.2.3'               # Detected pyve version at init time; null if not installed
-project_name: 'project-guide'       # Name used in generated artifacts; resolved at init (see Inputs)
 
 overrides:                           # Optional — file-level update locks
   <file_name>:
