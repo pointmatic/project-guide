@@ -63,3 +63,8 @@ class RenderError(ProjectGuidesError):
 class ActionError(ProjectGuidesError):
     """Exception raised when an artifact action (create/modify/archive) fails."""
     pass
+
+
+class CompletionError(ProjectGuidesError):
+    """Exception raised for shell-completion generation or post-processing failures."""
+    pass

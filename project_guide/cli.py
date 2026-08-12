@@ -24,9 +24,16 @@ from pathlib import Path
 import click
 
 from project_guide.actions import ActionType, perform_archive
+from project_guide.completion import (
+    SUPPORTED_SHELLS,
+    build_script,
+    resolve_bin,
+    resolve_shell,
+)
 from project_guide.config import Config
 from project_guide.exceptions import (
     ActionError,
+    CompletionError,
     ConfigError,
     MetadataError,
     RenderError,
@@ -61,7 +68,9 @@ def _migrate_config_if_needed() -> None:
     new_path = Path(".project-guide.yml")
     if old_path.exists() and not new_path.exists():
         old_path.rename(new_path)
-        click.secho(f"Migrated {old_path} → {new_path}", fg='yellow')
+        # stderr: this fires before any subcommand, including stdout-producing
+        # ones like `completion show` whose output is meant to be evaluated.
+        click.secho(f"Migrated {old_path} → {new_path}", fg='yellow', err=True)
 
 
 # Recursion guard env var: set to "1" while heal is running so any nested
@@ -1509,7 +1518,9 @@ def _run_pre_invoke_hook() -> None:
             f"{drift_count} template{plural} missing or stale.",
             err=True,
         )
-        if not click.confirm("Update?", default=True):
+        # err=True keeps the prompt off stdout: the hook runs before every
+        # subcommand, and `completion show`'s stdout is meant to be evaluated.
+        if not click.confirm("Update?", default=True, err=True):
             return  # decline does not block the subcommand
 
     try:
@@ -2405,6 +2416,76 @@ def purge(force, no_input, quiet):
     if not quiet:
         click.echo()
         click.secho("project-guide has been purged from this project.", fg="green", bold=True)
+
+
+@main.group()
+def completion():
+    """Manage shell completion for project-guide.
+
+    \b
+    The generated script does not depend on `PATH`: the resolved binary path is
+    baked into the completion callback, so completion keeps working when
+    project-guide is hosted behind a shim that is not on `PATH` (pyve's
+    toolchain layout). See `completion show --help` for how that path is
+    resolved.
+
+    \b
+    Supported shells: bash, zsh. fish uses a third install mechanism and is
+    not yet supported.
+    """
+
+
+@completion.command(name="show")
+@click.option(
+    '--shell',
+    'shell',
+    type=click.Choice(['auto', *SUPPORTED_SHELLS]),
+    default='auto',
+    show_default=True,
+    help='Shell to generate for. `auto` detects from $SHELL and errors if unrecognized.',
+)
+@click.option(
+    '--bin',
+    'bin_path',
+    default=None,
+    help=(
+        'Absolute path to bake into the completion callback. Defaults to the '
+        'path project-guide was invoked as, then a PATH lookup.'
+    ),
+)
+def completion_show(shell: str, bin_path: str | None):
+    """Print the completion script to stdout. Writes nothing.
+
+    \b
+    `--bin` resolution order:
+      1. The explicit flag (a host tool's stable handle — pyve passes its
+         `~/.local/bin/project-guide` shim, not the version-keyed toolchain
+         path behind it). Symlinks are not resolved.
+      2. The console script this process was invoked as.
+      3. A PATH lookup, then the bare command name.
+
+    \b
+    Post-processing is applied only when the resolved path is absolute: the
+    baked guard is a filesystem test, so a bare name would test a file relative
+    to $PWD. On that fallback Click's script is emitted verbatim.
+
+    \b
+    stdout carries the script and nothing else, so it is safe to source:
+      eval "$(project-guide completion show)"
+    Prefer `completion install` — it writes a persistent, inspectable wiring.
+
+    \b
+    This command takes neither --quiet (its stdout *is* the payload) nor
+    --no-input (it never prompts).
+    """
+    try:
+        resolved_shell = resolve_shell(shell)
+        resolved_bin = resolve_bin(bin_path)
+        script = build_script(resolved_shell, resolved_bin)
+    except CompletionError as e:
+        raise click.ClickException(str(e)) from e
+
+    click.echo(script.rstrip("\n"))
 
 
 if __name__ == "__main__":

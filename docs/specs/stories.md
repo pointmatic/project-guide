@@ -78,17 +78,21 @@ Everything downstream depends on the answer: if post-processing is infeasible, `
 
 **Outcome: post-processing is viable.** `--bin`'s contract with pyve holds, and R.c–R.i proceed as planned with four amendments recorded in the plan: (1) the transformation is route-independent; (2) bash needs an executable guard project-guide *adds*, or a stale install prints on every TAB; (3) post-process only when `--bin` is absolute, else emit Click's script verbatim; (4) macOS bash 3.2 registers **nothing** (`complete -o nosort` is bash ≥ 4.4), which is worse than the `compopt` limitation currently recorded as out of scope. No version bump — spike, no shipped code.
 
-### Story R.c: `completion` command group scaffold + `show` [Planned]
+### Story R.c: `completion` command group scaffold + `show` [Done]
 
 The read-only slice: everything needed to *produce* a correct script, with no filesystem writes. Establishes the group, shell detection, and the post-processing proven in R.b.
 
-- [ ] Add the `completion` Click group with `--shell auto|zsh|bash` resolution (`auto` reads `$SHELL`, falling back to an explicit error rather than a guess)
-- [ ] Implement script generation via Click's `_PROJECT_GUIDE_COMPLETE=<shell>_source` protocol
-- [ ] Apply the R.b post-processing so the emitted script does not depend on `PATH` — one generator for both shells (R.b Amendment 1); each substitution must match **exactly once** or hard-error naming the failed pattern (no Click version guard, per the R.b stability finding)
-- [ ] Implement `--bin` resolution: explicit flag → project-guide's own resolved absolute path → bare-name `PATH` fallback. Post-process **only** when the result is absolute; on the bare-name fallback emit Click's script verbatim (R.b Amendment 3 — the baked guard is a filesystem test)
-- [ ] `completion show` prints the post-processed script to stdout; no writes, no prompts
-- [ ] Tests: per-shell generation, `--bin` resolution order, `--shell auto` detection, unsupported-shell error
-- [ ] Verify `--quiet` / `--no-input` interaction is coherent for a stdout-producing command
+- [x] Add the `completion` Click group with `--shell auto|zsh|bash` resolution (`auto` reads `$SHELL`, falling back to an explicit error rather than a guess) — `resolve_shell` in the new `project_guide/completion.py`
+- [x] Implement script generation via Click's `_PROJECT_GUIDE_COMPLETE=<shell>_source` protocol — `generate_script` calls the protocol's `ShellComplete` class in-process (same template, no subprocess). The supported set is project-guide's, not Click's: fish is refused because the group cannot yet *install* what it would generate
+- [x] Apply the R.b post-processing so the emitted script does not depend on `PATH` — one generator for both shells (R.b Amendment 1); each substitution must match **exactly once** or hard-error naming the failed pattern (no Click version guard, per the R.b stability finding) — `postprocess_script`; the callback is checked first so an unrecognizable script fails on the pattern both shells share
+- [x] Implement `--bin` resolution: explicit flag → project-guide's own resolved absolute path → bare-name `PATH` fallback. Post-process **only** when the result is absolute; on the bare-name fallback emit Click's script verbatim (R.b Amendment 3 — the baked guard is a filesystem test) — `resolve_bin`; symlinks deliberately unresolved (the shim is the stable handle), and argv[0] is used only when it *is* the console script, so `python -m project_guide` falls through to the `PATH` lookup
+- [x] `completion show` prints the post-processed script to stdout; no writes, no prompts
+- [x] Tests: per-shell generation, `--bin` resolution order, `--shell auto` detection, unsupported-shell error — 48 new tests in `tests/test_completion.py` (684 passed total)
+- [x] Verify `--quiet` / `--no-input` interaction is coherent for a stdout-producing command — **took neither flag** (`--quiet` would make the command a no-op; `--no-input` would imply a prompt that does not exist), and closed two stdout leaks the verification surfaced: the auto-heal hook's `Update?` confirm and the legacy-config `Migrated` notice both wrote to **stdout** ahead of every subcommand, so `eval "$(project-guide completion show)"` would have evaluated them as shell code. Both moved to stderr, matching the rest of the hook
+
+End-to-end verified with the shipped code, binary off `PATH`: bash rc-eval yields 13 completions, zsh fpath autoload yields the full list under a real interactive shell.
+
+No version bump — Subphase R-1 ships bundled as `v2.19.0` at R.i, which owns the CHANGELOG entry.
 
 ### Story R.d: `completion install` / `uninstall` — bash rc-block route [Planned]
 
