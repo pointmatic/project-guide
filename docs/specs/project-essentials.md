@@ -1,5 +1,7 @@
 Must-know facts for future LLMs working on the project-guide project. These are things a smart newcomer could easily miss and waste time on. This content gets injected verbatim under a `## Project Essentials` section in every rendered mode, so entries below use `###` for subsections.
 
+**What belongs here.** This file is a **map of where the skeletons are buried** — traps, project-local conventions, and the rules that govern how work is done here. It is deliberately *not* a description of each skeleton: *what* the system guarantees lives in `docs/specs/features.md`, *how* it is built lives in `docs/specs/tech-spec.md`. Because every word is injected into every rendered `go.md`, in every mode, content duplicated from those two files is paid for on every invocation. When adding to this file, prefer a one-line trap plus a pointer over a full explanation. (Pointers below are written as plain paths rather than links, because this text is rendered into `docs/project-guide/go.md`, where relative links would resolve against the wrong directory.)
+
 **Note:** Pyve workflow rules (two-environment pattern, canonical invocation forms, `python` vs `python3`, `requirements-dev.txt` convention, editable-install/testenv guidance, LLM-internal vs. developer-facing invocation) are auto-rendered from the bundled `pyve-essentials.md` artifact under `## Project Essentials > ### Pyve Essentials` and are intentionally NOT duplicated here.
 
 ### Dogfooding rule — template source of truth
@@ -17,18 +19,21 @@ In particular, `docs/project-guide/go.md` is dynamically re-rendered by the `pro
 - **Phase K release lifecycle:** `archive_stories` mode + the `archive-stories` CLI command form a two-part pattern — the mode template walks the developer through the decision conversationally; the CLI performs the deterministic file move + re-render. Keep this split when adding similar lifecycle commands.
 - **Phase letters continue across archive boundaries.** When planning a new phase with `plan_phase` and `stories.md` is empty (post-archive), the `.archive/stories-vX.Y.Z.md` files must be read to determine the next letter. The rules are centralized in `project_guide/templates/project-guide/templates/modes/_phase-letters.md`.
 
-### `--no-input` contract (added v2.2.1)
+### Traps that look like cleanups
 
-Any future interactive prompt added to a CLI command **must** use the `should_skip_input()` helper from `project_guide/runtime.py` to decide whether to read from stdin, and must use `_require_setting()` to fail loudly when a required setting has no default under `--no-input`. The contract and the exact error message format are pinned by `tests/test_cli.py::test_require_setting_contract_exit_code_and_message` — do not change that message lightly, as downstream tooling (e.g., pyve) may cite it.
+Each of these has bitten before. The full mechanism lives in `features.md` / `tech-spec.md`; what follows is the part that stops you from "simplifying" something load-bearing.
 
-`init` currently has no prompts, but the plumbing (`skip_input = should_skip_input(no_input)` in `cli.py:init`) is already in place. The unused local is intentional — see the `# noqa: F841` comment.
+- **Do not restore gitignore negation.** The block lists every entry under `target_dir` explicitly rather than the cleaner `<target>/**` + `!<target>/go.md`. Several IDE-integrated tools honor the broad rule and ignore the negation, which hides `go.md` from the LLM — a regression invisible from git's perspective. See `features.md` FR-14.
+- **`go.md` is untracked-but-unignored, and both halves are load-bearing.** Unignored so IDE LLMs can read it; untracked so mode switches do not churn diffs or abort `git switch`. project-guide must never `git add` it. See `features.md` FR-14.
+- **Do not reword `_require_setting`'s failure message.** It is pinned by `tests/test_cli.py::test_require_setting_contract_exit_code_and_message` and downstream tooling may cite it. Any new prompt must route through `should_skip_input()`. See `tech-spec.md` § Auto-Heal Group Hook.
+- **Do not bump `SCHEMA_VERSION` for an additive field.** Only a rename, removal, type change, or changed meaning is breaking; additive-with-default fields load fine on old configs. Bumping needlessly makes every existing project fail until it re-inits. See `features.md` § Configuration File.
+- **Do not put a pyve probe in `_apply_heal`.** It runs from the pre-invoke hook ahead of every command — the Story Q.t hang class. Refresh sites are `update` and an explicit `mode <name>` only; see the cross-repo invariants below.
 
 ### Version bumping
 
-- **One package version per story:** When a **code** story ships, it bumps **`project_guide/version.py`**, **`pyproject.toml`**, and **`CHANGELOG.md` exactly once** — **never** two semver lines for the same story. Doc-only stories **do not** bump for themselves; they share the **preceding code story's** release (or a deliberate doc-only `.N` line when that is project policy), per `code_direct` / planning conventions in this guide.
+- **One package version per story:** When a **code** story ships, it bumps **`project_guide/version.py`**, **`pyproject.toml`**, and **`CHANGELOG.md` exactly once** — **never** two semver lines for the same story. Doc-only stories **do not** bump for themselves; they share the **preceding code story's** release (or a deliberate doc-only `.N` line when that is project policy).
 - **Same story, same bump:** Tasks appended to **one** story's checklist (before it ships) share **that story's** single version — do **not** open a new patch because follow-up bullets landed later. If work is genuinely **new** scope, make a **new** story; it gets **its own** version when **that** story ships.
-- **`stories.md` titles:** include **`vX.Y.Z` in the heading only for the story that owns that bump** (the story whose completion coincides with releasing that version). Omit the version in the title for doc-only stories and for **`[Planned]`** stories until the ship version is known.
-- **Bump when this story owns the release:** `project_guide/version.py`, `pyproject.toml`, and `CHANGELOG.md` (new `## [X.Y.Z]` entry dated).
+- **`stories.md` titles:** include **`vX.Y.Z` in the heading only for the story that owns that bump**. Omit it for doc-only stories and for **`[Planned]`** stories until the ship version is known.
 
 ### Story verification (CI-gate parity)
 
@@ -36,189 +41,68 @@ Before presenting a **code** story at its approval gate, run the **same checks C
 
 - **Tests** — `pyve test` (full suite passes).
 - **Lint** — `pyve env run ruff check project_guide/ tests/`.
-- **Types** — `pyve env run mypy project_guide/`. **mypy is a CI gate** ([ci.yml](../../.github/workflows/ci.yml), [publish.yml](../../.github/workflows/publish.yml)); a verification step that runs only tests + ruff can ship a type error straight to red CI. This happened in **Story Q.u** — a `str | None` narrowing error at `cli.py:2169` reached CI because the verification step omitted mypy.
+- **Types** — `pyve env run mypy project_guide/`. **mypy is a CI gate** ([ci.yml](../../.github/workflows/ci.yml), [publish.yml](../../.github/workflows/publish.yml)); a verification step that runs only tests + ruff can ship a type error straight to red CI. This happened in **Story Q.u** — a `str | None` narrowing error reached CI because the verification step omitted mypy.
 
 Record the outcome in the story checklist (counts passed / "clean"). If the local testenv's console-script shebangs are stale (env-layout churn breaks `pyve env run mypy`), invoke the module directly — `.pyve/envs/testenv/venv/bin/python -m mypy project_guide/` — rather than skipping the gate.
 
-**The CI runner has no pyve.** `ci.yml` does a plain `pip install -e ".[dev]"`, so any test whose expectation depends on the *host machine* having pyve passes locally and fails there — a green local run that predicts nothing. When a story touches pyve detection or the render gate, also run the suite with pyve out of reach:
+**The CI runner has no pyve.** `ci.yml` does a plain `pip install -e ".[dev]"`, so any test whose expectation depends on the *host machine* having pyve passes locally and fails there — a green local run that predicts nothing. When a story touches pyve detection, the render gate, or shell completion, also run the suite with pyve out of reach:
 
 ```bash
 env -i PATH=/usr/bin:/bin HOME="$HOME" .pyve/envs/testenv/venv/bin/python -m pytest -q
 ```
 
-A test needing pyve present (or absent) must **state it** — set `pyve_installed` in the config and pin `_probe_pyve_version` via the `_detect_pyve` / `_detect_no_pyve` helpers in `tests/test_render.py` — never borrow the answer from `init`'s live detection. Story R.j left four tests borrowing it and CI was red from R.j until **R.m.1** repaired them.
+A test needing pyve present (or absent) must **state it** — set `pyve_installed` in the config and pin `_probe_pyve_version` via the `_detect_pyve` / `_detect_no_pyve` helpers in `tests/test_render.py` — never borrow the answer from `init`'s live detection. Story R.j left four tests borrowing it and CI was red until **R.m.1** repaired them. The same run later caught **R.r** turning inspection into a subprocess that printed on every command, so this gate earns its keep beyond pyve detection.
 
 ### Commit workflow
 
-- **Commit messages reference the story ID** in the bare form `<id>: <title>` (no `Story ` prefix — the prefix is implicit context and adds no information the `<id>:` anchor doesn't already convey). Include **`vX.Y.Z`** when this commit is the **single** version bump for that story — examples:
+- **Commit messages reference the story ID** in the bare form `<id>: <title>` (no `Story ` prefix). Include **`vX.Y.Z`** when this commit is the **single** version bump for that story:
   - `"M.a: v2.3.0 project-essentials render hook"` (M.a owns v2.3.0)
-  - `"M.c: align specs with FR-9"` (doc-only; no version in title — rides M.b's or whichever code story owns the release line)
-  - The `project-guide git-push` wrapper's commit-subject parser (`parse_committed_ids_from_subject` in `stories.py`; retired the single-regex `_COMMIT_SUBJECT_STORY_ID_RE` in Story P.u) accepts both bare and legacy `Story <id>:` forms for backward compatibility with historical hand-typed commits (Story P.s), but **bare is canonical** for new commits.
+  - `"M.c: align specs with FR-9"` (doc-only; rides whichever code story owns the release line)
+- The wrappers' parser still accepts the legacy `Story <id>:` form for historical commits, but **bare is canonical** for new ones.
 - **Direct commits to main** in `code_direct` mode — no branches, no PRs.
-
-### Config schema versioning
-
-`.project-guide.yml` has a `version:` field that tracks the **config schema** (currently `"2.0"`, pinned by `SCHEMA_VERSION` in `project_guide/config.py`), not the package version. Policy:
-
-- **Bump `SCHEMA_VERSION` only for breaking changes:** field rename, field removal, type change, or semantic-meaning change of an existing field.
-- **Do NOT bump for additive-with-default changes.** Adding a new optional field with a sensible default (as in every Phase N field: `test_first`, `pyve_version`, `metadata_overrides`) is already backwards-compatible via `data.get(key, default)` in `Config.load()`.
-- **On mismatch,** `Config.load()` raises `SchemaVersionError(direction="older"|"newer")`. `cli.py:update` handles this specially: on `"older"` it points the user at `project-guide init --force` (which performs the backup at the destructive-overwrite site); on `"newer"` it tells the user to upgrade project-guide. `cli.py:init` is the sole writer of `.project-guide.yml.bak.<timestamp>`: with `--force` on an existing config it copies the current file aside before overwriting it, so the backup is idempotent (one per refresh) regardless of the entry point.
-- **When a real breaking change arrives,** revisit adding a migration registry (deferred by design — YAGNI until there's something to migrate).
-- **`project_name` resolution chain** (N.s): at `init` time, `project_name` is resolved from the first available of: CLI `--project-name` → `PROJECT_GUIDE_PROJECT_NAME` env var → `pyproject.toml` `[project].name` → `Path.cwd().name`. Persisted into `.project-guide.yml`; reused by `archive-stories` to render a fresh header even when the old `stories.md` had no parseable header. `cli.py:archive_stories_cmd` prints a drift warning (stderr) but does not fail when `cwd.name != config.project_name`.
 
 ### Approval gate discipline
 
 At approval gates, present the completed work and wait. **Do not prompt for, offer, or initiate git operations** (commits, pushes, PRs, branch creation), CI runs, or deploys unless the current step explicitly calls for them. This applies to every mode, not just `code_direct`.
 
-**Why:** in the `code_direct` cycle, the template lists "direct commits to main" and "commit messages reference story IDs" as conventions — those are *developer-lane* conventions describing what the developer does on their own schedule. They are not instructions for the LLM to offer or bundle commits. The `_header-common.md` **Rules** block makes this universal at read time. The `code_direct` and `code_test_first` "Present" steps reinforce it with explicit "Do not propose commits, pushes, or bundling options. Do not offer 'want me to also...?' follow-ups" language.
+**Why:** the `code_direct` cycle lists "direct commits to main" and "commit messages reference story IDs" as conventions — those are *developer-lane* conventions describing what the developer does on their own schedule. They are not instructions for the LLM to offer or bundle commits.
 
 **How to apply:** when presenting a completed story, end with a concise status + suggested next story. Do not offer "commit first or continue?" options. Do not mention bundling commits. The developer decides; the LLM presents and waits.
 
-### Auto-heal hook contract (added v2.6.0)
+### `project-guide git-push` / `git-commit` are developer-lane
 
-Every `project-guide` invocation — including `--help` and `--version` — calls the heal drift-detection + prompt path *before* dispatching the requested subcommand. The hook is implemented as a custom `HealGroup(click.Group)` whose overridden `main()` runs `_run_pre_invoke_hook()` before `super().main()`, which places it ahead of `make_context` / arg parsing so eager flags do not short-circuit before the hook fires.
+Both wrap [gitbetter](https://github.com/pointmatic/gitbetter) commands and auto-derive the commit message from `[Done]` story headings. They are **developer-lane convenience commands — the LLM must not initiate them.** The approval-gate rule above applies to them exactly as it does to raw `git`; they exist to shorten the developer's typing at commit time, not to give the LLM a new way to volunteer commits.
 
-The hook is silent in the steady state (no drift → no output). It is recursion-guarded by the `PROJECT_GUIDE_HEALING=1` env var, which `_apply_heal()` sets before any write so a `project-guide` subprocess spawned by another `project-guide` invocation does not re-enter and re-prompt.
-
-**Skip conditions:** the hook returns silently when `PROJECT_GUIDE_HEALING=1` is set, when `.project-guide.yml` is absent (let `init` bootstrap; `heal` would error otherwise), or when config load / drift detection fails. Missing `.project-guide.yml` is a hard error from the **`heal` subcommand itself** but a silent skip from the **hook** — the original subcommand surfaces the missing-config error with its own guidance.
-
-### Inverted gitignore policy (added v2.6.0, tightened v2.6.1, IDE-compat reshape v2.7.1, untracked-by-default v2.8.0)
-
-`init`'s gitignore writer produces a canonical block that ignores everything under `target_dir` *except* `go.md`. The block has gone through three shapes; the **tracking status** of `go.md` flipped in v2.8.0:
-
-- **v2.6.0 (P.d):** 4-line negation form (`<target>/**` + `!<target>/go.md` + redundant `<target>/**/*.bak.*`).
-- **v2.6.1 (P.j):** 3-line negation form — dropped the redundant `.bak.*` line.
-- **v2.7.1 (P.l):** **negation-free explicit-list form** — lists every top-level entry under `target_dir` other than `go.md`, plus a `<target>/**/*.bak.*` defensive catch-all. The list is dynamically enumerated from the bundled template root at write time, so new top-level files/directories added in future stories are picked up automatically.
-- **v2.8.0 (P.o):** gitignore block unchanged from v2.7.1; **tracking status of `go.md` flips** from "tracked by historical accident" to **untracked-by-default**. `heal` emits a stderr warning with a copyable `git rm --cached docs/project-guide/go.md && git commit` command when it detects `go.md` in the consumer's git index. `init` emits a stderr note that the file is intentionally untracked.
-
-P.l abandoned negation because several IDE-integrated tools (Cursor, parts of the VS Code fork ecosystem, certain LSP-based search backends) implement a subset of `.gitignore` semantics that does **not** honor re-include negation — they apply the broad `**` rule, hide `go.md` from @-mention / fuzzy-search, and defeat the IDE-LLM-visibility constraint the policy is trying to enforce. **Future maintainers: do not "simplify" back to `**` + `!` — the regression is invisible from git's perspective but breaks the IDE workflow.**
-
-**Idempotent rewrite:** `_ensure_gitignore_entry()` uses `_is_recognized_block_line(line, target_dir)` as its "ours-vs-foreign" predicate. It accepts anything anchored at `/<target>/` (the v2.7.1+ form) plus every prior legacy form (v2.6.1 3-line, v2.6.0 4-line, pre-P.d `.bak.*`-only, legacy `<target>/go.md`). Any block whose lines all satisfy the predicate is rewritten cleanly to the current canonical form. A foreign hand-customized block under a `# project-guide` header is left untouched with a stderr warning; migrate manually or run `init --force`.
-
-### IDE-LLM visibility constraint (added v2.6.0, untracked-by-default refinement v2.8.0)
-
-`go.md` **must remain non-gitignored** because IDE-integrated LLMs (Cursor, Claude Code, etc.) typically hide gitignored files from the LLM's view, and the LLM's instruction to `Read docs/project-guide/go.md` requires the file to be visible.
-
-**Visibility vs. tracking — the key distinction (clarified v2.8.0):**
-
-- **Gitignore status** governs IDE-LLM visibility. The constraint is: `go.md` must remain **non-gitignored** so Cursor / Claude Code / VS Code-fork LLM tooling can read it. The v2.7.1 explicit-list gitignore block already leaves `go.md` un-listed (and therefore unignored).
-- **Tracking status** governs version-control churn and branch-switch safety. Pre-v2.8.0 `go.md` was tracked by historical accident, which made every mode switch appear in diffs and (more dangerously) caused `git switch` aborts when a feature branch had a different `go.md` than its base. v2.8.0 flips the tracking status to **untracked-but-unignored**: IDE LLMs still see the file (because it's not gitignored), but it stays out of the consumer's index so branch switches and merges no longer trip on it.
-
-The canonical state is therefore: `go.md` is **untracked-but-unignored**. Future refactors of the gitignore logic must preserve `go.md` as un-listed in the block (visibility), and project-guide itself must never `git add` it (tracking).
-
-**Warn-don't-auto-fix:** `heal` warns when `go.md` is tracked but does **not** auto-run `git rm --cached` — same wrapper-initiates-git-ops constraint that bounded the P.k `git-push` wrapper. The consumer applies the migration command on their own schedule.
-
-### `heal` vs. `update` vs. `init` (added v2.6.0)
-
-These three commands form a deliberate division of labor — getting them confused leads to recommending the wrong one for the user's situation:
-
-- **`init`** is a one-time bootstrap. It writes `.project-guide.yml`, copies the template tree, and renders the initial `go.md`. It refuses to run a second time without `--force`.
-- **`update`** refreshes files **that exist on disk** when their content has drifted from the bundled template. It does **not** create files that are absent — that is `heal`'s job.
-- **`heal`** is `update` plus create-missing semantics, packaged with silent-when-clean behavior and the auto-hook. It is the right command for the fresh-clone-with-templates-gitignored case introduced by Story P.d.
-
-The auto-hook (P.b) makes `heal` invisible most of the time: any `project-guide` invocation in a clean install is silent about heal; any invocation in a drifted install prompts to repair before the requested subcommand runs.
-
-### `--no-input` auto-yes for `heal` (added v2.6.0)
-
-Under `--no-input` (or `PROJECT_GUIDE_NO_INPUT=1`, `CI=1`, non-TTY stdin) the `heal` `[Y/n]` prompt is replaced with auto-yes plus a one-line stderr notice:
-
-```
-Auto-healing N templates under --no-input.
-```
-
-The notice is **non-suppressible** (always emitted even with `--quiet`) so CI logs and embedding callers (pyve scaffolding, etc.) have a visible signal that file writes occurred. This is the heal-specific application of the `--no-input` contract documented earlier in this file.
-
-### `project-guide git-push` is developer-lane (added v2.7.0, bundled-commit support added v2.9.0, header-awareness + out-of-sequence detection added v2.10.0, single-story out-of-sequence opt-in v2.14.0, branch-aware squash-merge presumption v2.16.0)
-
-`project-guide git-push` is a thin wrapper over [gitbetter](https://github.com/pointmatic/gitbetter)'s `git-push` that auto-derives the commit message from `[Done]` story headings. It is a **developer-lane convenience command** — the LLM **must not** initiate it. The approval-gate discipline rule earlier in this file ("do not propose commits, pushes, or bundling options ... do not offer 'want me to also …?' follow-ups") remains in force, and applies to this wrapper just as it does to raw `git`. The wrapper exists to shorten the developer's typing at commit time, not to give the LLM a new excuse to volunteer commits.
-
-**`git-commit` sibling (Story R.a, v2.18.1).** `project-guide git-commit` wraps gitbetter's `git-commit` (local commit instead of push — iterate locally, push a batch later to save CI minutes) with an **identical interface and behavior**: both commands share `_run_gitbetter_wrapper(tool_name, …)` in `cli.py`, differing only in which gitbetter binary is discovered and invoked. Everything in this section — heading-to-message rules, bundle offer, duplicate-ID warning, header filter, out-of-sequence handling, branch-aware presumption, exit-code semantics — applies to both wrappers unchanged.
-
-**Heading-to-message rules (single story):**
-- Output is `"<id>: <title>"`. The colon after the story ID is preserved — it is the anchor the already-committed check searches for in `git log --pretty=%s`.
-- Backticks (`` ` ``) in the title become single quotes.
-- Double quotes (`"`) in the title become single quotes.
-- Single quotes pass through unchanged. The wrapper invokes gitbetter via `subprocess.run([...], shell=False)`, so there is no shell-quoting concern.
-
-**Bundle-offer flow (P.u, v2.9.0):** when 2+ `[Done]` stories are uncommitted, the wrapper proposes a bundled commit subject and asks `[Y/n]`:
-- **Emit format:** per-story tokens joined with `", "`; each token is `<id>` or `<id>: <version>`; titles joined with `" + "` after the title boundary. Concrete shapes:
-  - All versionless → `H.a, H.b, H.c: title1 + title2 + title3`
-  - All versioned → `H.j: v0.10.0, H.k: v0.11.0 title1 + title2` (last token's `: <ver>` doubles as the title boundary)
-  - Mixed → `H.a, H.b: v1.2.3, H.c: title1 + title2 + title3`
-- **Colon rule:** a colon precedes a *version* or a *title*; it does not separate two bare IDs.
-- **Whitespace:** the assembled message is trimmed and any internal whitespace run collapsed to a single space.
-- **Title sanitization:** same backtick / double-quote rules as single-story.
-- **Decline (`n`)** → exit 1 with `"Multiple uncommitted [Done] stories: ..."` (today's manual-resolution hint).
-- **`--no-input`** → auto-decline (bundling changes the shape of the commit; that is a developer decision, not a CI default). The interactive default at the `[Y/n]` prompt is `Y`.
-
-**Bundled-commit recognition (P.u, v2.9.0):** the already-committed check parses each commit subject via `parse_committed_ids_from_subject` (in `stories.py`), which recognizes single-ID subjects (bare and `Story <id>:` legacy), legacy bundled subjects with no colons (`H.a, H.b, H.c InputSource ...`), and every canonical bundled form the wrapper itself emits. The parser is intentionally permissive on the read side and strict on the emit side. **Important:** the parser only inspects the ID-prefix shape — title text is never used to match. Story titles may contain `+` separators or any other prose without confusing the wrapper.
-
-**Duplicate-`<id>` warning (P.u, v2.9.0):** when the same bare `<id>` appears in 2+ commit subjects (regardless of version), the wrapper emits a stderr warning listing the offending subjects and asks `Continue? [Y/n]` (default `Y`). Under `--no-input`, auto-aborts with exit 1 so CI surfaces the history anomaly rather than papering over it.
-
-**Header-story filter (P.v, v2.10.0):** a `[Done]` story whose body — the text between its `### Story` heading and the next `### Story` / `## Phase` / `## Future` / EOF — contains **zero** `- [ ]` and `- [x]` checklist items is treated as a **header** (group-overview heading for a sub-numbered cluster like `H.m` / `H.m.1` / `H.m.2`). Header stories are filtered out of `git-push`'s uncommitted-detection flow — they have no work to commit. The forgiving rule (zero items *of any kind*, not "zero checked items") means a `[Done]` story with all-unchecked items is still treated as a real story: the unchecked items are a developer-discipline concern, not a header signal. Scope: `git-push` only — `_read_done_stories` populates a `StoryHeading.is_header` flag, but other consumers (e.g. `status`) still count `[Done]` headers in their totals. Header IDs that somehow appear in git log are *not* special-cased on the committed-set side; the wrapper doesn't police random commits.
-
-**Out-of-sequence detection (P.v, v2.10.0; single-story opt-in Q.p, v2.14.0):** after the header filter, the post-filter `[Done]` list in stories.md document order must follow a clean **committed-prefix → uncommitted-suffix** partition. Any uncommitted story whose document index is less than the index of the last committed story is **out-of-sequence**. Phase boundaries are not respected — the partition operates on the flat document-order list. Resolution depends on how many `[Done]` stories are uncommitted:
-
-- **Exactly one uncommitted `[Done]` story (Q.p):** its commit message is unambiguous (only one story to attribute), so the wrapper offers `Commit this single out-of-sequence story? [y/N]` (default **`N`** — the inverse of the bundle offer's `[Y/n]`, because committing out of sequence is the surprising state). Accept (`y`) → derive the single-story message and fall through to the normal single-story `git-push` invocation. Decline (`N`) → emit the offender error block and exit 1. The prompt is handled by `_prompt_commit_out_of_sequence` in `cli.py`.
-- **Multiple uncommitted `[Done]` stories:** **unchanged from P.v** — exit 1 with the offender block (every offender + its later-committed context + the eligible-tail context), no prompt. This is the genuine-attribution-ambiguity case the hard error exists to catch.
-
-Out-of-sequence remains an **error path that `--no-input` never auto-yeses**: under `--no-input` the single-story opt-in auto-declines to the error block (so CI never silently commits out of sequence).
-
-**Branch-aware squash-merge presumption (Q.u, v2.16.0):** the out-of-sequence discipline above applies only on **`main`/`master`** (literal match; also when the branch is undeterminable — git absent, not a repo, no commits). On **any other branch**, squash merges to main rewrite commit subjects (PR titles), so earlier `[Done]` stories may not parse from this branch's `git log` even though they shipped — the out-of-sequence error would be a false positive. `_presume_committed_on_branch` (`cli.py`) replaces it with two heuristics:
-
-- **Anchor found** (≥1 `[Done]` story parses from the branch log): announce `The first committed story in branch '<branch>' is: <id>.`, presume every `[Done]` story *before* it (document order) merged via the squashed branch (announced), and run the normal single/bundle flow on the genuinely uncommitted tail. No out-of-sequence error or `[y/N]` prompt on non-main branches.
-- **No anchor** (zero recognizable story commits) with 2+ uncommitted `[Done]` stories: offer `Commit just the last one? [Y/n]` (default **`Y`** — low risk; worst case the developer amends the message to cover more stories, and from then on the branch has a first-story anchor). Accept → single-story push of the last `[Done]` story. Decline → fall through to the normal bundle offer. Under `--no-input` the prompt is skipped (auto-decline → bundle offer → auto-decline → exit 1), so CI never silently picks a story.
-
-The duplicate-`<id>` warning stays active on every branch (it scans the same log and inherited history is still meaningful).
-
-**Nothing-to-commit success (P.v, v2.10.0):** when the post-filter uncommitted list is empty (every real `[Done]` story is already in git log), exit **0** with `Nothing to commit — every real [Done] story is already in git log.` plus a parenthetical naming any `[Done]` headers present. Pre-P.v this was exit 1 with a misleading `"Story <last id> is already committed"` message that named the header heading. The "no `[Done]` stories at all" path keeps its exit-1 stories.md-authoring-problem semantics — only the all-committed case became exit 0.
-
-**Branch logic (post-P.v; Q.u branch-awareness v2.16.0):**
-- 0 `[Done]` stories at all → exit 1 `"No completed story found in <path>."` (stories.md authoring problem).
-- 0 commit-worthy uncommitted (everything committed, or only headers remain) → **exit 0** `"Nothing to commit — ..."`.
-- **Non-main branch (Q.u)** → no out-of-sequence error/prompt; anchor-presumption or the no-anchor `Commit just the last one? [Y/n]` offer (see above), then the normal single/bundle flow on the uncommitted tail.
-- Out-of-sequence detected on main/master, **2+ uncommitted** → exit 1 with the offender+context error block (no prompt).
-- Out-of-sequence detected on main/master, **exactly 1 uncommitted** (Q.p) → prompt `Commit this single out-of-sequence story? [y/N]` (default `N`). Accept → single-story `git-push`. Decline (or `--no-input`) → offender error block, exit 1.
-- 1 commit-worthy uncommitted `[Done]` story (in sequence) → derive single-story message, invoke `git-push`.
-- 2+ commit-worthy uncommitted `[Done]` stories → propose bundled subject, prompt `[Y/n]`. Accept → invoke `git-push` with the bundled message. Decline (or `--no-input`) → exit 1 with the manual-resolution hint.
-- Duplicate `<id>` in git log → warning + prompt `Continue? [Y/n]` (defaults `Y` interactive, `n` under `--no-input`).
-
-**External CLI dependency pattern.** `git-push` is the first `project-guide` subcommand that depends on an external binary being on PATH. See `tech-spec.md` § "External CLI Dependencies" for the canonical pattern (discover via `shutil.which`, invoke via `subprocess.run(..., check=False)` with no captured output, propagate exit code). Future workflow-integration commands should follow the same shape.
+That is the whole of what this file needs to say about them. The behavior (every branch/state outcome, exit codes, prompts, defaults, `--no-input` rules, the `--keep` / `--amend` flags) is in `features.md` FR-15; the internals (message grammar, parser asymmetry, header filter, sequence partition, squash-merge presumption, the wrapper-value principle) are in `tech-spec.md` § External CLI Dependencies.
 
 ### Pyve env-spec vendored-template contract (added v2.12.0)
 
-The `plan_envs` mode (added Subphase Q-2) authors `docs/specs/env-dependencies.md` from a bundled artifact template at `project_guide/templates/project-guide/templates/artifacts/env-dependencies.md`. That bundled template is a **vendored copy of Pyve's `env-dependencies-template.md` at a pinned `spec_version`** (currently `"3.0"`, hard-coded at the §4.0 machine-readable YAML block). The contract governing it:
+The `plan_envs` mode authors `docs/specs/env-dependencies.md` from a bundled artifact template that is a **vendored copy of Pyve's `env-dependencies-template.md` at a pinned `spec_version`** (currently `"3.0"`). This contract has no other home:
 
-- **Pyve owns the vocabulary; project-guide consumes.** The closed vocabularies in the template's §2 — `backend`, `languages`, `frameworks` (app/test/lint kinds), `packaging`, `app_type` — and the §4 schema are **Pyve-owned**. Project-guide does not extend, reword the load-bearing tables, or invent values. The bundled template is a verbatim vendored copy, not an independent spec.
-- **Trichotomy contract.** Every value at every axis is exactly one of three classes: **known + implemented** (Pyve materializes it today), **known + advisory** (Pyve records and surfaces it in `pyve check` / `status` but never materializes — the no-op class), or **unknown** (outside the closed set — a spec violation that hard-errors). The `plan_envs` mode emits only `spec_version`-conformant values; when a requirement is met only by an advisory value, it is recorded with its advisory status, never demoted to force materialization. A mechanism missing from the vocabulary entirely is a **Pyve change-request** (template §8), not an invented value.
-- **Refresh-story protocol.** When Pyve publishes a new template version (new vocabulary value, §4 shape change, or `spec_version` bump), project-guide does a **dedicated refresh story** — the same shape as Subphase Q-1's `pyve-essentials.md` v2.8.0 alignment (Story Q.b). The refresh story re-vendors the template, bumps every `spec_version` reference, and adds a CHANGELOG entry describing the alignment. There is no runtime version negotiation or dynamic template fetching — coupling to Pyve is **release-pinned**, not runtime-linked, exactly like `pyve-essentials.md`'s vendoring.
-- **Authoritative upstream.** Pyve's `docs/specs/project-guide-requests/env-dependencies-template.md` (in the Pyve repo) is the source the bundled copy is vendored from.
-- **Relationship to `### Pyve Essentials`.** The auto-rendered `### Pyve Essentials` block (sourced from the bundled `pyve-essentials.md` artifact via FR-13) is about Pyve *invocation* — workflow rules, canonical command forms, environment conventions. This contract is about Pyve *env-spec vocabulary* — the data contract `plan_envs` output must conform to. Complementary, not overlapping.
+- **Pyve owns the vocabulary; project-guide consumes.** The closed vocabularies in the template's §2 — `backend`, `languages`, `frameworks`, `packaging`, `app_type` — and the §4 schema are **Pyve-owned**. Project-guide does not extend them, reword the load-bearing tables, or invent values. The bundled template is a verbatim vendored copy, not an independent spec.
+- **Trichotomy contract.** Every value is exactly one of: **known + implemented** (Pyve materializes it today), **known + advisory** (Pyve records and surfaces it but never materializes), or **unknown** (outside the closed set — a spec violation that hard-errors). When a requirement is met only by an advisory value, record it with its advisory status; never demote it to force materialization. A mechanism missing from the vocabulary entirely is a **Pyve change-request**, not an invented value.
+- **Refresh-story protocol.** When Pyve publishes a new template version, project-guide does a **dedicated refresh story** that re-vendors the template, bumps every `spec_version` reference, and adds a CHANGELOG entry. Coupling to Pyve is **release-pinned**, never runtime-negotiated.
+- **Authoritative upstream:** Pyve's `docs/specs/project-guide-requests/env-dependencies-template.md`.
+- **Not the same thing as `### Pyve Essentials`,** which is about Pyve *invocation*. This contract is about Pyve *env-spec vocabulary*. Complementary, not overlapping.
 
 ### `plan_envs` is frozen — do not use (added 2026-06-22)
 
-`plan_envs` (Subphase Q-2, shipped v2.12.0) is **frozen and must not be used, recommended, run, or polished**. It is stale: the env-spec vocabulary and `env-dependencies.md` template it vendors (`spec_version "3.0"`, see the preceding "Pyve env-spec vendored-template contract" section) are ahead of what current Pyve can operate, so its output does not round-trip. Improving it is **blocked on upstream Pyve work**; it stays frozen until Pyve unblocks it and the mode is re-aligned to Pyve's current functionality and capabilities.
+`plan_envs` (shipped v2.12.0) is **frozen and must not be used, recommended, run, or polished**. The env-spec vocabulary it vendors is ahead of what current Pyve can operate, so its output does not round-trip. Improving it is **blocked on upstream Pyve work**.
 
-**How the freeze is enforced (Story Q.z.1):** the `plan-envs-mode.md` template opens with a `FROZEN — DO NOT USE` banner; the recommended planning sequence **bypasses** it (`plan_tech_spec.next_mode` is `plan_stories`, **not** `plan_envs`); the mode stays *listed* (its `.metadata.yml` `info` is annotated `(FROZEN …)`) so explicit invocation still works but is loudly discouraged; and every doc surface that lists it carries a `(frozen — pending Pyve work)` marker.
+**How the freeze is enforced (Story Q.z.1):** the mode template opens with a `FROZEN — DO NOT USE` banner; the recommended planning sequence **bypasses** it (`plan_tech_spec.next_mode` is `plan_stories`); the mode stays *listed* so explicit invocation still works but is loudly discouraged; every doc surface listing it carries a `(frozen — pending Pyve work)` marker.
 
-**The vendored-template contract above is paused, not retired.** Do **not** refresh `env-dependencies.md`'s `spec_version` or re-vendor the template while frozen — that work folds into the eventual unfreeze story (which re-wires the sequence back through `plan_envs`, drops the banner, and removes the markers).
+**The vendored-template contract above is paused, not retired.** Do **not** refresh `env-dependencies.md`'s `spec_version` while frozen — that folds into the eventual unfreeze story.
 
 ### Pyve cross-repo contracts (added v2.13.0)
 
-Pyve hosts project-guide as a globally-shimmed tool in its toolchain venv (Pyve Story N.aw): one install on `PATH` via `~/.local/bin/project-guide`, not a per-project `pip install`. Four behavioral contracts make that hosting model safe; three are pinned by `tests/test_cross_repo_contract.py` (Story Q.l), the fourth is the pyve-managed-hosting awareness behavior (Story Q.m). The functional enumeration lives in `features.md` → "Cross-Repo Contracts"; the contract source is [`.archive/phase-q-pyve-toolchain-hosting.md`](.archive/phase-q-pyve-toolchain-hosting.md). The architectural invariants future LLMs must respect:
+Pyve hosts project-guide as a globally-shimmed tool in its toolchain venv: one install on `PATH` via `~/.local/bin/project-guide`, not a per-project `pip install`. The functional enumeration and the guarding tests are in `features.md` → "Cross-Repo Contracts"; the Q-4 warning's behavior is contract #4 there. The architectural invariants future LLMs must respect:
 
-- **Install-location independence is load-bearing.** Per-project state (`.project-guide.yml`, the `target_dir` tree) is always resolved from `Path.cwd()`, never from the package install location. Do not introduce any read/write of per-project state relative to `project_guide.__file__` — a single shared toolchain install serves many projects, and install-relative state would cross-contaminate them.
-- **(a) Renaming `.project-guide.yml` or removing the contract fields is a coordinated breaking change.** The marker filename and its cross-repo field subset (`version`, `installed_version`, `target_dir`, `current_mode`) are pinned by Pyve. Any rename or field removal requires a **paired Pyve story** shipped in lockstep — never a unilateral project-guide change. The `--version` output format (`project-guide, version X.Y.Z`) is under the same coordination rule.
-- **(b) Pyve detection is cached, not re-run per invocation.** `pyve_version` is detected at `init` time and persisted in `.project-guide.yml`. `status`, help text, template branches, and the `heal` defensive guard all read the **cached** value rather than shelling out to `pyve --version` on every CLI call — this keeps commands cheap and their output deterministic. Do not add per-invocation pyve probing; if a refresh is needed, do it explicitly, not implicitly on every command. **Two documented refresh points, and one hard exclusion:**
-  - **`update` and an explicit `mode <name>` switch re-probe (Subphase R-2, v2.20.0).** This is the invariant's own escape clause ("if a refresh is ever needed, do it explicitly (e.g., on `update`)") taken up, not a loosening of it: both are developer-initiated, both already write the config and re-render, and both are bounded — the bare `mode` listing and `--dry-run` do not probe. It exists because a cache that can never be refilled turns one bad probe into permanent content loss (`_refresh_pyve_detection` in `cli.py`).
-  - **`_apply_heal` must never probe.** It runs from the pre-invoke auto-hook ahead of *every* command, `--help` and `--version` included, so a subprocess there is a probe before literally every invocation — the exact failure class of **Story Q.t (v2.15.1)**, whose `pyve self provision --status` call hung in the field. A regression test asserts the hook path performs no pyve subprocess, guarded at both the helper and `subprocess.run`. Do not "simplify" the refresh by moving it into the shared heal path.
-  - **The Q-4 readiness gate below** is the other sanctioned live probe, bounded to the footgun state.
-- **Relationship to the env-spec contract.** The preceding "Pyve env-spec vendored-template contract" governs a *data vocabulary* (`plan_envs` output shape). This section governs *runtime/CLI surfaces* (install location, `--version`, the config marker, pyve-aware behavior). Both are Pyve-facing contracts; they do not overlap.
-
-**Subphase Q-4 — readiness-gated local-install warning (added v2.15.0).** Contract #4 (pyve-managed-hosting awareness) was refined from Q.m's *unconditional* `pip uninstall` advice to a readiness-gated, non-destructive warning in `_warn_if_local_install_under_pyve` (`cli.py`). The invariants future LLMs must respect:
-
-- **Never advise `pip uninstall project-guide` unless `pyve self provision --status` returns exit 0.** Exit 0 is the only state where a runnable global replacement is confirmed; every other outcome (exit 1 / 127 / `OSError` / any other) degrades to non-destructive readiness-first guidance, and exit 2 (not pyve-managed here) is silent. This is the data-loss-class footgun the subphase exists to close — do not loosen it.
-- **The readiness guard is the documented exception to invariant (b).** It detects pyve *live* via `shutil.which("pyve")` plus the `--status` probe, **not** the cached `config.pyve_version`, because correctness (never stranding a developer, and catching a pyve install that post-dates `init`) outweighs cheapness here. Invariant (b) still governs `status`, help text, and template branches; this is the one sanctioned per-invocation probe. It is bounded to the footgun state: the `--status` subprocess fires only when a project-local `site-packages` install *and* pyve-on-PATH coexist, never in the steady state or an editable dogfood checkout.
-- **project-guide consults the query, never inspects pyve internals.** The toolchain path is version-keyed and `XDG_DATA_HOME`-relative and the shim can move; route everything through the pyve-owned `pyve self provision --status` query rather than reading pyve's toolchain path or shim location directly.
-- **The provisioning offer delegates, never installs.** The `heal`-scoped interactive offer shells out to `pyve self provision` (`_provision_pyve_hosting`); project-guide **never** pip-installs into pyve's toolchain venv. This is the bounded, sanctioned crossing from "warn" to "offer to fix," justified by the tight integration handoff. The offer is `heal`-scoped only — the pre-invoke auto-hook emits the readiness-first warning but never prompts.
-- **Two-way version coordination.** project-guide's gating expects **pyve ≥ the release that ships `pyve self provision --status`** (degrades to readiness-first below that — graceful, never destructive); conversely, pyve adopting this messaging pins **project-guide ≥ v2.15.0** (mirrors the existing `≥ 2.13.0` hosting pin). The pyve-side `pyve self provision --status [--json]` query and the paired `self provision` hang fix live in the Pyve repo (Subphase N-9 / Phase P, Pyve Story N.bv).
+- **Install-location independence is load-bearing.** Per-project state (`.project-guide.yml`, the `target_dir` tree) is always resolved from `Path.cwd()`, never from the package install location. Never read or write per-project state relative to `project_guide.__file__` — one shared toolchain install serves many projects, and install-relative state would cross-contaminate them.
+- **(a) Renaming `.project-guide.yml` or removing a contract field is a coordinated breaking change.** The marker filename and its cross-repo field subset (`version`, `installed_version`, `target_dir`, `current_mode`) are pinned by Pyve, as is the `--version` output format. Any rename or removal requires a **paired Pyve story** shipped in lockstep — never a unilateral change.
+- **(b) Pyve detection is cached, not re-run per invocation.** Do not add per-invocation pyve probing. Three sanctioned exceptions, and one hard exclusion:
+  - **`update` and an explicit `mode <name>` re-probe** (Subphase R-2) — the invariant's own escape clause taken up: developer-initiated, already writing config and re-rendering, and bounded (the bare `mode` listing and `--dry-run` do not probe). It exists because a cache that can never be refilled turns one bad probe into permanent content loss.
+  - **The Q-4 readiness gate** detects pyve *live* rather than from cache, bounded to the footgun state (a project-local `site-packages` install *and* pyve on `PATH` coexisting).
+  - **`_apply_heal` must never probe.** It runs from the pre-invoke hook ahead of *every* command, `--help` included — the exact failure class of **Story Q.t (v2.15.1)**, which hung in the field. A regression test guards it at both the helper and `subprocess.run`. Do not "simplify" the refresh into the shared heal path.
+- **Sticky-true is the safety property behind the render gate.** Automatic detection may set `pyve_installed` **on**, never **off**, so no failed probe can strip the Pyve guidance from `go.md` twice. See `features.md` FR-13.
+- **Never advise `pip uninstall project-guide` unless `pyve self provision --status` returns exit 0.** Every other outcome degrades to non-destructive readiness-first guidance. This is a data-loss-class footgun — do not loosen it. Route everything through the pyve-owned query rather than inspecting pyve's toolchain paths, and delegate provisioning to `pyve self provision`; project-guide never pip-installs into pyve's venv.
+- **Two-way version coordination.** project-guide's gating expects **pyve ≥ the release shipping `pyve self provision --status`**; pyve adopting this messaging pins **project-guide ≥ v2.15.0** (mirroring the `≥ 2.13.0` hosting pin).

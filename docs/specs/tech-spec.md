@@ -81,10 +81,10 @@ project-guide/
 │           ├── README.md
 │           ├── developer/              # Developer reference docs
 │           └── templates/
-│               ├── go.md               # Jinja2 entry point template
+│               ├── llm_entry_point.md  # Jinja2 entry point template (renders to go.md)
 │               ├── modes/              # Mode templates + header partials
 │               └── artifacts/          # Artifact structure templates
-└── tests/                              # 790 tests across 13 files
+└── tests/                              # 901 tests across 15 files
     ├── test_cli.py                     # CLI command tests
     ├── test_sync.py                    # Sync logic tests
     ├── test_integration.py             # End-to-end workflow tests
@@ -107,7 +107,7 @@ project-guide/
 | Pattern | Purpose |
 |---------|---------|
 | `<mode-name>-mode.md` | Mode template (e.g., `code-direct-mode.md`, `scaffold-project-mode.md`) |
-| `_header-*.md` | Jinja2 partials included by mode templates |
+| `_*.md` | Jinja2 partials included by mode templates — `_header-*.md` (per-mode-kind headers) and `_phase-letters.md` (shared phase/story ID rules) |
 | `.metadata.yml` | Hidden config/metadata files (dotfile prefix) |
 | `*.bak.<timestamp>` | Backup files created by forced updates |
 | `go.md` | Rendered entry point (unignored but untracked-by-default as of P.o / v2.8.0) |
@@ -144,8 +144,8 @@ project-guide/
 - `_apply_heal(config, config_path)` — apply pending template syncs and re-render `go.md`. Sets `PROJECT_GUIDE_HEALING=1` in `os.environ` before doing any writes so nested subprocess invocations don't re-enter the auto-hook.
 - `_run_pre_invoke_hook()` — group-level auto-heal hook (Story P.b/c). Calls `should_skip_input()` to honor the `--no-input` contract via env / TTY signals; silent when no drift; prompts on drift in interactive mode; auto-yes + `Auto-healing N templates under --no-input.` stderr notice in skip-input mode.
 - `HealGroup(click.Group)` — custom Click group whose overridden `main()` runs `_run_pre_invoke_hook()` before `super().main()`, so `--help` and `--version` (eager flags that would otherwise short-circuit during arg parsing) still trigger the hook.
-- `_run_gitbetter_wrapper(tool_name, branch_name, no_input)` — shared body of the `git-push` / `git-commit` commands (Story R.a); `tool_name` selects the gitbetter binary (`"git-push"` / `"git-commit"`) and drives every tool-naming message (not-on-PATH error, bundle-decline hint, out-of-sequence manual-resolution hint).
-- `_get_committed_story_ids()` — parses `git log --pretty=%s` and extracts story IDs from any subject line whose prefix matches `<id>: ` (regex `^([A-Z]\.[a-z]+):\s`). Returns an empty set on `git`-not-found, non-git cwd, or empty history. Used by the gitbetter wrappers to decide which `[Done]` stories are uncommitted.
+- `_run_gitbetter_wrapper(tool_name, branch_name, no_input, keep=False, amend=False)` — shared body of the `git-push` / `git-commit` commands (Story R.a); `tool_name` selects the gitbetter binary (`"git-push"` / `"git-commit"`) and drives every tool-naming message (not-on-PATH error, bundle-decline hint, out-of-sequence manual-resolution hint). `keep` / `amend` are Story R.q's gitbetter flag pass-throughs; `amend` short-circuits to `_run_amend` before any message derivation.
+- `_get_committed_story_ids()` — parses `git log --pretty=%s` through `parse_committed_ids_from_subject` (Story P.u, which retired the single-regex form) and returns `(committed_ids, duplicates)`, the second mapping any ID seen in 2+ subjects to those subjects. Returns `(set(), {})` on `git`-not-found, non-git cwd, or empty history. Used by the gitbetter wrappers to decide which `[Done]` stories are uncommitted.
 - `_resolve_spec_artifacts_path()` — best-effort resolver for the `spec_artifacts_path` metadata value used by the gitbetter wrappers to locate `stories.md`. Falls back to `docs/specs` when config / metadata are unavailable so the wrappers work in projects that haven't yet run `init`.
 - `project_guide/stories.py:_read_done_stories()` / `derive_commit_message()` — pure helpers used by the gitbetter wrappers. `_read_done_stories` returns all `[Done]` headings as `StoryHeading(story_id, title)` tuples in file order; `derive_commit_message` produces the gitbetter-ready subject `"<id>: <transformed title>"` (backticks → single quotes, double quotes → single quotes, single quotes pass through, colon preserved).
 - **Phase Q additions (named for navigation; the contracts live in `project-essentials.md`):** `_query_pyve_provision_status()` / `_warn_if_local_install_under_pyve()` / `_provision_pyve_hosting()` (Subphase Q-4 readiness-gated local-install warning); `_get_current_branch()` / `_presume_committed_on_branch()` (Q.u branch-aware squash-merge presumption for `git-push`); `_prompt_commit_out_of_sequence()` (Q.p single-story out-of-sequence opt-in) — all shared by both gitbetter wrappers. The git-log subject parser is `parse_committed_ids_from_subject()` in `stories.py` (P.u, superseding the single-regex form); `stories.py`'s `_STORY_RE` recognizes `#{3,5}` heading depths (Q.v).
@@ -158,11 +158,11 @@ project-guide/
 - `FileOverride` — reason, locked_version, last_updated
 - `Config` — version, installed_version, target_dir, metadata_file, current_mode, test_first, pyve_version, pyve_installed, project_name, metadata_overrides, overrides
 
-`project_name` is populated at `init` via a four-level resolution chain (CLI `--project-name` flag → `PROJECT_GUIDE_PROJECT_NAME` env var → `pyproject.toml` `[project].name` via `runtime._detect_project_name_from_pyproject()` → `Path.cwd().name`) and persists thereafter. It flows into `archive-stories` as the authoritative source for the fresh `stories.md` header.
+`project_name` is populated at `init` via a four-level resolution chain (CLI `--project-name` flag → `PROJECT_GUIDE_PROJECT_NAME` env var → `pyproject.toml` `[project].name` via `runtime._detect_project_name_from_pyproject()` → `Path.cwd().name`) and persists thereafter. It flows into `archive-stories` as the authoritative source for the fresh `stories.md` header, which is why that command can rebuild a header even when the archived `stories.md` had none to parse. `cli.py:archive_stories_cmd` prints a **drift warning** on stderr when `Path.cwd().name != config.project_name` but does not fail — a renamed directory is a plausible, recoverable state, not an error.
 
 **Key behavior:**
 - `Config.load()` / `Config.save()` — YAML round-trip
-- Schema version guard: `Config.load()` compares `data['version']` against module-level `SCHEMA_VERSION` and raises `SchemaVersionError(direction="older"|"newer")` on mismatch. `SchemaVersionError` subclasses `ConfigError` so existing handlers still catch it. `cli.py:update` treats it specially: on `"older"` it directs the user at `init --force`; on `"newer"` it instructs them to upgrade the package. `cli.py:init` performs the actual `.project-guide.yml.bak.<timestamp>` backup when `--force` is used on an existing config — that is the single destructive-overwrite site.
+- Schema version guard: `Config.load()` compares `data['version']` against module-level `SCHEMA_VERSION` and raises `SchemaVersionError(direction="older"|"newer")` on mismatch. `SchemaVersionError` subclasses `ConfigError` so existing handlers still catch it. `cli.py:update` treats it specially: on `"older"` it directs the user at `init --force`; on `"newer"` it instructs them to upgrade the package. `cli.py:init` performs the actual `.project-guide.yml.bak.<timestamp>` backup when `--force` is used on an existing config — that is the single destructive-overwrite site, so the backup is idempotent (one per refresh) regardless of which entry point triggered it. **No migration registry exists, by design** — YAGNI until there is something to migrate; revisit when a genuinely breaking schema change arrives.
 - Override management: `is_overridden()`, `add_override()`, `remove_override()`
 - Pyve detection: `record_pyve_detection(detected_version)` — the sticky-true choke point for every automatic update (see the `Config` dataclass section)
 - Defaults: `target_dir="docs/project-guide"`, `metadata_file=".metadata.yml"`, `current_mode="default"`, `test_first=False`, `pyve_version=None`, `pyve_installed=False`, `metadata_overrides={}`. `pyve_installed` is the one field whose *load* default differs from its dataclass default: an absent key reads as `pyve_version is not None`, preserving pre-R-2 behavior for existing configs
@@ -470,6 +470,42 @@ Shared properties, each of which is load-bearing rather than incidental:
 
 This deliberately keeps each wrapper a thin convenience layer rather than a parallel implementation. The tested invariants are: discovery error message, argv shape (including positional passthrough), and exit-code propagation. Nothing else.
 
+**The wrapper-value principle** (Subphase R-3) is the test every proposed wrapper feature is measured against:
+
+> The wrapper earns its place by *integration* — reading `stories.md` and `git log` so the developer copies and pastes less. A feature that reads neither does not belong in it; use the bare `gitbetter` command.
+
+This is why `--keep` is a straight pass-through with no project-guide semantics, why `--amend` preserves the previous subject instead of accepting `-m`, and why the staging guard (which needs `stories.md`) is in scope while a general working-tree guard is not.
+
+#### Commit-message derivation
+
+**Single story.** `<id>: <title>`. The colon after the ID is preserved — it is the anchor the already-committed check searches for in `git log --pretty=%s`. Backticks and double quotes in the title become single quotes; single quotes pass through (invocation is `shell=False`, so there is no shell-quoting concern).
+
+**Bundled subject** (`derive_bundle_commit_message`, 2+ uncommitted `[Done]` stories). Per-story tokens joined with `", "`, each `<id>` or `<id>: <version>`; titles joined with `" + "` after the title boundary:
+
+| Case | Shape |
+|---|---|
+| All versionless | `H.a, H.b, H.c: title1 + title2 + title3` |
+| All versioned | `H.j: v0.10.0, H.k: v0.11.0 title1 + title2` (the last token's `: <ver>` doubles as the title boundary) |
+| Mixed | `H.a, H.b: v1.2.3, H.c: title1 + title2 + title3` |
+
+The colon rule: a colon precedes a *version* or a *title*, never two bare IDs. The assembled message is trimmed and internal whitespace runs collapse to one space. Title sanitization matches the single-story rules.
+
+**Permissive read, strict emit.** `parse_committed_ids_from_subject` (`stories.py`) recognizes single-ID subjects (bare and the legacy `Story <id>:` form), legacy bundled subjects with no colons, and every canonical form the wrapper emits — while emission produces only the canonical shapes above. The asymmetry is deliberate: historical hand-typed commits must stay recognizable without becoming templates for new ones. The parser inspects **only the ID-prefix shape**; title text is never matched, so a title containing `+` cannot confuse it.
+
+#### Candidate selection
+
+**Header filter.** A `[Done]` story whose body (between its `### Story` heading and the next `### Story` / `## Phase` / `## Future` / EOF) contains **zero** `- [ ]` *and* `- [x]` items is a decorative group-overview header for a sub-numbered cluster, and is filtered out of uncommitted-detection — it has no work to commit. The rule is forgiving on purpose: zero items *of any kind*, not "zero checked items", so a `[Done]` story with all-unchecked items is still a real story (unchecked items are a developer-discipline concern, not a header signal). Scoped to the wrappers — `_read_done_stories` sets `StoryHeading.is_header`, but other consumers such as `status` still count headers in their totals.
+
+**Out-of-sequence partition.** After the header filter, the `[Done]` list in document order must be a clean **committed prefix → uncommitted suffix**. Any uncommitted story whose index precedes the last committed story's index is out-of-sequence. Phase boundaries are not respected; the partition operates on the flat list.
+
+**Squash-merge presumption** (`_presume_committed_on_branch`, and the pure `_presumed_squash_merged_prefix` it shares with the `--amend` guard). Squash merges rewrite commit subjects into PR titles, so earlier `[Done]` stories may not parse from the log at hand even though they shipped. Two heuristics: with an **anchor** (≥1 story parses), presume every story before it merged and run the normal flow on the tail; with **no anchor** and 2+ uncommitted, offer `Commit just the last one? [Y/n]`.
+
+**Destination-aware gate** (Story R.p). Whether the presumption applies is decided by *where the work is going*, not where the developer is standing: a supplied `branch_name` selects it from any checkout. Naming the current branch is not branch work (an ordinary push keeps the strict discipline), and an undeterminable branch stays strict — the mechanism needs a branch to scan and a name to quote. Announcements name the branch **scanned** (the current one); the destination has no log yet.
+
+**`--amend` is a short-circuit, not an inversion** (Story R.q). The wrapper's normal contract is *already-committed → exit 0*; under `--amend` already-committed is the **precondition**, so left alone the wrapper would exit before invoking gitbetter. The temptation is to invert that check and thread a new branch through the derivation flow — the wrong shape, because `--amend` decides no message. It short-circuits instead: refuse under `--no-input` (it force-pushes with `--force-with-lease`, and a history-shape decision is not a CI default), read `git log -1 --pretty=%s` and pass it back verbatim, refuse while a `[Done]` story is uncommitted (gitbetter runs `git add -A` first, so that work would land in the previous commit under the previous message), then invoke. The guard reads the same presumed committed-set as the flow, or it would refuse on every squash-merged feature branch.
+
+The full outcome table — every branch/state combination with its exit code, prompt, and default — is behavior, and lives in [`features.md`](features.md) FR-15.
+
 ### Auto-Heal Group Hook (Phase P)
 
 Every `project-guide` invocation runs the heal drift-detection + prompt path before dispatching the requested subcommand. This is implemented as a custom `HealGroup(click.Group)` whose overridden `main()` calls `_run_pre_invoke_hook()` before delegating to `super().main()`. Running before `super().main()` is deliberate: it places the hook **ahead of `make_context` / arg parsing**, which is what makes the hook fire even for `--help` and `--version` (eager flags that would otherwise short-circuit before any subcommand or group body runs).
@@ -481,6 +517,8 @@ Every `project-guide` invocation runs the heal drift-detection + prompt path bef
 **Decline does not block.** When the user answers `n` to the prompt, the hook returns and the original subcommand still runs. Refusing the heal is the user's choice; it is not an error condition.
 
 **Skip-input contract.** The hook calls `should_skip_input()` (no flag, since the hook runs before per-subcommand args are parsed) so it honors `PROJECT_GUIDE_NO_INPUT`, `CI=1`, and non-TTY stdin. Under skip-input mode the prompt is replaced with the `Auto-healing N templates under --no-input.` stderr notice and auto-yes — see FR-8.
+
+**The rule for any new prompt** (added v2.2.1). Every interactive prompt added to a CLI command **must** decide whether to read stdin via `should_skip_input()` (`runtime.py`), and must use `_require_setting()` to fail loudly when a required setting has no default under `--no-input`. The exact failure message and exit code are pinned by `tests/test_cli.py::test_require_setting_contract_exit_code_and_message` — **do not reword that message casually**; downstream tooling (pyve) may cite it. `init` has no prompts today, but the plumbing (`skip_input = should_skip_input(no_input)`) is already in place; the unused local is intentional and carries a `# noqa: F841`.
 
 ---
 
@@ -513,7 +551,7 @@ All operations are file-based on small files (<100KB each). No performance conce
 | `test_runtime.py` | Runtime helpers (skip-input, project-name detection) |
 | `test_archive_stories_mode.py` | `archive_stories` mode end-to-end |
 
-**Total: 629 tests across 12 files, ≥85% coverage (currently ~91%).**
+**Total: 901 tests across 15 files, ≥85% coverage (currently ~91%).**
 
 ### Key Test Patterns
 
