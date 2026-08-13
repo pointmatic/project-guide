@@ -1472,6 +1472,63 @@ def _warn_if_local_install_under_pyve(config: Config, *, offer_provision: bool =
             _provision_pyve_hosting(pyve_path)
 
 
+def _warn_if_completion_stale() -> None:
+    """Warn (stderr, non-fatal) when shell completion is installed but broken.
+
+    Catches the pyve toolchain-version bump that rots a baked path: the shim
+    project-guide wrote into the rc file stops resolving, and **both shells
+    degrade silently** by design (that silence is mandatory — a broken install
+    must never print at shell startup). The consequence is that nothing tells
+    the user completion stopped working. This is that signal.
+
+    Follows the established warn-don't-auto-fix pattern (tracked-``go.md``,
+    local-install-under-pyve): project-guide **never** repairs the rc file
+    here. Writing to a user's startup files without being asked is the same
+    boundary that bounds the ``git-push`` wrapper — the remedy is printed, the
+    user runs it when they choose.
+
+    Warns on **stale** and **partial** (a half-installed zsh pair is just as
+    silently broken). Silent on:
+
+    - **absent** — an uninstalled convenience is not drift.
+    - **installed** — the steady state, which the auto-hook must keep quiet.
+    - **damaged** — only a human can repair an unparseable block, and
+      ``install`` fails with the same parse error, so there is nothing
+      actionable to say from here.
+    - the recursion guard, and ``--no-input`` / CI / non-TTY stdin, matching
+      both sibling warnings: completion is an interactive-shell convenience,
+      so a CI run has no shell to fix and the warning would be log noise.
+    """
+    if os.environ.get(_HEAL_GUARD_ENV) == "1":
+        return
+    if should_skip_input():
+        return
+
+    for shell_name in SUPPORTED_SHELLS:
+        try:
+            shell_status = inspect_shell(shell_name)
+        except (CompletionError, OSError):
+            continue  # never let a diagnostic break the command it precedes
+
+        if not shell_status.reinstall_fixes_it:
+            continue
+
+        if shell_status.state is CompletionState.STALE:
+            headline = (
+                f"⚠ {shell_name} completion is stale: {shell_status.bin_path} "
+                f"is no longer executable, so completion silently does nothing."
+            )
+        else:
+            explanation = shell_status.details[0] if shell_status.details else "one half is missing"
+            headline = f"⚠ {shell_name} completion is partially installed: {explanation}."
+        click.secho(headline, fg='yellow', err=True)
+        click.secho(
+            f"  Repair with: project-guide completion install --shell {shell_name}",
+            fg='yellow',
+            err=True,
+        )
+
+
 def _run_pre_invoke_hook() -> None:
     """Group-level hook: heal first, then let the requested subcommand run.
 
@@ -1507,6 +1564,7 @@ def _run_pre_invoke_hook() -> None:
 
     _warn_if_go_md_tracked(config)
     _warn_if_local_install_under_pyve(config)
+    _warn_if_completion_stale()
 
     try:
         updated, _skipped, _current, missing = sync_files(config, dry_run=True)
@@ -1601,6 +1659,9 @@ def heal(no_input: bool):
 
     _warn_if_go_md_tracked(config)
     _warn_if_local_install_under_pyve(config, offer_provision=True)
+    # Deliberately *not* calling _warn_if_completion_stale() here: the
+    # pre-invoke hook already runs it before every subcommand, `heal`
+    # included, so a second call would print the same warning twice.
 
     # Drift detection via dry-run sync; overrides are intentionally not drift.
     try:

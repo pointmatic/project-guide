@@ -4432,3 +4432,262 @@ def test_bump_version_helpers_are_removed():
 
 
 # --- End Story Q.ac -----------------------------------------------------------
+
+
+# --- Story R.h: heal stale-completion warning ---------------------------------
+#
+# Warn-don't-auto-fix, the same shape as the tracked-`go.md` and
+# local-install-under-pyve warnings above. `heal` may say a rc file is broken;
+# it may never write to one.
+
+
+@pytest.fixture
+def home_with_completion(tmp_path, monkeypatch):
+    """Point `~` at a scratch directory and install completion into it.
+
+    Returns a callable taking the binary to bake in, so a test can choose
+    between a live path (current) and a dead one (stale).
+    """
+    from project_guide import completion as completion_module
+
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setattr(Path, "home", lambda: home)
+    monkeypatch.setenv("XDG_DATA_HOME", str(home / "xdg"))
+
+    def install(shell: str, bin_path: str):
+        script = completion_module.build_script(shell, bin_path)
+        if shell == "zsh":
+            autoload_dir = home / "xdg" / "project-guide" / "zsh-completions"
+            completion_module.install_autoload_file(autoload_dir, script)
+            body = completion_module.build_zsh_bootstrap(autoload_dir)
+        else:
+            body = script
+        completion_module.install_block(
+            completion_module.default_rc_path(shell),
+            completion_module.build_block(body),
+        )
+        return home
+
+    return install
+
+
+def _live_binary(tmp_path) -> str:
+    binary = tmp_path / "project-guide"
+    binary.write_text("#!/bin/sh\n")
+    binary.chmod(0o755)
+    return str(binary)
+
+
+def test_heal_warns_when_completion_is_stale(
+    runner, tmp_path, prompt_tty, monkeypatch, home_with_completion
+):
+    """The pyve toolchain-bump case: a baked path that no longer resolves.
+
+    Both shells degrade silently in this state, so without a warning the user
+    has no signal at all that completion stopped working.
+    """
+    monkeypatch.delenv("PROJECT_GUIDE_HEALING", raising=False)
+    dead = str(tmp_path / "toolchain-3.12" / "project-guide")
+    home_with_completion("bash", dead)
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_project(runner)
+        result = runner.invoke(main, ['heal'])
+
+    assert result.exit_code == 0, result.output
+    assert "stale" in result.stderr
+    assert dead in result.stderr
+    assert "project-guide completion install --shell bash" in result.stderr
+
+
+def test_heal_warns_about_completion_exactly_once(
+    runner, tmp_path, prompt_tty, monkeypatch, home_with_completion
+):
+    """The pre-invoke hook already runs before `heal`, so `heal` must not re-warn.
+
+    The hook fires ahead of every subcommand, `heal` included. Calling the
+    warning from both places — as the older sibling warnings do — prints it
+    twice for the one command a user is most likely to run about it.
+    """
+    monkeypatch.delenv("PROJECT_GUIDE_HEALING", raising=False)
+    home_with_completion("bash", str(tmp_path / "gone" / "project-guide"))
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_project(runner)
+        result = runner.invoke(main, ['heal'])
+
+    assert result.stderr.count("completion is stale") == 1
+
+
+def test_heal_completion_warning_goes_to_stderr_only(
+    runner, tmp_path, prompt_tty, monkeypatch, home_with_completion
+):
+    """Diagnostics never pollute stdout — the rule `completion show` pinned."""
+    monkeypatch.delenv("PROJECT_GUIDE_HEALING", raising=False)
+    home_with_completion("bash", str(tmp_path / "gone" / "project-guide"))
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_project(runner)
+        result = runner.invoke(main, ['heal'])
+
+    assert "stale" not in result.stdout
+
+
+def test_heal_never_repairs_the_rc_file(
+    runner, tmp_path, prompt_tty, monkeypatch, home_with_completion
+):
+    """Warn-don't-auto-fix: writing to a user's rc file unasked is out of bounds.
+
+    Same constraint that bounds the `git-push` wrapper — project-guide reports,
+    the user decides when to act.
+    """
+    monkeypatch.delenv("PROJECT_GUIDE_HEALING", raising=False)
+    home = home_with_completion("bash", str(tmp_path / "gone" / "project-guide"))
+    rc = home / ".bashrc"
+    before = rc.read_text()
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_project(runner)
+        runner.invoke(main, ['heal'])
+
+    assert rc.read_text() == before
+    assert not list(home.glob(".bashrc.bak.*"))
+
+
+def test_heal_silent_when_completion_is_current(
+    runner, tmp_path, prompt_tty, monkeypatch, home_with_completion
+):
+    """A working install is not drift."""
+    monkeypatch.delenv("PROJECT_GUIDE_HEALING", raising=False)
+    home_with_completion("bash", _live_binary(tmp_path))
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_project(runner)
+        result = runner.invoke(main, ['heal'])
+
+    assert "completion" not in result.stderr.lower()
+
+
+def test_heal_silent_when_completion_is_absent(
+    runner, tmp_path, prompt_tty, monkeypatch
+):
+    """An uninstalled convenience is not drift either — R.f's rule, inherited."""
+    monkeypatch.delenv("PROJECT_GUIDE_HEALING", raising=False)
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setattr(Path, "home", lambda: home)
+    monkeypatch.setenv("XDG_DATA_HOME", str(home / "xdg"))
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_project(runner)
+        result = runner.invoke(main, ['heal'])
+
+    assert "completion" not in result.stderr.lower()
+
+
+def test_heal_warns_on_a_partial_zsh_install(
+    runner, tmp_path, prompt_tty, monkeypatch, home_with_completion
+):
+    """A half-installed zsh pair is just as silently broken as a stale path."""
+    monkeypatch.delenv("PROJECT_GUIDE_HEALING", raising=False)
+    home = home_with_completion("zsh", _live_binary(tmp_path))
+    (home / "xdg" / "project-guide" / "zsh-completions" / "_project-guide").unlink()
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_project(runner)
+        result = runner.invoke(main, ['heal'])
+
+    assert "zsh" in result.stderr
+    assert "project-guide completion install --shell zsh" in result.stderr
+
+
+def test_heal_silent_on_a_damaged_block(
+    runner, tmp_path, prompt_tty, monkeypatch, home_with_completion
+):
+    """`heal` has nothing useful to say about a block only a human can repair.
+
+    Re-running `install` hits the same parse error, so nagging about it every
+    invocation would be noise the user cannot act on from here.
+    """
+    from project_guide import completion as completion_module
+
+    monkeypatch.delenv("PROJECT_GUIDE_HEALING", raising=False)
+    home = home_with_completion("bash", _live_binary(tmp_path))
+    (home / ".bashrc").write_text(f"{completion_module.SENTINEL_START}\nhalf a block\n")
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_project(runner)
+        result = runner.invoke(main, ['heal'])
+
+    assert result.exit_code == 0
+    assert "completion" not in result.stderr.lower()
+
+
+def test_completion_warning_is_silent_under_no_input(
+    runner, tmp_path, monkeypatch, home_with_completion
+):
+    """Matches both sibling warnings: diagnostics for a human, not for CI.
+
+    Completion is an interactive-shell convenience; a CI run has no shell to
+    fix, so the warning would be pure log noise.
+    """
+    monkeypatch.delenv("PROJECT_GUIDE_HEALING", raising=False)
+    home_with_completion("bash", str(tmp_path / "gone" / "project-guide"))
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_project(runner)
+        result = runner.invoke(main, ['heal', '--no-input'])
+
+    assert "stale" not in result.stderr
+
+
+def test_completion_warning_fires_from_the_pre_invoke_hook(
+    runner, tmp_path, prompt_tty, monkeypatch, home_with_completion
+):
+    """It must catch a toolchain bump without the user thinking to run `heal`.
+
+    Same split as the Q-4 local-install precedent: the *warning* fires from
+    the hook, and only an interactive *offer* would be heal-scoped. There is
+    no offer here — this is warn-only.
+    """
+    monkeypatch.delenv("PROJECT_GUIDE_HEALING", raising=False)
+    home_with_completion("bash", str(tmp_path / "gone" / "project-guide"))
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_project(runner)
+        result = runner.invoke(main, ['status'])
+
+    assert "stale" in result.stderr
+
+
+def test_completion_warning_respects_the_recursion_guard(
+    runner, tmp_path, prompt_tty, monkeypatch, home_with_completion
+):
+    """A nested project-guide invocation must not re-warn."""
+    monkeypatch.setenv("PROJECT_GUIDE_HEALING", "1")
+    home_with_completion("bash", str(tmp_path / "gone" / "project-guide"))
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_project(runner)
+        result = runner.invoke(main, ['heal'])
+
+    assert "stale" not in result.stderr
+
+
+def test_hook_steady_state_stays_silent_with_completion_installed(
+    runner, tmp_path, prompt_tty, monkeypatch, home_with_completion
+):
+    """The auto-hook's defining property: a clean install says nothing at all."""
+    monkeypatch.delenv("PROJECT_GUIDE_HEALING", raising=False)
+    home_with_completion("bash", _live_binary(tmp_path))
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_project(runner)
+        result = runner.invoke(main, ['--version'])
+
+    assert result.exit_code == 0
+    assert result.stderr == ""
+
+
+# --- End Story R.h ------------------------------------------------------------
