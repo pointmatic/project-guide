@@ -1377,7 +1377,9 @@ def _provision_pyve_hosting(pyve_path: str) -> None:
     subprocess.run([pyve_path, "self", "provision"], check=False)
 
 
-def _warn_if_local_install_under_pyve(config: Config, *, offer_provision: bool = False) -> None:
+def _warn_if_local_install_under_pyve(
+    config: Config, *, offer_provision: bool = False, already_warned: bool = False
+) -> None:
     """Warn (stderr, non-fatal) when a project-local install coexists with pyve.
 
     Story Q.m introduced this as an *unconditional* ``pip uninstall`` warning the
@@ -1411,6 +1413,13 @@ def _warn_if_local_install_under_pyve(config: Config, *, offer_provision: bool =
     auto-hook) and we are in the readiness-first branch, an interactive offer to
     delegate to ``pyve self provision`` is presented. The offer is naturally
     suppressed under ``should_skip_input`` (the early-return gate above).
+
+    ``already_warned`` (Story R.h.1) suppresses the *warning text* while leaving
+    the offer intact. ``heal`` needs it because the pre-invoke hook has already
+    run this function a moment earlier — the hook fires ahead of every
+    subcommand, ``heal`` included — so without it the user sees the same
+    warning twice. The offer cannot simply move to the hook instead: prompting
+    on every invocation is exactly what the Q-4 heal-scoping avoids.
     """
     if os.environ.get(_HEAL_GUARD_ENV) == "1":
         return
@@ -1432,6 +1441,8 @@ def _warn_if_local_install_under_pyve(config: Config, *, offer_provision: bool =
 
     if exit_code == 0:
         # Global hosting is ready & runnable — the local copy is safely removable.
+        if already_warned:
+            return  # nothing further to do in this branch: it carries no offer
         if version:
             lead = (
                 f"A pyve-managed global project-guide (v{version}) is active; "
@@ -1453,14 +1464,15 @@ def _warn_if_local_install_under_pyve(config: Config, *, offer_provision: bool =
         return  # not pyve-managed in this context — nothing to warn about
 
     # exit 1 / 127 / OSError (None) / any other → readiness-first, never removal.
-    click.secho(
-        "Running project-guide from a local install. Pyve manages "
-        "project-guide globally, but its hosting isn't ready yet.\n"
-        "  Provision it first: pyve self provision\n"
-        "  Keep this local install until the global one is ready.",
-        fg='yellow',
-        err=True,
-    )
+    if not already_warned:
+        click.secho(
+            "Running project-guide from a local install. Pyve manages "
+            "project-guide globally, but its hosting isn't ready yet.\n"
+            "  Provision it first: pyve self provision\n"
+            "  Keep this local install until the global one is ready.",
+            fg='yellow',
+            err=True,
+        )
 
     # Heal-scoped, interactive-only offer to delegate the fix to pyve. The
     # readiness-first warning above still fires from the auto-hook on every
@@ -1657,11 +1669,13 @@ def heal(no_input: bool):
         click.secho(f"Error: {e}", fg='red', err=True)
         sys.exit(3)
 
-    _warn_if_go_md_tracked(config)
-    _warn_if_local_install_under_pyve(config, offer_provision=True)
-    # Deliberately *not* calling _warn_if_completion_stale() here: the
-    # pre-invoke hook already runs it before every subcommand, `heal`
-    # included, so a second call would print the same warning twice.
+    # The pre-invoke hook has already emitted every warning below — it fires
+    # ahead of every subcommand, `heal` included, and reaches this point under
+    # exactly the conditions `heal` does (config present and loadable). So
+    # `heal` re-runs only what the hook cannot do: the interactive,
+    # heal-scoped provisioning offer. `_warn_if_go_md_tracked` and
+    # `_warn_if_completion_stale` add nothing here and are not called at all.
+    _warn_if_local_install_under_pyve(config, offer_provision=True, already_warned=True)
 
     # Drift detection via dry-run sync; overrides are intentionally not drift.
     try:

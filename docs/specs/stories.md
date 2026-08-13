@@ -192,6 +192,33 @@ Follows the established warn-don't-auto-fix pattern (tracked-`go.md`, local-inst
 
 No version bump — Subphase R-1 ships bundled as `v2.19.0` at R.i, which owns the CHANGELOG entry.
 
+### Story R.h.1: De-duplicate the pre-invoke warnings [Done]
+
+Surfaced by R.h. `_warn_if_go_md_tracked` and `_warn_if_local_install_under_pyve` are each registered at **two** call sites — the pre-invoke hook *and* the `heal` command — so `project-guide heal` prints both warnings **twice**. Verified in a real run: the tracked-`go.md` warning appears 2×. R.h avoided propagating the pattern (its warning fires from the hook only, pinned by a test), leaving these two as the remaining offenders.
+
+The hook's coverage is already complete for both. Every path where `heal` reaches its warning calls is one where `.project-guide.yml` existed and `Config.load` succeeded — exactly the condition under which the hook ran its own warnings a moment earlier. The recursion-guard and `should_skip_input` gates are checked inside each warning, so they behave identically at either site.
+
+**The two warnings are not symmetric, and that is the whole design problem:**
+
+- `_warn_if_go_md_tracked` is a **pure duplicate** — drop `heal`'s call, exactly as R.h did.
+- `_warn_if_local_install_under_pyve` is **not**: `heal` passes `offer_provision=True`, and the interactive provisioning offer is deliberately `heal`-scoped (a Subphase Q-4 invariant — the auto-hook warns but never prompts). Deleting `heal`'s call would delete the offer with it. What must be suppressed is the *warning body* on the second call, not the call.
+
+- [x] Remove `heal`'s `_warn_if_go_md_tracked` call; the hook already covers it
+- [x] Make the local-install warning body emit once per process while `heal` keeps its provisioning offer — either a once-per-process emit guard (a module-level set, which generalizes to any future warning) or an explicit "offer only, already warned" parameter. Prefer whichever keeps the Q-4 invariant legible in the code — **chose the parameter** (`already_warned`). The function already takes `offer_provision`, so the two flags sit together and read as one statement about who warns and who prompts; a module-level guard would have added process-global mutable state to buy generality for warnings that do not exist yet
+- [x] If a once-per-process guard is chosen, add a test fixture that resets it, and make sure the reset is automatic rather than something each test must remember — **not applicable**: the parameter approach carries no cross-invocation state, which was a large part of why it won
+- [x] Preserve every existing gate unchanged: recursion guard, `should_skip_input`, and the Q-4 rule that `pip uninstall` advice is emitted **only** on `pyve self provision --status` exit 0 — untouched; `already_warned` gates *printing*, never *deciding*, so no branch condition moved
+- [x] Tests: each warning appears exactly once during `heal`; each still appears from the hook on a non-`heal` subcommand; the provisioning offer still appears under `heal`; steady-state silence preserved — 7 new tests in `tests/test_cli.py` (790 passed total), including one asserting the hook alone still never prompts
+
+**Both exit branches needed the suppression, not just one.** The readiness-first branch is the one carrying the offer, so it was the obvious case — but the exit-0 branch duplicated too, and that is the branch carrying the destructive `pip uninstall` advice. Printing removal advice twice is the worse of the two defects. It takes an early return rather than a skipped `secho`, since that branch has no offer to fall through to.
+
+**`heal` now calls one warning instead of three.** `_warn_if_go_md_tracked` and `_warn_if_completion_stale` are not called from `heal` at all; `_warn_if_local_install_under_pyve` is called solely for its heal-scoped offer. The comment at the call site states the invariant that makes this safe — the hook fires ahead of every subcommand and reaches its warnings under exactly the conditions `heal` does (config present and loadable) — so a future maintainer adding a fourth warning knows not to re-register it here.
+
+Verified in a real run, not just under the test runner: `project-guide heal` with `go.md` tracked prints the warning **once** (it printed twice before this story), and `project-guide status` still prints it once from the hook.
+
+**Scope note.** This is `heal`-warning hygiene rather than shell completion, so it sits slightly outside Subphase R-1's theme. It is placed here because R.h discovered it and it is small enough to ride the same release; move it out of the subphase if you would rather keep R-1 thematically pure.
+
+No version bump — Subphase R-1 ships bundled as `v2.19.0` at R.i, which owns the CHANGELOG entry.
+
 ### Story R.i: `v2.19.0` Subphase R-1 bundled release [Planned]
 
 Documentation and the single release tag for the subphase.

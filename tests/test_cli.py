@@ -4691,3 +4691,148 @@ def test_hook_steady_state_stays_silent_with_completion_installed(
 
 
 # --- End Story R.h ------------------------------------------------------------
+
+
+# --- Story R.h.1: de-duplicate the pre-invoke warnings ------------------------
+#
+# Both older warnings were registered at two call sites — the pre-invoke hook
+# and `heal` — so `project-guide heal` printed each of them twice. The fix must
+# not cost the warnings their hook coverage, and must not cost `heal` its
+# provisioning offer.
+
+
+def test_go_md_warning_appears_once_during_heal(
+    runner, tmp_path, prompt_tty, monkeypatch
+):
+    """`heal` printed this twice: once from the hook, once from its own call."""
+    monkeypatch.delenv("PROJECT_GUIDE_HEALING", raising=False)
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _git_init_repo()
+        _init_project(runner)
+
+        import subprocess
+        subprocess.run(["git", "add", "-f", "docs/project-guide/go.md"], check=True)
+        subprocess.run(["git", "commit", "-q", "-m", "seed"], check=True)
+
+        result = runner.invoke(main, ['heal'])
+
+    assert result.exit_code == 0, result.output
+    assert result.output.count("docs/project-guide/go.md is tracked") == 1
+
+
+def test_go_md_warning_still_fires_from_the_hook(
+    runner, tmp_path, prompt_tty, monkeypatch
+):
+    """De-duplicating must not cost the warning its coverage of other commands."""
+    monkeypatch.delenv("PROJECT_GUIDE_HEALING", raising=False)
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _git_init_repo()
+        _init_project(runner)
+
+        import subprocess
+        subprocess.run(["git", "add", "-f", "docs/project-guide/go.md"], check=True)
+        subprocess.run(["git", "commit", "-q", "-m", "seed"], check=True)
+
+        result = runner.invoke(main, ['status'])
+
+    assert result.output.count("docs/project-guide/go.md is tracked") == 1
+
+
+def test_local_install_warning_appears_once_during_heal(
+    runner, tmp_path, prompt_tty, monkeypatch
+):
+    """Same duplication, but this call site cannot simply be deleted.
+
+    `heal` passes `offer_provision=True`, and that offer is heal-scoped by a
+    Subphase Q-4 invariant. Only the warning body may be suppressed.
+    """
+    import project_guide.cli as cli_module
+
+    monkeypatch.delenv("PROJECT_GUIDE_HEALING", raising=False)
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        runner.invoke(main, ['init'])
+        _fake_pyve_on_path(monkeypatch, cli_module)
+        _fake_site_packages_install(monkeypatch, cli_module)
+        monkeypatch.setattr(cli_module, '_query_pyve_provision_status',
+                            lambda pyve: (1, None))
+        monkeypatch.setattr(cli_module, '_provision_pyve_hosting', lambda pyve: None)
+
+        result = runner.invoke(main, ['heal'], input="n\n")
+
+    assert result.output.count("hosting isn't ready") == 1
+
+
+def test_heal_still_offers_provisioning_after_dedup(
+    runner, tmp_path, prompt_tty, monkeypatch
+):
+    """The heal-scoped offer is the reason `heal`'s call cannot just be removed."""
+    import project_guide.cli as cli_module
+
+    monkeypatch.delenv("PROJECT_GUIDE_HEALING", raising=False)
+    provisioned = []
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        runner.invoke(main, ['init'])
+        _fake_pyve_on_path(monkeypatch, cli_module)
+        _fake_site_packages_install(monkeypatch, cli_module)
+        monkeypatch.setattr(cli_module, '_query_pyve_provision_status',
+                            lambda pyve: (1, None))
+        monkeypatch.setattr(cli_module, '_provision_pyve_hosting',
+                            lambda pyve: provisioned.append(pyve))
+
+        result = runner.invoke(main, ['heal'], input="y\n")
+
+    assert "Provision pyve-managed project-guide now?" in result.output
+    assert provisioned == ['/usr/local/bin/pyve']
+
+
+def test_hook_alone_never_offers_provisioning(
+    runner, tmp_path, prompt_tty, monkeypatch
+):
+    """The Q-4 invariant the dedup must not erode: the hook warns, never prompts."""
+    import project_guide.cli as cli_module
+
+    monkeypatch.delenv("PROJECT_GUIDE_HEALING", raising=False)
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        runner.invoke(main, ['init'])
+        _fake_pyve_on_path(monkeypatch, cli_module)
+        _fake_site_packages_install(monkeypatch, cli_module)
+        monkeypatch.setattr(cli_module, '_query_pyve_provision_status',
+                            lambda pyve: (1, None))
+
+        result = runner.invoke(main, ['status'])
+
+    assert "hosting isn't ready" in result.output
+    assert "Provision pyve-managed project-guide now?" not in result.output
+
+
+def test_local_install_removal_advice_appears_once_during_heal(
+    runner, tmp_path, prompt_tty, monkeypatch
+):
+    """The exit-0 branch duplicated too, and it carries the destructive advice."""
+    import project_guide.cli as cli_module
+
+    monkeypatch.delenv("PROJECT_GUIDE_HEALING", raising=False)
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        runner.invoke(main, ['init'])
+        _fake_pyve_on_path(monkeypatch, cli_module)
+        _fake_site_packages_install(monkeypatch, cli_module)
+        monkeypatch.setattr(cli_module, '_query_pyve_provision_status',
+                            lambda pyve: (0, '2.15.0'))
+
+        result = runner.invoke(main, ['heal'])
+
+    assert result.output.count("pip uninstall project-guide") == 1
+
+
+def test_dedup_preserves_steady_state_silence(runner, tmp_path, prompt_tty, monkeypatch):
+    """A clean install still says nothing at all."""
+    monkeypatch.delenv("PROJECT_GUIDE_HEALING", raising=False)
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_project(runner)
+        result = runner.invoke(main, ['heal'])
+
+    assert result.exit_code == 0
+    assert result.output == ""
+
+
+# --- End Story R.h.1 ----------------------------------------------------------
