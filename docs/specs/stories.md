@@ -113,16 +113,24 @@ Verified end-to-end with the shipped code, binary off `PATH`: **13 completions o
 
 No version bump — Subphase R-1 ships bundled as `v2.19.0` at R.i, which owns the CHANGELOG entry.
 
-### Story R.e: `completion install` / `uninstall` — zsh fpath route [Planned]
+### Story R.e: `completion install` / `uninstall` — zsh fpath route [Done]
 
 The asymmetric half. zsh gets the autoload file its `#compdef` header is designed for, which means two on-disk artifacts instead of one.
 
-- [ ] Write the post-processed script to a zsh autoload directory as `_project-guide`
-- [ ] Add the `fpath` line plus the `compinit` bootstrap to the rc file, sentinel-bracketed
-- [ ] Bootstrap shape: `(( $+functions[compdef] )) || { autoload -Uz compinit && compinit -i; } 2>/dev/null` — leave an existing `compinit` alone
-- [ ] `uninstall` removes **both** the autoload file and the rc block
-- [ ] Idempotency and byte-clean round-trip hold across both artifacts
-- [ ] Tests: fresh install, re-install, round-trip, partial state (file present but rc line absent, and the reverse)
+- [x] Write the post-processed script to a zsh autoload directory as `_project-guide` — `install_autoload_file`; the directory defaults to `$XDG_DATA_HOME/project-guide/zsh-completions` (`~/.local/share/…` fallback), overridable with a new `--dir`. A project-guide-owned directory was chosen over a shared one like `/usr/local/share/zsh/site-functions` precisely so `uninstall` can remove it without wondering whose files it is deleting. No backup for this artifact — unlike the rc file, it is entirely our own regenerable output
+- [x] Add the `fpath` line plus the `compinit` bootstrap to the rc file, sentinel-bracketed — `build_zsh_bootstrap`, carried by R.d's existing block machinery unchanged
+- [x] Bootstrap shape: `(( $+functions[compdef] )) || { autoload -Uz compinit && compinit -i; } 2>/dev/null` — leave an existing `compinit` alone — **the planned shape proved insufficient; see the amendment below.** Shipped shape guards on the autoload file being readable, then branches: `compdef` exists → `autoload -Uz _project-guide && compdef _project-guide project-guide`; otherwise → `autoload -Uz compinit && compinit -i`. The `2>/dev/null` silence and the leave-an-existing-`compinit`-alone intent are both preserved
+- [x] `uninstall` removes **both** the autoload file and the rc block — `remove_autoload_file`; the default (project-guide-owned) directory is `rmdir`'d when emptying it leaves nothing behind, while a user-supplied `--dir` is always left in place
+- [x] Idempotency and byte-clean round-trip hold across both artifacts — "already current" requires *both* to be unchanged, so a deleted autoload file with an intact rc block still reports a refresh rather than a spurious no-op
+- [x] Tests: fresh install, re-install, round-trip, partial state (file present but rc line absent, and the reverse) — 21 new tests (737 passed total), including three that source the generated block in a **real zsh** and assert on `$_comps`, the table `compinit` actually consults
+
+**Amendment — the planned bootstrap misses the common case.** The plan's two-liner handles only "`compinit` never ran" (field defect 1). It does not handle "`compinit` already ran," which is what happens for most users, because the block lands at the *end* of `~/.zshrc` — after oh-my-zsh or a hand-rolled `compinit`. An `fpath` entry added at that point is never scanned. Verified directly rather than reasoned about: with `fpath` extended *before* `compinit`, `_comps[project-guide]` is `_project-guide`; extended *after*, it is unset. Hence the explicit-registration branch. A third requirement fell out of the same investigation: registering a `compdef` against a deleted autoload file defers its failure to TAB time, so the whole block is wrapped in `[[ -r <file> ]]` and a half-uninstalled state is inert rather than noisy.
+
+**Also in this story:** `--dir` is refused for bash (it names an fpath directory bash's single-block route has no use for) — silently ignoring it would let a user believe they had placed the script somewhere. R.d's `install --shell zsh` refusal is gone.
+
+Verified end-to-end with the shipped code, binary off `PATH`: a real interactive zsh (scrubbed environment, `env -i`) reports `_comps[project-guide] = _project-guide`; the autoload file loads cleanly under `autoload -Uz +X`; the baked callback returns 13 candidates. Idempotent re-install, partial-state repair, byte-clean rc round-trip and autoload-file removal all confirmed against real files.
+
+No version bump — Subphase R-1 ships bundled as `v2.19.0` at R.i, which owns the CHANGELOG entry.
 
 ### Story R.f: `completion status` [Planned]
 

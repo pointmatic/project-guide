@@ -83,6 +83,33 @@ Only the **zsh** script carries a `#compdef project-guide` header and an explici
 
 bash needs no `compinit` equivalent. `complete` is always available in an interactive bash, so the bootstrap is zsh-specific code, not shared machinery.
 
+### Finding 4 (Story R.e) — `compinit` *having already run* is the harder half
+
+Defect 1 is "`compdef` does not exist yet." Its mirror image is more common and was not anticipated at planning time: **`compinit` has already run** by the time our block executes, because the block is appended to the end of `~/.zshrc` — after oh-my-zsh, after any hand-rolled `compinit`. `compinit` builds its command→function table (`$_comps`) by scanning `fpath` *at the moment it runs*; entries added afterwards are never seen.
+
+Measured directly, rather than inferred:
+
+| Order | `_comps[project-guide]` |
+|---|---|
+| `fpath` extended **before** `compinit` | `_project-guide` ✅ |
+| `fpath` extended **after** `compinit` | *unset* ❌ |
+| `fpath` extended after, **plus** `autoload -Uz _project-guide && compdef _project-guide project-guide` | `_project-guide` ✅ |
+
+**Consequence:** the planned bootstrap (`(( $+functions[compdef] )) || { … compinit … }`) covers only defect 1 and silently does nothing in the common case. The shipped block branches on the same predicate but gives the `compdef`-exists branch real work to do:
+
+```zsh
+if [[ -r <dir>/_project-guide ]]; then
+  fpath=(<dir> $fpath)
+  if (( $+functions[compdef] )); then
+    autoload -Uz _project-guide && compdef _project-guide project-guide
+  else
+    autoload -Uz compinit && compinit -i
+  fi 2>/dev/null
+fi
+```
+
+The outer `[[ -r ]]` guard is the zsh counterpart of Amendment 2's `[[ -x <bin> ]]`: registering a `compdef` against a deleted autoload file defers the failure to TAB time, and silent degradation is mandatory. Re-running `compinit` when the user already ran it was rejected — it is expensive and would override a configuration they chose.
+
 ---
 
 ## Decisions taken at planning time

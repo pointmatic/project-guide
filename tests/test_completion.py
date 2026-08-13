@@ -904,23 +904,18 @@ def test_completion_install_warns_about_a_foreign_block_on_stderr(runner, tmp_pa
     assert "added by pyve" not in result.stdout
 
 
-def test_completion_install_refuses_zsh_until_its_route_exists(runner, tmp_path):
-    """zsh needs an autoload file plus a `compinit` bootstrap (Story R.e).
-
-    Writing the bash-shaped block into `~/.zshrc` would half-work at best, so
-    the command refuses rather than installing the wrong thing.
-    """
-    rc = tmp_path / ".zshrc"
+def test_completion_install_bash_writes_no_autoload_file(runner, tmp_path):
+    """bash's route is one artifact; the zsh autoload file must not appear."""
+    rc = tmp_path / ".bashrc"
 
     result = runner.invoke(
         main,
-        ["completion", "install", "--shell", "zsh", "--rc", str(rc),
+        ["completion", "install", "--shell", "bash", "--rc", str(rc),
          "--bin", "/opt/pg/project-guide"],
     )
 
-    assert result.exit_code != 0
-    assert not rc.exists()
-    assert "zsh" in result.output
+    assert result.exit_code == 0
+    assert list(tmp_path.iterdir()) == [rc]
 
 
 # ---------------------------------------------------------------------------
@@ -953,6 +948,331 @@ def test_installed_block_registers_completion_in_a_real_bash(tmp_path):
     assert proc.returncode == 0, proc.stderr
     assert "_project_guide_completion" in proc.stdout
     assert proc.stderr == ""
+
+
+ZSH = shutil.which("zsh")
+
+
+def _zsh_registration(rc: Path, *, precompinit: bool) -> str:
+    """Return what zsh has registered for `project-guide` after sourcing `rc`.
+
+    `$_comps` is the table `compinit` builds from `fpath`, and it is the
+    definitive answer to "will TAB find our completion" — deterministic and
+    scriptable, unlike driving a real TAB through a pty.
+
+    `precompinit` simulates the common case the ordering trap lives in: the
+    user's rc file already ran `compinit` before our block is appended.
+    """
+    prelude = "autoload -Uz compinit && compinit -i -d /dev/null; " if precompinit else ""
+    proc = subprocess.run(
+        [str(ZSH), "-f", "-c",
+         f"{prelude}source {shlex.quote(str(rc))}; "
+         "print -r -- \"comps=${_comps[project-guide]:-NONE}\""],
+        capture_output=True, text=True,
+    )
+    assert proc.stderr == "", proc.stderr
+    return proc.stdout.strip()
+
+
+@pytest.mark.skipif(not ZSH, reason="zsh is not installed")
+def test_zsh_block_registers_when_compinit_already_ran(tmp_path):
+    """The ordering trap: an `fpath` entry added after `compinit` is ignored.
+
+    Our block is appended to the *end* of `~/.zshrc`, which for most users is
+    after oh-my-zsh or a hand-rolled `compinit`. Adding to `fpath` at that
+    point registers nothing — verified directly: `_comps[project-guide]` is
+    unset. The block therefore registers explicitly when `compdef` already
+    exists, rather than relying on a `compinit` that has been and gone.
+    """
+    autoload_dir = tmp_path / "completions"
+    completion.install_autoload_file(
+        autoload_dir, completion.build_script("zsh", "/opt/pg/project-guide")
+    )
+    rc = tmp_path / ".zshrc"
+    completion.install_block(rc, completion.build_block(
+        completion.build_zsh_bootstrap(autoload_dir)
+    ))
+
+    assert _zsh_registration(rc, precompinit=True) == "comps=_project-guide"
+
+
+@pytest.mark.skipif(not ZSH, reason="zsh is not installed")
+def test_zsh_block_bootstraps_compinit_when_it_never_ran(tmp_path):
+    """Field defect 1: without `compinit`, `compdef` does not exist at all."""
+    autoload_dir = tmp_path / "completions"
+    completion.install_autoload_file(
+        autoload_dir, completion.build_script("zsh", "/opt/pg/project-guide")
+    )
+    rc = tmp_path / ".zshrc"
+    completion.install_block(rc, completion.build_block(
+        completion.build_zsh_bootstrap(autoload_dir)
+    ))
+
+    assert _zsh_registration(rc, precompinit=False) == "comps=_project-guide"
+
+
+@pytest.mark.skipif(not ZSH, reason="zsh is not installed")
+def test_zsh_block_is_inert_when_the_autoload_file_is_gone(tmp_path):
+    """Half-uninstalled must be silent, not a broken registration.
+
+    Registering a `compdef` against a function whose file no longer exists
+    defers the failure to TAB time, which is exactly the noise the subphase
+    forbids. The block tests for its own file first.
+    """
+    autoload_dir = tmp_path / "completions"
+    rc = tmp_path / ".zshrc"
+    completion.install_block(rc, completion.build_block(
+        completion.build_zsh_bootstrap(autoload_dir)
+    ))
+
+    assert _zsh_registration(rc, precompinit=True) == "comps=NONE"
+
+
+# ---------------------------------------------------------------------------
+# zsh autoload file
+# ---------------------------------------------------------------------------
+
+
+def test_install_autoload_file_writes_the_compdef_script(tmp_path):
+    """The file is named for the command and keeps its `#compdef` header."""
+    autoload_dir = tmp_path / "completions"
+
+    result = completion.install_autoload_file(
+        autoload_dir, completion.build_script("zsh", "/opt/pg/project-guide")
+    )
+
+    written = autoload_dir / "_project-guide"
+    assert result.outcome is completion.RcOutcome.CREATED
+    assert written.read_text().startswith("#compdef project-guide")
+    assert "[[ -x /opt/pg/project-guide ]] || return 1" in written.read_text()
+
+
+def test_install_autoload_file_is_idempotent(tmp_path):
+    """Unchanged content is a no-op, so re-running install reports honestly."""
+    autoload_dir = tmp_path / "completions"
+    script = completion.build_script("zsh", "/opt/pg/project-guide")
+    completion.install_autoload_file(autoload_dir, script)
+
+    result = completion.install_autoload_file(autoload_dir, script)
+
+    assert result.outcome is completion.RcOutcome.UNCHANGED
+
+
+def test_install_autoload_file_refreshes_a_changed_script(tmp_path):
+    """A moved binary rewrites the file rather than leaving a stale path."""
+    autoload_dir = tmp_path / "completions"
+    completion.install_autoload_file(
+        autoload_dir, completion.build_script("zsh", "/old/project-guide")
+    )
+
+    result = completion.install_autoload_file(
+        autoload_dir, completion.build_script("zsh", "/new/project-guide")
+    )
+
+    assert result.outcome is completion.RcOutcome.UPDATED
+    assert "/old/project-guide" not in (autoload_dir / "_project-guide").read_text()
+
+
+def test_remove_autoload_file_deletes_it_and_its_empty_owned_dir(tmp_path, monkeypatch):
+    """We created the default directory, so we clean it up — but only if empty."""
+    autoload_dir = tmp_path / "share" / "project-guide" / "zsh-completions"
+    monkeypatch.setattr(completion, "default_autoload_dir", lambda: autoload_dir)
+    completion.install_autoload_file(autoload_dir, "#compdef project-guide\n")
+
+    result = completion.remove_autoload_file(autoload_dir)
+
+    assert result.outcome is completion.RcOutcome.REMOVED
+    assert not autoload_dir.exists()
+
+
+def test_remove_autoload_file_keeps_a_user_supplied_dir(tmp_path):
+    """`--dir` points at a directory the user owns; emptying it is not ours to do."""
+    autoload_dir = tmp_path / "my-completions"
+    completion.install_autoload_file(autoload_dir, "#compdef project-guide\n")
+
+    completion.remove_autoload_file(autoload_dir)
+
+    assert autoload_dir.exists()
+    assert not (autoload_dir / "_project-guide").exists()
+
+
+def test_remove_autoload_file_keeps_a_dir_that_still_has_content(tmp_path, monkeypatch):
+    """Another tool's completions in our default dir must survive."""
+    autoload_dir = tmp_path / "completions"
+    monkeypatch.setattr(completion, "default_autoload_dir", lambda: autoload_dir)
+    completion.install_autoload_file(autoload_dir, "#compdef project-guide\n")
+    (autoload_dir / "_something-else").write_text("#compdef something-else\n")
+
+    completion.remove_autoload_file(autoload_dir)
+
+    assert (autoload_dir / "_something-else").exists()
+
+
+def test_remove_autoload_file_reports_absent_when_there_is_nothing(tmp_path):
+    """Safe to run blind, same as the rc-block half."""
+    result = completion.remove_autoload_file(tmp_path / "nope")
+
+    assert result.outcome is completion.RcOutcome.ABSENT
+
+
+def test_default_autoload_dir_honors_xdg_data_home(tmp_path, monkeypatch):
+    """pyve is XDG-aware, and this is the directory project-guide owns."""
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
+
+    assert completion.default_autoload_dir() == (
+        tmp_path / "xdg" / "project-guide" / "zsh-completions"
+    )
+
+
+def test_default_autoload_dir_falls_back_to_local_share(tmp_path, monkeypatch):
+    """Without XDG_DATA_HOME, the conventional `~/.local/share` root."""
+    monkeypatch.delenv("XDG_DATA_HOME", raising=False)
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+    assert completion.default_autoload_dir() == (
+        tmp_path / ".local" / "share" / "project-guide" / "zsh-completions"
+    )
+
+
+# ---------------------------------------------------------------------------
+# zsh install / uninstall — CLI, two artifacts
+# ---------------------------------------------------------------------------
+
+
+def test_completion_install_zsh_writes_both_artifacts(runner, tmp_path):
+    """The asymmetric half: an autoload file *and* an rc block."""
+    rc = tmp_path / ".zshrc"
+    autoload_dir = tmp_path / "completions"
+
+    result = runner.invoke(
+        main,
+        ["completion", "install", "--shell", "zsh", "--rc", str(rc),
+         "--dir", str(autoload_dir), "--bin", "/opt/pg/project-guide"],
+    )
+
+    assert result.exit_code == 0
+    assert (autoload_dir / "_project-guide").read_text().startswith("#compdef")
+    rc_text = rc.read_text()
+    assert str(autoload_dir) in rc_text
+    assert "compinit" in rc_text
+    assert "#compdef" not in rc_text  # the script lives in the file, not the rc
+
+
+def test_completion_install_zsh_is_idempotent_across_both_artifacts(runner, tmp_path):
+    """Neither artifact is rewritten when both are already current."""
+    rc = tmp_path / ".zshrc"
+    autoload_dir = tmp_path / "completions"
+    args = ["completion", "install", "--shell", "zsh", "--rc", str(rc),
+            "--dir", str(autoload_dir), "--bin", "/opt/pg/project-guide"]
+    runner.invoke(main, args)
+    before = ((autoload_dir / "_project-guide").read_text(), rc.read_text())
+
+    result = runner.invoke(main, args)
+
+    assert result.exit_code == 0
+    assert ((autoload_dir / "_project-guide").read_text(), rc.read_text()) == before
+    assert "already" in result.output.lower()
+
+
+def test_completion_uninstall_zsh_removes_both_artifacts(runner, tmp_path):
+    """And the rc file round-trips byte-for-byte, as in the bash route."""
+    rc = tmp_path / ".zshrc"
+    autoload_dir = tmp_path / "completions"
+    original = "export EDITOR=vim\n"
+    rc.write_text(original)
+    runner.invoke(
+        main,
+        ["completion", "install", "--shell", "zsh", "--rc", str(rc),
+         "--dir", str(autoload_dir), "--bin", "/opt/pg/project-guide"],
+    )
+
+    result = runner.invoke(
+        main,
+        ["completion", "uninstall", "--shell", "zsh", "--rc", str(rc),
+         "--dir", str(autoload_dir)],
+    )
+
+    assert result.exit_code == 0
+    assert rc.read_text() == original
+    assert not (autoload_dir / "_project-guide").exists()
+
+
+@pytest.mark.parametrize("drop", ["file", "rc"])
+def test_completion_install_zsh_repairs_a_partial_state(runner, tmp_path, drop):
+    """Either artifact can go missing on its own; install restores the pair."""
+    rc = tmp_path / ".zshrc"
+    autoload_dir = tmp_path / "completions"
+    args = ["completion", "install", "--shell", "zsh", "--rc", str(rc),
+            "--dir", str(autoload_dir), "--bin", "/opt/pg/project-guide"]
+    runner.invoke(main, args)
+    if drop == "file":
+        (autoload_dir / "_project-guide").unlink()
+    else:
+        rc.write_text("export EDITOR=vim\n")
+
+    result = runner.invoke(main, args)
+
+    assert result.exit_code == 0
+    assert (autoload_dir / "_project-guide").exists()
+    assert completion.SENTINEL_START in rc.read_text()
+    assert "already" not in result.output.lower()
+
+
+@pytest.mark.parametrize("drop", ["file", "rc"])
+def test_completion_uninstall_zsh_handles_a_partial_state(runner, tmp_path, drop):
+    """Uninstall removes whatever half survives, without erroring on the other."""
+    rc = tmp_path / ".zshrc"
+    autoload_dir = tmp_path / "completions"
+    runner.invoke(
+        main,
+        ["completion", "install", "--shell", "zsh", "--rc", str(rc),
+         "--dir", str(autoload_dir), "--bin", "/opt/pg/project-guide"],
+    )
+    if drop == "file":
+        (autoload_dir / "_project-guide").unlink()
+    else:
+        rc.write_text("")
+
+    result = runner.invoke(
+        main,
+        ["completion", "uninstall", "--shell", "zsh", "--rc", str(rc),
+         "--dir", str(autoload_dir)],
+    )
+
+    assert result.exit_code == 0
+    assert not (autoload_dir / "_project-guide").exists()
+    assert completion.SENTINEL_START not in rc.read_text()
+
+
+def test_completion_install_zsh_defaults_to_the_home_zshrc(runner, tmp_path, monkeypatch):
+    """Without `--rc`, zsh resolves to `~/.zshrc` — not bash's `~/.bashrc`."""
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+    result = runner.invoke(
+        main,
+        ["completion", "install", "--shell", "zsh", "--bin", "/opt/pg/project-guide"],
+    )
+
+    assert result.exit_code == 0
+    assert (tmp_path / ".zshrc").exists()
+    assert not (tmp_path / ".bashrc").exists()
+    assert (tmp_path / "xdg" / "project-guide" / "zsh-completions" / "_project-guide").exists()
+
+
+def test_completion_install_bash_ignores_the_dir_option(runner, tmp_path):
+    """`--dir` is a zsh concept; passing it to bash must not silently mislead."""
+    rc = tmp_path / ".bashrc"
+
+    result = runner.invoke(
+        main,
+        ["completion", "install", "--shell", "bash", "--rc", str(rc),
+         "--dir", str(tmp_path / "completions"), "--bin", "/opt/pg/project-guide"],
+    )
+
+    assert result.exit_code != 0
+    assert "--dir" in result.output
 
 
 @pytest.mark.skipif(not BASH, reason="bash is not installed")

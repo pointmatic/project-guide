@@ -322,6 +322,104 @@ def default_rc_path(shell: str) -> Path:
     return Path.home() / (".bashrc" if shell == "bash" else ".zshrc")
 
 
+#: Name of the zsh autoload file. zsh looks up `_<command>` in ``fpath``, and
+#: the generated script's ``#compdef project-guide`` header is written for it.
+AUTOLOAD_FILENAME = f"_{COMMAND_NAME}"
+
+
+def default_autoload_dir() -> Path:
+    """Return the zsh autoload directory project-guide owns.
+
+    Deliberately a project-guide-owned directory rather than a shared location
+    like ``/usr/local/share/zsh/site-functions``: we create it, we are the only
+    writer, and ``uninstall`` can remove it again without wondering whose files
+    it is deleting. ``--dir`` points elsewhere for anyone who keeps a single
+    completions directory of their own.
+    """
+    xdg = os.environ.get("XDG_DATA_HOME")
+    root = Path(xdg) if xdg else Path.home() / ".local" / "share"
+    return root / "project-guide" / "zsh-completions"
+
+
+def build_zsh_bootstrap(autoload_dir: Path) -> str:
+    """Return the zsh rc-block body: make the autoload file findable, and used.
+
+    Three requirements collide here, and the obvious two-liner satisfies only
+    one of them:
+
+    1. **The file must be readable before anything else happens.** A registered
+       ``compdef`` pointing at a deleted autoload file defers its failure to TAB
+       time, which is precisely the noise this subphase exists to remove. The
+       whole block is therefore inert unless its own file is there.
+    2. **``compdef`` may not exist yet** — the original field defect. Then the
+       block runs ``compinit`` itself, which scans the freshly-extended
+       ``fpath`` and registers us on the way through.
+    3. **``compinit`` may already have run** — the *common* case, since this
+       block lands at the end of ``~/.zshrc``, after oh-my-zsh or a hand-rolled
+       ``compinit``. ``fpath`` entries added afterwards are simply not seen:
+       verified directly against ``$_comps``, which stays unset. So when
+       ``compdef`` exists we register explicitly instead, rather than re-running
+       an expensive ``compinit`` (and overriding a configuration the user chose).
+
+    Requirement 3 is why this is not the two-line bootstrap the subphase plan
+    sketched; that shape covers only requirement 2.
+    """
+    quoted_dir = shlex.quote(str(autoload_dir))
+    quoted_file = shlex.quote(str(autoload_dir / AUTOLOAD_FILENAME))
+    return "\n".join(
+        [
+            f"if [[ -r {quoted_file} ]]; then",
+            f"  fpath=({quoted_dir} $fpath)",
+            "  if (( $+functions[compdef] )); then",
+            f"    autoload -Uz {AUTOLOAD_FILENAME} && "
+            f"compdef {AUTOLOAD_FILENAME} {COMMAND_NAME}",
+            "  else",
+            "    autoload -Uz compinit && compinit -i",
+            "  fi 2>/dev/null",
+            "fi",
+        ]
+    )
+
+
+def install_autoload_file(autoload_dir: Path, script: str) -> RcResult:
+    """Write the zsh autoload file, creating its directory if needed.
+
+    No backup, unlike the rc file: this file is entirely project-guide's own
+    output, so a copy of the previous version preserves nothing the next
+    ``install`` cannot regenerate.
+    """
+    path = autoload_dir / AUTOLOAD_FILENAME
+    body = script if script.endswith("\n") else script + "\n"
+
+    if path.exists():
+        if path.read_text() == body:
+            return RcResult(RcOutcome.UNCHANGED, path)
+        outcome = RcOutcome.UPDATED
+    else:
+        outcome = RcOutcome.CREATED
+
+    autoload_dir.mkdir(parents=True, exist_ok=True)
+    path.write_text(body)
+    return RcResult(outcome, path)
+
+
+def remove_autoload_file(autoload_dir: Path) -> RcResult:
+    """Delete the zsh autoload file, and the directory if we own it and emptied it.
+
+    The directory is only removed when it is :func:`default_autoload_dir` — the
+    one project-guide created. A ``--dir`` the user chose is theirs, and may be
+    empty for reasons that are none of our business.
+    """
+    path = autoload_dir / AUTOLOAD_FILENAME
+    if not path.exists():
+        return RcResult(RcOutcome.ABSENT, path)
+
+    path.unlink()
+    if autoload_dir == default_autoload_dir() and not any(autoload_dir.iterdir()):
+        autoload_dir.rmdir()
+    return RcResult(RcOutcome.REMOVED, path)
+
+
 def build_block(body: str) -> str:
     """Wrap ``body`` in the sentinel pair, with provenance for a human reader.
 

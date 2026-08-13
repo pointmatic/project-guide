@@ -29,8 +29,12 @@ from project_guide.completion import (
     RcOutcome,
     build_block,
     build_script,
+    build_zsh_bootstrap,
+    default_autoload_dir,
     default_rc_path,
+    install_autoload_file,
     install_block,
+    remove_autoload_file,
     remove_block,
     resolve_bin,
     resolve_shell,
@@ -2493,23 +2497,21 @@ def completion_show(shell: str, bin_path: str | None):
     click.echo(script.rstrip("\n"))
 
 
-def _resolve_install_shell(shell: str) -> str:
-    """Resolve `--shell` for the writing subcommands, refusing routes we lack.
+def _resolve_autoload_dir(shell: str, dir_option: str | None) -> Path | None:
+    """Resolve `--dir` for the zsh route, refusing it where it means nothing.
 
-    zsh's install is not a variation on bash's: it wants the fpath autoload
-    file its `#compdef` header is built for plus a `compinit` bootstrap, which
-    is Story R.e. Writing the bash-shaped rc block into `~/.zshrc` would
-    half-work at best, so this refuses rather than installing the wrong thing.
+    bash's route is a single rc block with no autoload directory, so accepting
+    `--dir` there would silently do nothing — worse than an error, because the
+    user would believe they had placed the script somewhere.
     """
-    resolved = resolve_shell(shell)
-    if resolved != "bash":
-        raise CompletionError(
-            f"`completion install` / `uninstall` support bash today; {resolved} is not "
-            f"wired up yet (it needs an fpath autoload file plus a compinit bootstrap). "
-            f"Use `project-guide completion show --shell {resolved}` and source the "
-            f"output for now."
-        )
-    return resolved
+    if shell != "zsh":
+        if dir_option:
+            raise CompletionError(
+                "`--dir` is a zsh option (it names the fpath autoload directory). "
+                "The bash route writes a single rc block; use `--rc` to place it."
+            )
+        return None
+    return Path(dir_option).expanduser() if dir_option else default_autoload_dir()
 
 
 def _emit_rc_warnings(warnings: tuple[str, ...]) -> None:
@@ -2540,7 +2542,16 @@ def _emit_rc_warnings(warnings: tuple[str, ...]) -> None:
     '--rc',
     'rc',
     default=None,
-    help='Shell rc file to write into. Defaults to ~/.bashrc.',
+    help='Shell rc file to write into. Defaults to ~/.bashrc or ~/.zshrc.',
+)
+@click.option(
+    '--dir',
+    'dir_option',
+    default=None,
+    help=(
+        'zsh only: fpath directory for the `_project-guide` autoload file. '
+        'Defaults to $XDG_DATA_HOME/project-guide/zsh-completions.'
+    ),
 )
 @click.option(
     '--quiet', '-q',
@@ -2548,33 +2559,47 @@ def _emit_rc_warnings(warnings: tuple[str, ...]) -> None:
     default=False,
     help='Emit nothing to stdout on success. Warnings still go to stderr.',
 )
-def completion_install(shell: str, bin_path: str | None, rc: str | None, quiet: bool):
-    """Write the completion script into your shell's rc file.
+def completion_install(
+    shell: str, bin_path: str | None, rc: str | None, dir_option: str | None, quiet: bool
+):
+    """Write the completion script into your shell's startup files.
 
     \b
-    The script is written inline, sentinel-bracketed, so nothing is executed at
-    shell startup and completion keeps working even with project-guide off
-    `PATH`. Re-run after a move or upgrade to refresh the baked path.
+    The two shells take deliberately different routes:
+      bash — the script is written inline into a sentinel-bracketed rc block.
+      zsh  — the script is written to an fpath autoload file (the route its
+             `#compdef` header is built for) and the rc block only wires it up.
 
     \b
-    Safety contract for this first write outside the project directory:
+    Either way nothing is executed at shell startup and completion keeps
+    working with project-guide off `PATH`. Re-run after a move or upgrade to
+    refresh the baked path.
+
+    \b
+    Safety contract for writing outside the project directory:
       - Only the `# >>> project-guide completion >>>` block is ever touched;
         a block project-guide did not write is reported, never edited.
       - The rc file is backed up (`.bak.<timestamp>`) before any change.
-      - Re-running with an already-current block writes nothing.
-      - `completion uninstall` restores the file byte-for-byte.
-
-    \b
-    zsh is not wired up yet — it needs an fpath autoload file rather than an
-    rc block. Use `completion show --shell zsh` in the meantime.
+      - Re-running with everything already current writes nothing.
+      - `completion uninstall` restores the rc file byte-for-byte and removes
+        the autoload file.
     """
     rc_path: Path | None = None
     try:
-        resolved_shell = _resolve_install_shell(shell)
+        resolved_shell = resolve_shell(shell)
         resolved_bin = resolve_bin(bin_path)
+        autoload_dir = _resolve_autoload_dir(resolved_shell, dir_option)
         script = build_script(resolved_shell, resolved_bin)
         rc_path = Path(rc).expanduser() if rc else default_rc_path(resolved_shell)
-        result = install_block(rc_path, build_block(script))
+
+        if autoload_dir is not None:
+            file_result = install_autoload_file(autoload_dir, script)
+            body = build_zsh_bootstrap(autoload_dir)
+        else:
+            file_result = None
+            body = script
+
+        result = install_block(rc_path, build_block(body))
     except CompletionError as e:
         raise click.ClickException(str(e)) from e
     except OSError as e:
@@ -2585,12 +2610,17 @@ def completion_install(shell: str, bin_path: str | None, rc: str | None, quiet: 
     if quiet:
         return
 
-    if result.outcome is RcOutcome.UNCHANGED:
+    unchanged = result.outcome is RcOutcome.UNCHANGED and (
+        file_result is None or file_result.outcome is RcOutcome.UNCHANGED
+    )
+    if unchanged:
         click.echo(f"{resolved_shell} completion in {result.path} is already current.")
         return
 
     verb = "Installed" if result.outcome is RcOutcome.CREATED else "Refreshed"
     click.secho(f"✓ {verb} {resolved_shell} completion in {result.path}", fg='green')
+    if file_result is not None:
+        click.echo(f"  Autoload file: {file_result.path}")
     click.echo(f"  Binary: {resolved_bin}")
     if result.backup:
         click.echo(f"  Backup: {result.backup}")
@@ -2610,7 +2640,13 @@ def completion_install(shell: str, bin_path: str | None, rc: str | None, quiet: 
     '--rc',
     'rc',
     default=None,
-    help='Shell rc file to remove the block from. Defaults to ~/.bashrc.',
+    help='Shell rc file to remove the block from. Defaults to ~/.bashrc or ~/.zshrc.',
+)
+@click.option(
+    '--dir',
+    'dir_option',
+    default=None,
+    help='zsh only: fpath directory holding the `_project-guide` autoload file.',
 )
 @click.option(
     '--quiet', '-q',
@@ -2618,19 +2654,26 @@ def completion_install(shell: str, bin_path: str | None, rc: str | None, quiet: 
     default=False,
     help='Emit nothing to stdout on success. Warnings still go to stderr.',
 )
-def completion_uninstall(shell: str, rc: str | None, quiet: bool):
-    """Remove the completion block from your shell's rc file.
+def completion_uninstall(shell: str, rc: str | None, dir_option: str | None, quiet: bool):
+    """Remove project-guide's completion wiring from your shell.
 
     \b
     Byte-clean: the rc file is restored exactly as `completion install` found
-    it, including the blank line that separated the block. A missing file or a
-    file without our block is a success — this is safe to run blind.
+    it, including the blank line that separated the block. For zsh the autoload
+    file goes too, and the default autoload directory is removed if emptying it
+    leaves nothing behind.
+
+    \b
+    Safe to run blind — a missing file, a missing block, or only one half of
+    the zsh pair are all reported and exit 0.
     """
     rc_path: Path | None = None
     try:
-        resolved_shell = _resolve_install_shell(shell)
+        resolved_shell = resolve_shell(shell)
+        autoload_dir = _resolve_autoload_dir(resolved_shell, dir_option)
         rc_path = Path(rc).expanduser() if rc else default_rc_path(resolved_shell)
         result = remove_block(rc_path)
+        file_result = remove_autoload_file(autoload_dir) if autoload_dir else None
     except CompletionError as e:
         raise click.ClickException(str(e)) from e
     except OSError as e:
@@ -2641,11 +2684,14 @@ def completion_uninstall(shell: str, rc: str | None, quiet: bool):
     if quiet:
         return
 
-    if result.outcome is RcOutcome.ABSENT:
+    removed_file = file_result is not None and file_result.outcome is RcOutcome.REMOVED
+    if result.outcome is RcOutcome.ABSENT and not removed_file:
         click.echo(f"No project-guide completion block in {result.path} (nothing to do).")
         return
 
     click.secho(f"✓ Removed {resolved_shell} completion from {result.path}", fg='green')
+    if removed_file and file_result is not None:
+        click.echo(f"  Removed autoload file: {file_result.path}")
     if result.backup:
         click.echo(f"  Backup: {result.backup}")
 
