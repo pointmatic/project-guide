@@ -374,11 +374,15 @@ project-guide heal --no-input
 Wrap [gitbetter](https://github.com/pointmatic/gitbetter)'s `git-push` with a commit message auto-derived from the most-recently-completed-and-not-yet-committed story in `docs/specs/stories.md`. Optional: requires gitbetter on PATH.
 
 ```bash
-project-guide git-push [BRANCH_NAME]
+project-guide git-push [BRANCH_NAME] [--keep|-k] [--amend]
 ```
 
 **Arguments:**
-- `BRANCH_NAME` (optional) - Passed through to gitbetter for branch-aware push flows (e.g. switching to a feature branch and offering cleanup after merge)
+- `BRANCH_NAME` (optional) - Passed through to gitbetter for branch-aware push flows (e.g. switching to a feature branch and offering cleanup after merge). Naming a branch **other than the one you are on** also tells the wrapper this is branch work, so it stops requiring that every earlier `[Done]` story appear in the current branch's log — the state you are in when starting a branch from a squash-merged `main`.
+
+**Options:**
+- `--keep` / `-k` - Passed through to gitbetter: skip its post-push branch-cleanup prompt. Useful on a long-lived feature branch.
+- `--amend` - Commit the current tree onto the **last commit**, reusing that commit's message verbatim. Interactive-only (it force-pushes with `--force-with-lease`), and refused while a `[Done]` story is still uncommitted, because amending stages your whole tree and that story's work would silently land inside the previous commit.
 
 **Heading-to-message transformation:**
 ```
@@ -388,10 +392,14 @@ project-guide git-push [BRANCH_NAME]
 ```
 Backticks and double quotes become single quotes; single quotes pass through; the colon after the story ID is preserved (it's the anchor for the already-committed check).
 
+**When several stories are uncommitted,** the wrapper proposes a single bundled subject covering them and asks `[Y/n]`. Declining exits 1 so you can commit them one at a time with raw `git-push`.
+
+**Everything already committed** exits **0** with `Nothing to commit` — the desired state, not an error.
+
 **Hard errors (exit 1):**
-- No `[Done]` story in `stories.md`
-- The last `[Done]` story is already committed — the wrapper does not second-guess; resolve manually with raw `git-push`
-- Multiple `[Done]` stories are uncommitted — commit them one at a time with explicit messages via raw `git-push`
+- No `[Done]` story in `stories.md` (a `stories.md` authoring problem)
+- `[Done]` stories are out of sequence — one is uncommitted while a later one is already committed. With exactly one uncommitted story the wrapper offers to commit it anyway `[y/N]`; with several, attribution is genuinely ambiguous, so it stops and shows the offenders
+- The same story ID appears in two or more commit subjects, and you decline to continue
 - `git-push` not on PATH — install gitbetter: `brew install pointmatic/tap/gitbetter`
 
 **Examples:**
@@ -401,6 +409,12 @@ project-guide git-push
 
 # Feature-branch push (gitbetter switches to the branch first, offers cleanup after merge)
 project-guide git-push feature/heal-command
+
+# Long-lived branch: keep it around after the push
+project-guide git-push feature/heal-command --keep
+
+# Fold a fix into the commit you just made, keeping its message
+project-guide git-push --amend
 ```
 
 **Optional dependency.** gitbetter is not required for any other `project-guide` command. Install it only if you want this wrapper:
@@ -410,7 +424,7 @@ brew install pointmatic/tap/gitbetter
 
 ### `git-commit`
 
-Identical interface and behavior to `git-push`, but wraps gitbetter's `git-commit`: derive the same story-aware commit message, then perform a **local commit** instead of a push. Iterate on commits locally and push a batch to GitHub later (saves CI minutes).
+Identical interface and behavior to `git-push` — including `BRANCH_NAME`, `--keep`, and `--amend` — but wraps gitbetter's `git-commit`: derive the same story-aware commit message, then perform a **local commit** instead of a push. Iterate on commits locally and push a batch to GitHub later (saves CI minutes).
 
 ```bash
 project-guide git-commit [BRANCH_NAME]

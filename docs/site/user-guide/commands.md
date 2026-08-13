@@ -264,12 +264,17 @@ project-guide heal [OPTIONS]
 Commit the most-recently-completed (and not-yet-committed) story with a message auto-derived from its `stories.md` heading, by wrapping [gitbetter](https://github.com/pointmatic/gitbetter)'s `git-push`. This is a **developer-lane convenience** — gitbetter must be on `PATH`; it is not required for any other command.
 
 ```bash
-project-guide git-push [BRANCH_NAME]
+project-guide git-push [BRANCH_NAME] [--keep|-k] [--amend]
 ```
 
 ### Arguments
 
-- `BRANCH_NAME` (optional) - passed through to gitbetter for branch-aware push flows
+- `BRANCH_NAME` (optional) - passed through to gitbetter for branch-aware push flows. Naming a branch **other than your current one** also declares this as branch work: the wrapper then stops expecting every earlier `[Done]` story to appear in the current branch's log, which is what makes starting a branch from a squash-merged `main` work.
+
+### Options
+
+- `--keep` / `-k` - passed straight through to gitbetter, skipping its post-push branch-cleanup prompt.
+- `--amend` - commit the current tree onto the **last commit**, reusing that commit's subject verbatim (never re-derived from `stories.md`, so amending a fix never renames the commit). Refused under `--no-input` / CI, since it force-pushes with `--force-with-lease`. Also refused while a `[Done]` story is uncommitted: gitbetter stages the whole tree before amending, so that story's work would land inside the previous commit under the previous commit's message.
 
 ### What It Does
 
@@ -277,14 +282,16 @@ project-guide git-push [BRANCH_NAME]
 2. Shells out to gitbetter's `git-push`, which stays fully interactive (preview, confirm, branch cleanup).
 3. Propagates gitbetter's exit code unchanged.
 
-It hard-errors (exit 1) when there is no `[Done]` story, when the latest one is already committed, when multiple `[Done]` stories are uncommitted, or when gitbetter is not installed (`brew install pointmatic/tap/gitbetter`).
+When several `[Done]` stories are uncommitted it proposes one bundled subject and asks `[Y/n]`. When everything is already committed it exits **0** with `Nothing to commit` — that is the desired state, not an error.
+
+It hard-errors (exit 1) when there is no `[Done]` story at all, when `[Done]` stories are out of sequence and you decline the offered resolution, when the same story ID appears in multiple commit subjects and you decline to continue, or when gitbetter is not installed (`brew install pointmatic/tap/gitbetter`).
 
 ## git-commit
 
 Identical interface and behavior to `git-push`, but wraps gitbetter's `git-commit`: the same story-derived message becomes a **local commit** instead of a push, so you can iterate on commits locally and push a batch to GitHub later (saving CI minutes).
 
 ```bash
-project-guide git-commit [BRANCH_NAME]
+project-guide git-commit [BRANCH_NAME] [--keep|-k] [--amend]
 ```
 
 Everything documented for `git-push` above — message derivation, bundle offer, out-of-sequence handling, exit codes, the gitbetter optional dependency — applies unchanged.

@@ -532,19 +532,30 @@ No version bump — Subphase R-3 ships bundled as `v2.21.0` at R.t, which owns t
 
 ---
 
-### Story R.t: `v2.21.0` Subphase R-3 bundled release [Planned]
+### Story R.t: `v2.21.0` Subphase R-3 bundled release [Done]
 
 Documentation and the single release tag for the subphase.
 
-- [ ] Update `features.md` FR-15 — the destination-aware branch gate, the `--keep` / `--amend` flags with both refusal conditions, and the wrapper-value principle that bounds what the wrapper will ever do
-- [ ] Update `features.md` FR-7 — the widened staleness definition; the known-gaps block keeps fish, bash 3.2 `compopt`, and PowerShell, and gains the Windows/git-bash deferral
-- [ ] Update `tech-spec.md` § External CLI Dependencies — the destination-aware gate, `--amend`'s short-circuit path, and why it is not an inversion of the already-committed check
-- [ ] Update `project-essentials.md` § `project-guide git-push` is developer-lane — the branch-logic list gains the destination-aware case; record the wrapper-value principle as the rule future wrapper features are tested against
-- [ ] Update `README.md` and `docs/site/user-guide/commands.md` for the two new flags — grep for every surface rather than working from a file list (the R.i lesson: the checklist named four files and there were five)
-- [ ] `CHANGELOG.md` entry for `v2.21.0`, dated — Added / Changed / Fixed
-- [ ] Bump `project_guide/version.py` and `pyproject.toml` to `2.21.0`
-- [ ] Verification per CI-gate parity: `pyve test`, `pyve env run ruff check project_guide/ tests/`, `pyve env run mypy project_guide/`, the stripped-`PATH` run, and `mkdocs build --strict`
-- [ ] Delete `docs/specs/features_old.md` — the R.s backup, no longer needed once that story closes
+- [x] Update `features.md` FR-15 — the destination-aware branch gate, the `--keep` / `--amend` flags with both refusal conditions, and the wrapper-value principle that bounds what the wrapper will ever do — the decision table's branch column is now **strict / suspended** rather than main/non-main, since the checkout stopped being what decides it
+- [x] Update `features.md` FR-7 — the widened staleness definition; the known-gaps block keeps fish, bash 3.2 `compopt`, and PowerShell, and gains the Windows/git-bash deferral — the "staleness is a dead-path test only" gap is **removed from the list**, since R.r closed it
+- [x] Update `tech-spec.md` § External CLI Dependencies — the destination-aware gate, `--amend`'s short-circuit path, and why it is not an inversion of the already-committed check — **already delivered by R.s**, verified rather than rewritten
+- [x] Update `project-essentials.md` § `project-guide git-push` is developer-lane — the branch-logic list gains the destination-aware case; record the wrapper-value principle as the rule future wrapper features are tested against — **superseded by R.s**: the branch-logic list was relocated wholesale to `tech-spec.md`, so there is no list here to extend. What remains is the developer-lane rule plus pointers, which is the correct end state and cheaper than the checklist assumed
+- [x] Update `README.md` and `docs/site/user-guide/commands.md` for the two new flags — grep for every surface rather than working from a file list (the R.i lesson: the checklist named four files and there were five) — the lesson paid out again, see below
+- [x] `CHANGELOG.md` entry for `v2.21.0`, dated — Added / Changed / Fixed
+- [x] Bump `project_guide/version.py` and `pyproject.toml` to `2.21.0`
+- [x] Verification per CI-gate parity: `pyve test`, `pyve env run ruff check project_guide/ tests/`, `pyve env run mypy project_guide/`, the stripped-`PATH` run, and `mkdocs build --strict` — 901 passed both directions, ruff clean, mypy clean, mkdocs exit 0
+- [x] Delete `docs/specs/features_old.md` — the R.s backup, no longer needed once that story closes
+
+**Two checklist items were already satisfied, and saying so beats re-doing them.** R.s relocated the wrapper internals into `tech-spec.md` — including the destination-aware gate, `--amend`'s short-circuit with the explicit "not an inversion" reasoning, and the wrapper-value principle — because those surfaces were what it was reconciling. Item 4 is stranger: it asks to extend `project-essentials.md`'s branch-logic list, but R.s deleted that list on purpose, since an algorithmic description of a command the LLM may not initiate is exactly the content that file should not carry. Extending it would have undone the trim. Verified both against the current files rather than assuming.
+
+**The R.i lesson paid out again — and found older debt than the flags.** A `grep -rl` for the wrapper names turned up **seven** surfaces where the checklist named two. Five needed nothing (test-inventory mentions, a rationale analogy in `_header-cycle.md` that R.p does not invalidate). The other two carried genuine drift, both **predating this subphase**:
+
+- **`README.md`'s "Hard errors (exit 1)" list was two releases stale.** It still claimed *"the last `[Done]` story is already committed — resolve manually"* and *"multiple `[Done]` stories are uncommitted — commit them one at a time"*. Story P.u (v2.9.0) turned the second into a bundle offer, and P.v (v2.10.0) turned the first into an **exit 0**. The spec was corrected at the time; the README was not, so the user-facing document had been telling people that the tool's normal success path was a hard error for four minor versions. Rewritten to match, with the out-of-sequence and duplicate-ID errors that actually exist.
+- **`production-github-guide.md` cited "the wrapper's regex"** — the single-regex parser Story P.u retired in favor of `parse_committed_ids_from_subject`. A bundled template, so the stale claim ships to every consumer.
+
+**A gap in the site's developer docs, reported rather than silently fixed.** `docs/site/developer-guide/{testing,development,contributing}.md` carry per-file test tables that omit `test_completion.py` entirely — 149 tests, the largest single file after `test_cli.py`, added by Subphase R-1 and never added to those tables. Their other counts are approximate and also drifted. Correcting the developer-guide test inventory is a documentation story of its own, not a line item in a release story, so it is left for the developer to schedule rather than folded in here.
+
+**Phase R is complete.** Four tags — `v2.18.1` (R.a), `v2.19.0` (R-1), `v2.20.0` (R-2), `v2.21.0` (R-3) — the documented multi-release exception, because the subphases were independently shippable fixes to unrelated surfaces.
 
 **Release shape.** Phase R carries four tags — `v2.18.1` (R.a), `v2.19.0` (Subphase R-1), `v2.20.0` (Subphase R-2), `v2.21.0` (Subphase R-3) — the documented multi-release exception rather than the preferred single bundle, for the reason recorded in R-1 and R-2: the subphases are independently shippable fixes to unrelated surfaces.
 
