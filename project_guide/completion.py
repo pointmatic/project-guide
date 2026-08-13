@@ -46,6 +46,9 @@ quietly-unmodified script. See ``docs/specs/phase-r-subphase-1-shell-completion-
 
 from __future__ import annotations
 
+import contextlib
+import functools
+import io
 import os
 import re
 import shlex
@@ -594,6 +597,14 @@ class ShellStatus:
     autoload_path: Path | None = None
     bin_path: str | None = None
     details: tuple[str, ...] = ()
+    #: A self-contained sentence naming why this install is defective, for
+    #: callers that render one line rather than the full ``details`` list.
+    #:
+    #: Added in Story R.r, when ``STALE`` stopped meaning only one thing:
+    #: ``heal`` hard-coded the dead-path wording, so a content-drifted block
+    #: with a perfectly live binary would have been announced as "<path> is no
+    #: longer executable" — false, and pointing at the wrong file.
+    reason: str | None = None
 
     @property
     def is_defect(self) -> bool:
@@ -639,6 +650,107 @@ def _baked_bin(script: str) -> str | None:
     """
     match = _BAKED_BIN_RE.search(script)
     return _unquote(match.group(1)) if match else None
+
+
+#: The provenance comment `build_block` writes, which carries the version that
+#: generated the block. Diagnostic only — see `_content_drift`.
+_STAMP_RE = re.compile(r"\(project-guide v([^)]+)\)")
+
+
+def _block_body(block: str) -> str:
+    """Strip the sentinel pair and provenance comments from an rc block.
+
+    What remains is the part `build_script` / `build_zsh_bootstrap` produced —
+    the only part worth comparing. The provenance line carries the version
+    stamp, so leaving it in would make every release look like drift, which is
+    exactly the false-positive mode Story R.r exists to avoid.
+    """
+    lines = [
+        line
+        for line in block.splitlines()
+        if line not in (SENTINEL_START, SENTINEL_END)
+        and not line.startswith("# Added by `project-guide completion install`")
+        and not line.startswith("# Do not edit:")
+    ]
+    return "\n".join(lines).strip()
+
+
+def _stamped_version(block: str) -> str | None:
+    """The project-guide version recorded in the block, when it has one."""
+    match = _STAMP_RE.search(block)
+    return match.group(1) if match else None
+
+
+def _version_tuple(version: str) -> tuple[int, ...]:
+    """Best-effort numeric comparison key; unparseable parts sort as 0."""
+    parts: list[int] = []
+    for chunk in version.split(".")[:3]:
+        digits = "".join(c for c in chunk if c.isdigit())
+        parts.append(int(digits) if digits else 0)
+    return tuple(parts)
+
+
+@functools.lru_cache(maxsize=8)
+def _script_for_comparison(shell: str, bin_path: str) -> str:
+    """``build_script`` for *inspection*: no stderr, and generated at most once.
+
+    Click's bash generator calls ``_check_version``, which shells out to
+    ``bash --norc -c 'echo $BASH_VERSION'`` and prints "Shell completion is not
+    supported for Bash versions older than 4.4." That message is right at
+    install time and wrong here: inspection is not an install request, and
+    ``inspect_shell`` runs from the pre-invoke hook ahead of *every* command —
+    so an unsuppressed warning becomes a line on every invocation for every
+    macOS user whose ``PATH`` finds system bash 3.2. The subprocess is cached
+    for the same reason: the hook should stay cheap.
+
+    Only the message is suppressed. The generated script is byte-identical
+    whichever bash is found, so the comparison stays environment-independent —
+    which it must be, or the same install would read stale on one machine and
+    current on another.
+    """
+    with contextlib.redirect_stderr(io.StringIO()):
+        return build_script(shell, bin_path)
+
+
+def _content_drift(
+    shell: str,
+    callback_script: str,
+    block: str,
+    bin_path: str,
+    autoload_dir: Path | None,
+) -> str | None:
+    """Would reinstalling change anything? Returns a reason, or ``None``.
+
+    Story R.r. The predicate R.f left as a TODO is a *content* comparison, not
+    a version comparison: regenerate from the parameters recovered out of the
+    installed artifacts and see whether the result differs. Comparing the
+    stamped version to ``__version__`` instead would fire on every release,
+    including the large majority that never touch the completion template.
+
+    zsh is checked in both halves — the autoload file carries the callback, the
+    rc block carries the bootstrap — because either can drift alone. A block
+    predating the bootstrap's "register explicitly when `compinit` already ran"
+    fix wires up nothing while its autoload file looks perfect.
+
+    **Warn-less rule.** A block stamped *newer* than the running project-guide
+    is left alone. Two installs commonly coexist (a pyve toolchain copy and a
+    project-local one — the whole subject of Subphase Q-4), and when the older
+    one inspects the newer one's block, "stale" is backwards: reinstalling
+    would downgrade it. The stamp suppresses here without ever being what
+    fires.
+    """
+    stamp = _stamped_version(block)
+    if stamp is not None and _version_tuple(stamp) > _version_tuple(__version__):
+        return None
+
+    if callback_script.strip() != _script_for_comparison(shell, bin_path).strip():
+        return "the installed script differs from the one this version generates"
+
+    if shell == "zsh" and autoload_dir is not None:
+        if _block_body(block) != build_zsh_bootstrap(autoload_dir).strip():
+            return "the rc block differs from the one this version generates"
+
+    return None
 
 
 def _binary_resolves(bin_path: str) -> bool:
@@ -698,7 +810,11 @@ def inspect_shell(
     if shell == "bash":
         if block is None:
             return ShellStatus(shell, CompletionState.ABSENT, rc_path, details=details)
-        return _classify(shell, rc_path, None, block, details)
+        # bash keeps everything in the one block, so the callback under test is
+        # the block with its sentinels and provenance stripped away.
+        return _classify(
+            shell, rc_path, None, _block_body(block), details, block=block
+        )
 
     # zsh: two artifacts, either of which can go missing on its own.
     if block is not None:
@@ -729,7 +845,15 @@ def inspect_shell(
             details=details + ("the autoload file is missing, so the rc block "
                                "does nothing",),
         )
-    return _classify(shell, rc_path, autoload_path, autoload_path.read_text(), details)
+    return _classify(
+        shell,
+        rc_path,
+        autoload_path,
+        autoload_path.read_text(),
+        details,
+        block=block,
+        autoload_dir=autoload_dir,
+    )
 
 
 def _classify(
@@ -738,11 +862,25 @@ def _classify(
     autoload_path: Path | None,
     script: str,
     details: tuple[str, ...],
+    *,
+    block: str,
+    autoload_dir: Path | None = None,
 ) -> ShellStatus:
-    """Decide installed-vs-stale from the binary baked into ``script``."""
+    """Decide installed-vs-stale for an install whose structure is intact.
+
+    Two staleness tests, in order of how actionable their message is. The dead
+    path (R.f) comes first: when the baked binary has rotted *and* the script
+    predates the current template, naming the dead path is the sentence that
+    helps. The content comparison (R.r) catches the case R.f could not — a
+    block whose binary is fine but whose script nobody generates any more.
+    """
     bin_path = _baked_bin(script)
 
     if bin_path is None:
+        # No recorded `--bin` means no parameter to regenerate from, so the
+        # content comparison has nothing to compare against. Guessing one
+        # would test against a script we cannot know was requested; warning
+        # less is the correct failure direction.
         return ShellStatus(
             shell,
             CompletionState.INSTALLED,
@@ -761,6 +899,26 @@ def _classify(
             bin_path=bin_path,
             details=details + ("that path is not executable, so completion "
                                "silently does nothing",),
+            reason=(f"{bin_path} is no longer executable, so completion "
+                    f"silently does nothing"),
+        )
+
+    drift = _content_drift(shell, script, block, bin_path, autoload_dir)
+    if drift is not None:
+        stamp = _stamped_version(block)
+        provenance = (
+            (f"the installed block was generated by project-guide v{stamp}",)
+            if stamp is not None
+            else ()
+        )
+        return ShellStatus(
+            shell,
+            CompletionState.STALE,
+            rc_path,
+            autoload_path=autoload_path,
+            bin_path=bin_path,
+            details=details + (drift,) + provenance,
+            reason=drift + (f" (generated by project-guide v{stamp})" if stamp else ""),
         )
 
     return ShellStatus(

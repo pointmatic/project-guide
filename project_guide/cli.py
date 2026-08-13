@@ -1696,10 +1696,13 @@ def _warn_if_completion_stale() -> None:
             continue
 
         if shell_status.state is CompletionState.STALE:
-            headline = (
-                f"⚠ {shell_name} completion is stale: {shell_status.bin_path} "
-                f"is no longer executable, so completion silently does nothing."
-            )
+            # Read the reason off the status rather than assuming it. Since
+            # Story R.r a block can be stale because its script no longer
+            # matches what this version generates, with a perfectly live
+            # binary — the old hard-coded wording would have called that file
+            # dead and sent the developer to look at the wrong thing.
+            explanation = shell_status.reason or "reinstalling it would change it"
+            headline = f"⚠ {shell_name} completion is stale: {explanation}."
         else:
             explanation = shell_status.details[0] if shell_status.details else "one half is missing"
             headline = f"⚠ {shell_name} completion is partially installed: {explanation}."

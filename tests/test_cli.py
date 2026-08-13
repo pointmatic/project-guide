@@ -4224,6 +4224,59 @@ def test_git_commit_gets_the_same_flags(runner, tmp_path, monkeypatch, flags):
 # --- End Story R.q ------------------------------------------------------------
 
 
+# --- Story R.r: heal's headline must match the reason it is stale -------------
+
+
+def test_heal_does_not_claim_a_live_binary_is_dead(
+    runner, tmp_path, prompt_tty, monkeypatch, home_with_completion
+):
+    """`status` and `heal` must not disagree about the same install.
+
+    `heal`'s headline hard-coded the dead-path explanation, which was the only
+    way to be stale before Story R.r widened the predicate. A content-drifted
+    block whose binary is perfectly fine would have been announced as
+    "<path> is no longer executable" — a false statement about a live file,
+    sending the developer to look at the wrong thing.
+    """
+    from project_guide import completion as completion_module
+
+    monkeypatch.delenv("PROJECT_GUIDE_HEALING", raising=False)
+    live = _live_binary(tmp_path)
+    home_with_completion("bash", live)
+
+    rc = completion_module.default_rc_path("bash")
+    rc.write_text(rc.read_text().replace("COMP_WORDS", "COMP_WORDS_OLD", 1))
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_project(runner)
+        result = runner.invoke(main, ['heal'])
+
+    assert "stale" in result.stderr
+    assert "no longer executable" not in result.stderr
+    assert "differs" in result.stderr
+    assert "completion install --shell bash" in result.stderr
+
+
+def test_heal_still_names_the_dead_path_when_that_is_the_defect(
+    runner, tmp_path, prompt_tty, monkeypatch, home_with_completion
+):
+    """The R.f message is not lost — it is now one reason among two."""
+    monkeypatch.delenv("PROJECT_GUIDE_HEALING", raising=False)
+    dead = str(tmp_path / "gone" / "project-guide")
+    home_with_completion("bash", dead)
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_project(runner)
+        result = runner.invoke(main, ['heal'])
+
+    assert "stale" in result.stderr
+    assert "no longer executable" in result.stderr
+    assert dead in result.stderr
+
+
+# --- End Story R.r ------------------------------------------------------------
+
+
 # --- Story R.a: project-guide git-commit subcommand -------------------------
 
 
