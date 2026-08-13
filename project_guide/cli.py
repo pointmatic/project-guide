@@ -149,12 +149,42 @@ def _copy_template_tree(
     return count
 
 
+def _normalize_pyve_version(raw: str) -> str:
+    """Reduce a pyve version string to its bare version token (Story R.n).
+
+    ``"pyve version 3.2.2"`` → ``"3.2.2"``. Returns the first
+    whitespace-separated token that starts with a digit — after stripping a
+    leading ``v`` — so ``"v3.2.2"`` and ``"3.2.2-rc1"`` both come out right.
+
+    Applied at the two points a version *enters* the system (the probe and the
+    host-supplied legs of `_resolve_pyve_version`) so the stored value is bare
+    by construction, and again at display time, where it is a no-op for values
+    written since this story and the legacy-compatibility path for every
+    ``.project-guide.yml`` in the wild that still carries the raw line.
+
+    **Normalizing is not validating.** Story R.k's rule stands: nothing is
+    rejected and nothing raises. A string with no recognizable version token
+    is returned as-is, so a value the host asserts about *itself* survives
+    even when project-guide cannot parse it.
+    """
+    for token in raw.split():
+        candidate = token[1:] if token[:1] == "v" else token
+        if candidate[:1].isdigit():
+            return candidate
+    return raw.strip() or raw
+
+
 def _probe_pyve_version() -> str | None:
     """Ask the installed pyve for its version. ``None`` on any failure.
 
     Bounded and total by design: a ``timeout`` plus every exception class the
     call can raise, because a detection miss must degrade to "unknown" rather
     than break the command it precedes.
+
+    Returns the **bare** version (Story R.n): normalizing here rather than at
+    each caller means both write paths through the probe — ``init`` and the
+    Story R.l refresh sites — store the same shape without either having to
+    remember to ask.
     """
     try:
         result = subprocess.run(
@@ -165,7 +195,9 @@ def _probe_pyve_version() -> str | None:
         )
     except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
         return None
-    return result.stdout.strip() if result.returncode == 0 else None
+    if result.returncode != 0:
+        return None
+    return _normalize_pyve_version(result.stdout.strip())
 
 
 class PyveVersionResolution(NamedTuple):
@@ -205,7 +237,7 @@ def _resolve_pyve_version(cli_value: str | None) -> PyveVersionResolution:
     """
     for candidate in (cli_value, os.environ.get("PYVE_VERSION")):
         if candidate and candidate.strip():
-            return PyveVersionResolution(candidate.strip(), probed=False)
+            return PyveVersionResolution(_normalize_pyve_version(candidate), probed=False)
     return PyveVersionResolution(_probe_pyve_version(), probed=True)
 
 
@@ -1145,10 +1177,15 @@ def status(verbose):
     # --- Pyve-managed-hosting footer (Story Q.m) ---
     # Reads the cached detection from config; no runtime re-run of `pyve
     # --version` (cross-repo invariant (b) in project-essentials.md).
+    #
+    # Story R.n stores the bare version, so this call is a no-op for anything
+    # written since — but it stays as the legacy-compatibility path: `status`
+    # is not a refresh site, so a config carrying the raw `pyve --version`
+    # line may never be rewritten at all.
     if config.pyve_version is not None:
         click.echo()
         click.secho(
-            f"Managed by pyve v{_pyve_version_token(config.pyve_version)} "
+            f"Managed by pyve v{_normalize_pyve_version(config.pyve_version)} "
             "(detected at init time).",
             dim=True,
         )
@@ -1442,20 +1479,6 @@ def _warn_if_go_md_tracked(config: Config) -> None:
         fg='yellow',
         err=True,
     )
-
-
-def _pyve_version_token(pyve_version: str) -> str:
-    """Extract the bare version number from the cached ``pyve_version`` string.
-
-    ``pyve_version`` stores the raw ``pyve --version`` stdout (e.g.
-    ``"pyve version 2.6.2"``). Return the first whitespace-separated token that
-    starts with a digit (``"2.6.2"``); fall back to the whole string when no
-    such token exists, so callers always get something printable.
-    """
-    for token in pyve_version.split():
-        if token and token[0].isdigit():
-            return token
-    return pyve_version
 
 
 def _running_install_path() -> Path:

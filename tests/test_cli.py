@@ -955,7 +955,11 @@ def test_mode_interactive_selection_switches_mode(runner, tmp_path, monkeypatch)
 
 
 def test_init_pyve_detected_stores_version(runner, tmp_path, monkeypatch):
-    """init with successful pyve --version stores pyve_version in config."""
+    """init with successful pyve --version stores pyve_version in config.
+
+    Story R.n: what lands in the config is the **bare** version, not the raw
+    `pyve --version` line the probe read.
+    """
     import subprocess as sp
 
     import project_guide.cli as cli_module
@@ -967,7 +971,7 @@ def test_init_pyve_detected_stores_version(runner, tmp_path, monkeypatch):
         result = runner.invoke(main, ['init'])
         assert result.exit_code == 0
         config = Config.load(".project-guide.yml")
-        assert config.pyve_version == "pyve 1.2.3"
+        assert config.pyve_version == "1.2.3"
 
 
 def test_init_pyve_not_found_stores_none(runner, tmp_path, monkeypatch):
@@ -4977,16 +4981,18 @@ def test_a_supplied_version_is_stripped(runner, tmp_path, no_probe):
 def test_a_supplied_version_is_not_validated(runner, tmp_path, no_probe):
     """The field records an observation; it does not constrain one.
 
-    `pyve_version` already tolerates both the bare `3.2.2` and the legacy
-    `pyve version 3.2.2` forms, and refusing a value the host asserts about
-    *itself* would be project-guide second-guessing the one component that
-    knows for certain.
+    Refusing a value the host asserts about *itself* would be project-guide
+    second-guessing the one component that knows for certain. Story R.n
+    *normalizes* the stored form — `pyve version 3.2.2-rc1` → `3.2.2-rc1` —
+    which is not the same thing as validating it: nothing is rejected, and a
+    value with no recognizable version token is stored exactly as given (see
+    `test_the_normalizer_passes_through_what_it_cannot_parse`).
     """
     with runner.isolated_filesystem(temp_dir=tmp_path):
         result = runner.invoke(main, ["init", "--pyve-version", "pyve version 3.2.2-rc1"])
 
         assert result.exit_code == 0
-        assert _config_data()["pyve_version"] == "pyve version 3.2.2-rc1"
+        assert _config_data()["pyve_version"] == "3.2.2-rc1"
 
 
 def test_a_supplied_version_renders_the_pyve_guidance(runner, tmp_path, no_probe):
@@ -5485,3 +5491,151 @@ def test_the_resolution_reports_whether_it_probed(runner, tmp_path, monkeypatch)
 
 
 # --- End Story R.m ------------------------------------------------------------
+
+
+# --- Story R.n: store a bare version string, read the legacy form ------------
+#
+# The field held the whole `pyve --version` line, so every display had to
+# re-parse it. Normalize once at the two points a value enters the system —
+# the probe and the host-supplied legs — and keep the reader tolerant, because
+# `.project-guide.yml` files in the wild carry the raw form.
+
+
+def _probe_returning(monkeypatch, stdout, returncode=0):
+    """Drive the *real* `_probe_pyve_version` with a canned `pyve --version`."""
+    import project_guide.cli as cli_module
+
+    class _Completed:
+        def __init__(self):
+            self.stdout = stdout
+            self.returncode = returncode
+
+    monkeypatch.setattr(cli_module.subprocess, "run", lambda *a, **kw: _Completed())
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("pyve version 3.2.2", "3.2.2"),
+        ("pyve 3.2.2", "3.2.2"),
+        ("3.2.2", "3.2.2"),
+        ("  pyve version 3.2.2  ", "3.2.2"),
+        ("pyve version 3.2.2-rc1", "3.2.2-rc1"),
+        ("pyve version v3.2.2", "3.2.2"),
+    ],
+    ids=["legacy", "short", "already-bare", "padded", "prerelease", "v-prefixed"],
+)
+def test_the_normalizer_extracts_the_version(raw, expected):
+    """One function, applied on write and again on read. Total by construction."""
+    from project_guide.cli import _normalize_pyve_version
+
+    assert _normalize_pyve_version(raw) == expected
+
+
+@pytest.mark.parametrize("unrecognizable", ["dev-build", "from source", "?"])
+def test_the_normalizer_passes_through_what_it_cannot_parse(unrecognizable):
+    """Normalizing is not validating (Story R.k).
+
+    Nothing is rejected and nothing raises: a value with no recognizable
+    version token is stored exactly as given. Refusing a value the host
+    asserts about *itself* would be project-guide second-guessing the one
+    component that knows for certain.
+    """
+    from project_guide.cli import _normalize_pyve_version
+
+    assert _normalize_pyve_version(unrecognizable) == unrecognizable
+
+
+def test_the_probe_stores_a_bare_version(runner, tmp_path, monkeypatch):
+    """The probe's raw stdout is normalized before it ever reaches the config."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        monkeypatch.delenv("PYVE_VERSION", raising=False)
+        _probe_returning(monkeypatch, "pyve version 3.2.2\n")
+
+        assert runner.invoke(main, ["init"]).exit_code == 0
+
+        assert _config_data()["pyve_version"] == "3.2.2"
+
+
+def test_a_failed_probe_still_records_nothing(runner, tmp_path, monkeypatch):
+    """Normalization must not turn a non-zero exit into a stored value."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        monkeypatch.delenv("PYVE_VERSION", raising=False)
+        _probe_returning(monkeypatch, "some error", returncode=1)
+
+        assert runner.invoke(main, ["init"]).exit_code == 0
+
+        assert _config_data()["pyve_version"] is None
+
+
+@pytest.mark.parametrize("supply", ["flag", "env"])
+def test_a_host_supplied_version_is_normalized_too(runner, tmp_path, monkeypatch, supply, no_probe):
+    """Both write paths, or the field's format depends on who wrote it."""
+    args = ["init"]
+    if supply == "flag":
+        args += ["--pyve-version", "pyve version 3.2.2"]
+    else:
+        monkeypatch.setenv("PYVE_VERSION", "pyve version 3.2.2")
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        assert runner.invoke(main, args).exit_code == 0
+
+        assert _config_data()["pyve_version"] == "3.2.2"
+
+
+def test_a_refresh_repairs_a_legacy_stored_value(runner, tmp_path, monkeypatch):
+    """Existing projects migrate themselves at the first Story R.l refresh.
+
+    The stored legacy string and the freshly normalized one differ, so
+    `record_pyve_detection` reports a change and writes the bare form — no
+    migration step, and no `SCHEMA_VERSION` bump, required.
+    """
+    import yaml
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        monkeypatch.delenv("PYVE_VERSION", raising=False)
+        # Both probes go through the real `_probe_pyve_version`, so the
+        # normalization under test is the shipped one, not a stub's.
+        _probe_returning(monkeypatch, "", returncode=1)
+        assert runner.invoke(main, ["init"]).exit_code == 0
+
+        data = _config_data()
+        data["pyve_version"] = "pyve version 3.2.2"  # the form in the wild
+        data["pyve_installed"] = True
+        Path(".project-guide.yml").write_text(yaml.dump(data))
+
+        _probe_returning(monkeypatch, "pyve version 3.2.2\n")
+        assert runner.invoke(main, ["update"]).exit_code == 0
+
+        assert _config_data()["pyve_version"] == "3.2.2"
+
+
+@pytest.mark.parametrize(
+    "stored",
+    ["3.2.2", "pyve version 3.2.2"],
+    ids=["bare", "legacy"],
+)
+def test_the_status_footer_renders_from_either_stored_form(runner, tmp_path, monkeypatch, stored):
+    """The tolerant reader, which is why the normalizer survives on the read side.
+
+    A config written before this story keeps the raw line until something
+    refreshes it, and `status` is not a refresh site — so the footer has to
+    cope with both forms indefinitely.
+    """
+    import yaml
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _install_probe(monkeypatch, None)
+        assert runner.invoke(main, ["init"]).exit_code == 0
+
+        data = _config_data()
+        data["pyve_version"] = stored
+        Path(".project-guide.yml").write_text(yaml.dump(data))
+
+        result = runner.invoke(main, ["status"])
+
+        assert result.exit_code == 0, result.output
+        assert "Managed by pyve v3.2.2 (detected at init time)." in result.output
+
+
+# --- End Story R.n ------------------------------------------------------------

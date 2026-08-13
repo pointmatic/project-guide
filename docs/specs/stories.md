@@ -361,16 +361,26 @@ The mirror image of the two tests Story R.j fixed. Four tests express "pyve is i
 
 Test-only story; no `project_guide/` change and no version bump — Subphase R-2 ships bundled as `v2.20.0` at R.o.
 
-### Story R.n: Store a bare version string with a tolerant reader [Planned]
+### Story R.n: Store a bare version string with a tolerant reader [Done]
 
 The field currently holds the whole `pyve --version` line (`"pyve version 2.6.2"`), which is why `_pyve_version_token()` exists to re-parse it at display time.
 
-- [ ] Normalize to a bare `"3.2.2"` on write, from both probe output and host-supplied values
-- [ ] Reader keeps accepting the legacy raw-stdout form — existing `.project-guide.yml` files in the wild carry it
-- [ ] Retire `_pyve_version_token()` (`cli.py:1281`) or reduce it to the legacy-compatibility path
-- [ ] Verify the `status` "Managed by pyve vX.Y.Z" footer still renders correctly from both stored forms
-- [ ] Confirm no coordinated pyve change is needed — `pyve_version` is not in the pinned cross-repo field subset (`version`, `installed_version`, `target_dir`, `current_mode`)
-- [ ] Tests: bare round-trip, legacy-form read, status footer for both forms
+- [x] Normalize to a bare `"3.2.2"` on write, from both probe output and host-supplied values — `_normalize_pyve_version` (`cli.py:152`) applied inside `_probe_pyve_version` (`:200`) and on the supplied legs of `_resolve_pyve_version` (`:240`). Normalizing *inside* the probe rather than at each caller means both write paths through it — `init` and R.l's two refresh sites — store the same shape without either having to remember to ask
+- [x] Reader keeps accepting the legacy raw-stdout form — existing `.project-guide.yml` files in the wild carry it
+- [x] Retire `_pyve_version_token()` (`cli.py:1281`) or reduce it to the legacy-compatibility path — **retired**, and its one caller now calls the shared normalizer (`cli.py:1188`). One function serving both roles is the point: on write it makes the value bare, on read it is a no-op for anything written since this story and the legacy path for everything older
+- [x] Verify the `status` "Managed by pyve vX.Y.Z" footer still renders correctly from both stored forms
+- [x] Confirm no coordinated pyve change is needed — `pyve_version` is not in the pinned cross-repo field subset (`version`, `installed_version`, `target_dir`, `current_mode`) — re-checked against the assertion that pins it (`test_cross_repo_contract.py:140`), whose docstring also states that additional fields' presence and shape are not contract
+- [x] Tests: bare round-trip, legacy-form read, status footer for both forms — 16 new tests (865 passed total); lint clean; mypy clean
+
+**Normalizing is not validating, and the tests say so separately.** R.k's rule was that project-guide does not second-guess a version the host asserts about itself. That survives intact: the normalizer never raises and never rejects — a string with no recognizable version token (`dev-build`, `from source`, `?`) is stored exactly as given, pinned by its own parametrized test. What it recognizes it simplifies; what it does not it leaves alone. The token rule also strips a leading `v`, so `v3.2.2` and `3.2.2-rc1` both come out right.
+
+**Two pre-existing tests encoded the old storage shape and were updated.** `test_init_pyve_detected_stores_version` expected the raw `"pyve 1.2.3"` line, and R.k's `test_a_supplied_version_is_not_validated` expected `--pyve-version "pyve version 3.2.2-rc1"` stored verbatim. Both now expect the bare form. The second is the more interesting edit: its *name* still holds — nothing is rejected — but "not validated" no longer implies "stored byte-for-byte", so the docstring now draws that line explicitly and points at the pass-through test that carries the original guarantee.
+
+**Existing projects repair themselves; no migration step.** A config holding `pyve version 3.2.2` differs from the freshly normalized `3.2.2`, so R.l's refresh reports a change and writes the bare form on the next `update` / `mode`. Until then the tolerant reader covers it — and it has to cover it indefinitely, because `status` is not a refresh site, so a config that never runs either command keeps the raw line forever.
+
+**Verified in the real CLI.** A fresh `init` with pyve 3.2.2 on `PATH` stores `pyve_version: 3.2.2` (previously `pyve version 3.2.2`); the footer reads `Managed by pyve v3.2.2`. Hand-editing the config back to `pyve version 2.6.2` — the exact form this repo's own `.project-guide.yml` still carries — renders `Managed by pyve v2.6.2` correctly, and the next `update` rewrites it bare. Full suite green in both directions per the R.m.1 gate: **865** with pyve on `PATH`, **865** under `env -i PATH=/usr/bin:/bin`.
+
+No version bump — Subphase R-2 ships bundled as `v2.20.0` at R.o, which owns the CHANGELOG entry.
 
 ### Story R.o: `v2.20.0` Subphase R-2 bundled release [Planned]
 
