@@ -1126,35 +1126,23 @@ def test_plan_tech_spec_omits_pyve_users_paragraph():
     assert "Pyve users:" not in content
 
 
-def test_go_md_auto_renders_pyve_essentials_when_pyve_installed(tmp_path):
-    """When pyve is installed, every rendered go.md includes pyve-essentials content
-    under ## Project Essentials > ### Pyve Essentials — even without any manual
-    merge into project-essentials.md."""
-    import yaml
-    from click.testing import CliRunner  # noqa: I001
+def _detect_pyve(monkeypatch, version="1.2.3"):
+    """Pin detection to "pyve found, at `version`" for the duration of a test.
 
-    from project_guide.cli import main
+    The mirror of `_detect_no_pyve`, and the fix for Story R.m.1. A test that
+    needs pyve *present* must say so itself: expressing it as `pyve_version` in
+    the config stopped working when Story R.j made `pyve_installed` the render
+    gate, leaving these tests to borrow the flag from `init`'s live detection —
+    which passes on a developer machine with pyve and fails on every machine
+    without one, CI included.
 
-    runner = CliRunner()
-    with runner.isolated_filesystem(temp_dir=tmp_path):
-        result = runner.invoke(main, ['init'])
-        assert result.exit_code == 0
+    Pinning the probe is the other half. Story R.l made an explicit `mode`
+    switch a refresh site, so an unpinned probe gets a vote on what the config
+    says by the time the render runs.
+    """
+    import project_guide.cli as cli_module
 
-        # Force pyve_version set; do NOT create docs/specs/project-essentials.md
-        config_data = yaml.safe_load(Path(".project-guide.yml").read_text())
-        config_data["pyve_version"] = "1.2.3"
-        Path(".project-guide.yml").write_text(yaml.dump(config_data))
-
-        result = runner.invoke(main, ['mode', 'default'])
-        assert result.exit_code == 0
-
-        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
-
-    assert "## Project Essentials" in content
-    assert "### Pyve Essentials" in content
-    # Content from the bundled artifact should appear
-    assert "two separate environments" in content
-    assert "pyve test" in content
+    monkeypatch.setattr(cli_module, "_probe_pyve_version", lambda: version)
 
 
 def _detect_no_pyve(monkeypatch):
@@ -1169,6 +1157,42 @@ def _detect_no_pyve(monkeypatch):
     import project_guide.cli as cli_module
 
     monkeypatch.setattr(cli_module, "_probe_pyve_version", lambda: None)
+
+
+def test_go_md_auto_renders_pyve_essentials_when_pyve_installed(tmp_path, monkeypatch):
+    """When pyve is installed, every rendered go.md includes pyve-essentials content
+    under ## Project Essentials > ### Pyve Essentials — even without any manual
+    merge into project-essentials.md."""
+    import yaml
+    from click.testing import CliRunner  # noqa: I001
+
+    from project_guide.cli import main
+
+    _detect_pyve(monkeypatch)
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(main, ['init'])
+        assert result.exit_code == 0
+
+        # State the premise in the config rather than borrowing it from the
+        # host machine: `pyve_installed` is the render gate since Story R.j,
+        # and `pyve_version` alone no longer turns the guidance on.
+        # Do NOT create docs/specs/project-essentials.md.
+        config_data = yaml.safe_load(Path(".project-guide.yml").read_text())
+        config_data["pyve_version"] = "1.2.3"
+        config_data["pyve_installed"] = True
+        Path(".project-guide.yml").write_text(yaml.dump(config_data))
+
+        result = runner.invoke(main, ['mode', 'default'])
+        assert result.exit_code == 0
+
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    assert "## Project Essentials" in content
+    assert "### Pyve Essentials" in content
+    # Content from the bundled artifact should appear
+    assert "two separate environments" in content
+    assert "pyve test" in content
 
 
 def test_go_md_omits_pyve_essentials_when_pyve_not_installed(tmp_path, monkeypatch):
@@ -1201,7 +1225,7 @@ def test_go_md_omits_pyve_essentials_when_pyve_not_installed(tmp_path, monkeypat
     assert "### Pyve Essentials" not in content
 
 
-def test_go_md_renders_project_essentials_wrapper_even_when_only_pyve_content(tmp_path):
+def test_go_md_renders_project_essentials_wrapper_even_when_only_pyve_content(tmp_path, monkeypatch):
     """When project-essentials.md is absent but pyve is installed, the
     ## Project Essentials wrapper still renders so ### Pyve Essentials has a parent."""
     import yaml
@@ -1209,14 +1233,16 @@ def test_go_md_renders_project_essentials_wrapper_even_when_only_pyve_content(tm
 
     from project_guide.cli import main
 
+    _detect_pyve(monkeypatch)
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=tmp_path):
         result = runner.invoke(main, ['init'])
         assert result.exit_code == 0
 
-        # Set pyve_version, ensure no project-essentials.md exists
+        # Set the render gate, ensure no project-essentials.md exists
         config_data = yaml.safe_load(Path(".project-guide.yml").read_text())
         config_data["pyve_version"] = "1.2.3"
+        config_data["pyve_installed"] = True
         Path(".project-guide.yml").write_text(yaml.dump(config_data))
 
         pe_path = Path("docs/specs/project-essentials.md")
@@ -1235,7 +1261,7 @@ def test_go_md_renders_project_essentials_wrapper_even_when_only_pyve_content(tm
     assert wrapper_pos < pyve_pos
 
 
-def test_go_md_has_both_project_essentials_and_pyve_essentials(tmp_path):
+def test_go_md_has_both_project_essentials_and_pyve_essentials(tmp_path, monkeypatch):
     """When both project-essentials.md and pyve are present, go.md surfaces both
     with ### Pyve Essentials nested inside the ## Project Essentials wrapper."""
     import yaml
@@ -1243,6 +1269,7 @@ def test_go_md_has_both_project_essentials_and_pyve_essentials(tmp_path):
 
     from project_guide.cli import main
 
+    _detect_pyve(monkeypatch)
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=tmp_path):
         result = runner.invoke(main, ['init'])
@@ -1250,6 +1277,7 @@ def test_go_md_has_both_project_essentials_and_pyve_essentials(tmp_path):
 
         config_data = yaml.safe_load(Path(".project-guide.yml").read_text())
         config_data["pyve_version"] = "1.2.3"
+        config_data["pyve_installed"] = True
         Path(".project-guide.yml").write_text(yaml.dump(config_data))
 
         specs_dir = Path("docs/specs")
@@ -2293,18 +2321,20 @@ def test_plan_production_phase_in_mode_listing():
 
 # --- Story Q.m: pyve-aware onboarding line in _header-common.md --------------
 
-def test_header_common_pyve_branch_when_pyve_detected():
+def test_header_common_pyve_branch_when_pyve_detected(monkeypatch):
     """With pyve detected, go.md's onboarding line uses the pyve-managed wording."""
     import yaml
     from click.testing import CliRunner  # noqa: I001
 
     from project_guide.cli import main
 
+    _detect_pyve(monkeypatch)
     runner = CliRunner()
     with runner.isolated_filesystem():
         runner.invoke(main, ['init'])
         cfg = yaml.safe_load(Path('.project-guide.yml').read_text())
         cfg['pyve_version'] = '1.2.3'
+        cfg['pyve_installed'] = True  # the render gate since Story R.j
         Path('.project-guide.yml').write_text(yaml.dump(cfg))
 
         result = runner.invoke(main, ['mode', 'default'])

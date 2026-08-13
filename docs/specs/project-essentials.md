@@ -40,6 +40,14 @@ Before presenting a **code** story at its approval gate, run the **same checks C
 
 Record the outcome in the story checklist (counts passed / "clean"). If the local testenv's console-script shebangs are stale (env-layout churn breaks `pyve env run mypy`), invoke the module directly — `.pyve/envs/testenv/venv/bin/python -m mypy project_guide/` — rather than skipping the gate.
 
+**The CI runner has no pyve.** `ci.yml` does a plain `pip install -e ".[dev]"`, so any test whose expectation depends on the *host machine* having pyve passes locally and fails there — a green local run that predicts nothing. When a story touches pyve detection or the render gate, also run the suite with pyve out of reach:
+
+```bash
+env -i PATH=/usr/bin:/bin HOME="$HOME" .pyve/envs/testenv/venv/bin/python -m pytest -q
+```
+
+A test needing pyve present (or absent) must **state it** — set `pyve_installed` in the config and pin `_probe_pyve_version` via the `_detect_pyve` / `_detect_no_pyve` helpers in `tests/test_render.py` — never borrow the answer from `init`'s live detection. Story R.j left four tests borrowing it and CI was red from R.j until **R.m.1** repaired them.
+
 ### Commit workflow
 
 - **Commit messages reference the story ID** in the bare form `<id>: <title>` (no `Story ` prefix — the prefix is implicit context and adds no information the `<id>:` anchor doesn't already convey). Include **`vX.Y.Z`** when this commit is the **single** version bump for that story — examples:

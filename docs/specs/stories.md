@@ -344,14 +344,22 @@ A silent `null` is indistinguishable from a deliberate non-pyve project. This co
 
 No version bump — Subphase R-2 ships bundled as `v2.20.0` at R.o, which owns the CHANGELOG entry.
 
-### Story R.m.1: Make the pyve render tests machine-independent [Planned]
+### Story R.m.1: Make the pyve render tests machine-independent [Done]
 
 The mirror image of the two tests Story R.j fixed. Four tests express "pyve is installed" by setting `pyve_version` alone and depend on `init`'s live detection for the flag the render gate actually reads — so they pass on a developer machine with pyve and fail everywhere else, CI included (`ci.yml` installs no pyve). Red since R.j; found during R.m's verification.
 
-- [ ] Fix the four: `test_go_md_auto_renders_pyve_essentials_when_pyve_installed`, `test_go_md_renders_project_essentials_wrapper_even_when_only_pyve_content`, `test_go_md_has_both_project_essentials_and_pyve_essentials`, `test_header_common_pyve_branch_when_pyve_detected` — set `pyve_installed` explicitly, and pin the probe (R.l made `mode` a refresh site) as `_detect_no_pyve` already does for the absent direction
-- [ ] Sweep for the same shape elsewhere: any test whose expectation depends on whether the *host machine* has pyve
-- [ ] Verify by running the full suite under a stripped `PATH` (`env -i PATH=/usr/bin:/bin`), which is the closest local stand-in for CI
-- [ ] Consider whether the sweep belongs in the CI-gate-parity checklist in `project-essentials.md` — a green local run should predict a green CI run, and this class of failure is exactly what that rule exists to catch
+- [x] Fix the four: `test_go_md_auto_renders_pyve_essentials_when_pyve_installed`, `test_go_md_renders_project_essentials_wrapper_even_when_only_pyve_content`, `test_go_md_has_both_project_essentials_and_pyve_essentials`, `test_header_common_pyve_branch_when_pyve_detected` — set `pyve_installed` explicitly, and pin the probe (R.l made `mode` a refresh site) as `_detect_no_pyve` already does for the absent direction — via a new `_detect_pyve(monkeypatch, version="1.2.3")` (`test_render.py:1129`) placed beside its sibling, so the pair reads as one idea instead of a helper for one direction and hand-rolled setup for the other
+- [x] Sweep for the same shape elsewhere: any test whose expectation depends on whether the *host machine* has pyve
+- [x] Verify by running the full suite under a stripped `PATH` (`env -i PATH=/usr/bin:/bin`), which is the closest local stand-in for CI
+- [x] Consider whether the sweep belongs in the CI-gate-parity checklist in `project-essentials.md` — a green local run should predict a green CI run, and this class of failure is exactly what that rule exists to catch — **yes**, added
+
+**Both halves are needed, for different reasons.** `pyve_installed: true` states the premise the gate actually reads (R.j), and pinning the probe stops the R.l refresh from overwriting it on the `mode` call every one of these tests makes. Either alone leaves a test that passes for a reason it does not name.
+
+**The sweep, run two ways.** Empirically: the full suite passes **849** with pyve on `PATH` and **849** under `env -i PATH=/usr/bin:/bin` — the same number both directions, which is the property that was missing. By inspection: `grep` for every test asserting pyve-gated content (`Pyve Essentials`, `Managed by pyve`, `Pyve manages project-guide`, `two separate environments`) and every test touching `pyve_version` / `pyve_installed`. The two `status`-footer tests (`test_cli.py:3996`, `:4014`) look like the same shape but are not: they overwrite the field unconditionally and `status` is not a refresh site, so nothing on the host can reach them.
+
+**Checklist item added to `project-essentials.md` § Story verification.** It names the cause (`ci.yml` installs no pyve), gives the stripped-`PATH` command, and states the rule — a test needing pyve present or absent must *say so* via the `_detect_pyve` / `_detect_no_pyve` pair, never borrow the answer from `init`. Worth the tokens because the failure is invisible locally: the gate exists precisely to make a green local run predict CI, and this class walks straight through it.
+
+Test-only story; no `project_guide/` change and no version bump — Subphase R-2 ships bundled as `v2.20.0` at R.o.
 
 ### Story R.n: Store a bare version string with a tolerant reader [Planned]
 
