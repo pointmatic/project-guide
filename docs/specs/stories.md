@@ -223,7 +223,7 @@ No version bump — Subphase R-1 ships bundled as `v2.19.0` at R.i, which owns t
 
 Documentation and the single release tag for the subphase.
 
-- [x] Rewrite `features.md` FR-7 — replace the hand-copied-snippet framing with the `completion` command group; remove the "Known limitations" block added in R.z's `features.md` pass, now that both defects are closed; **state the fish gap explicitly** so the docs stop over-promising — rewritten around the four subcommands, the two routes, the rc-file safety contract, and `heal` integration. The old limitations block is replaced by a **Known gaps** block, since the two *original* defects are closed but four honest gaps remain (fish, bash 3.2 `compopt`, dead-path-only staleness, PowerShell)
+- [x] Rewrite `features.md` FR-7 — replace the hand-copied-snippet framing with the `completion` command group; remove the "Known limitations" block added in R.?'s `features.md` pass, now that both defects are closed; **state the fish gap explicitly** so the docs stop over-promising — rewritten around the four subcommands, the two routes, the rc-file safety contract, and `heal` integration. The old limitations block is replaced by a **Known gaps** block, since the two *original* defects are closed but four honest gaps remain (fish, bash 3.2 `compopt`, dead-path-only staleness, PowerShell)
 - [x] Document the implementation in `tech-spec.md` — the two route mechanisms, post-processing, sentinel machinery, and rc-file safety contract — new § "Shell Completion Installation (Subphase R-1)", plus `completion.py` and `test_completion.py` in the package-structure tree, `CompletionError` (and the previously-missing `ActionError`) in the exception hierarchy, the test count refreshed 629 → 790, and a CLI-design note on which completion subcommands take `--quiet` / `--no-input` and why
 - [x] Update `README.md` and `docs/site/user-guide/commands.md` with the new command group; revise the Shell Completion sections in `README.md` and `docs/site/user-guide/install-options.md` — plus a `completion` row in the commands overview table, a stale-completion bullet in `heal`'s **Warnings** list, and **one surface the checklist missed**: `docs/site/user-guide/configuration.md` carried its own copy of the three-shell snippet instructions (found by grepping for `_PROJECT_GUIDE_COMPLETE=` across all docs rather than trusting the list)
 - [x] Record the macOS system-bash 3.2 limitation accurately — **narrowed by R.d**: the registration half is *closed* (the emitted `complete -o nosort … 2>/dev/null || complete …` fallback registers on 3.2), so what remains is only `compopt` (bash ≥ 4.0) breaking **dir/file** completions there. Document the residual limitation, not the pre-spike "nothing works" wording and not R.b Amendment 4's "nothing registers at all," which R.d superseded — stated in FR-7, the CHANGELOG, and `install-options.md`, each naming what *does* work there so the limitation is not read as "bash 3.2 is unsupported"
@@ -267,16 +267,24 @@ The omitted content is the guardrail itself — use `pyve test` not `pyve run py
 
 ---
 
-### Story R.j: Decouple the render gate — persist `pyve_installed` [Planned]
+### Story R.j: Decouple the render gate — persist `pyve_installed` [Done]
 
 The core fix. Deriving `pyve_installed` from `config.pyve_version is not None` is what turns a *detection miss* into *content loss* — the two answer different questions ("should the guidance render?" vs. "which pyve was seen?") and must stop sharing one field.
 
-- [ ] Add `pyve_installed: bool` to the `Config` dataclass with YAML round-trip
-- [ ] Migration default on read: `pyve_version is not None`, so no existing project changes behavior at the moment of upgrade
-- [ ] Confirm this is additive-with-default and therefore does **not** bump `SCHEMA_VERSION` (per the config-schema policy in `project-essentials.md`)
-- [ ] Replace the derivation at all four render call sites — `init` (`cli.py:272`), `set_mode` (694), `update` (1136), `_apply_heal` (1216) — with `config.pyve_installed`
-- [ ] Implement the **sticky-true** helper: a single function through which every automatic update flows, which can set the flag `true` but never `false`
-- [ ] Tests: migration default for a legacy config, sticky-true holds across a failed probe, all four render sites read the persisted flag, an explicitly-`false` hand-edited config is respected
+- [x] Add `pyve_installed: bool` to the `Config` dataclass with YAML round-trip — `config.py:100`, defaulting to `False`, with the why-not-derived reasoning recorded on the field itself
+- [x] Migration default on read: `pyve_version is not None`, so no existing project changes behavior at the moment of upgrade — and a key that *is* present always wins, which is what lets a hand-edited opt-out survive a load
+- [x] Confirm this is additive-with-default and therefore does **not** bump `SCHEMA_VERSION` (per the config-schema policy in `project-essentials.md`) — verified against `Config.load`'s actual `data.get(key, default)` shape rather than assumed; pinned by a test asserting `SCHEMA_VERSION == "2.0"`, because bumping for an additive field would make every existing project fail to load until it ran `init --force`
+- [x] Replace the derivation at all four render call sites — `init` (`cli.py:272`), `set_mode` (694), `update` (1136), `_apply_heal` (1216) — with `config.pyve_installed` — **the recorded line numbers had drifted ~250 lines** (Subphase R-1 grew `cli.py`), so the sites were found by what they do; they are now `cli.py:295`/`315` (init render + persist), `718` (`set_mode`), `1160` (`update`), `1240` (`_apply_heal`)
+- [x] Implement the **sticky-true** helper: a single function through which every automatic update flows, which can set the flag `true` but never `false` — `Config.record_pyve_detection(detected_version) -> bool`. Returns whether anything changed so callers can skip a pointless config write, which is the hook R.l needs
+- [x] Tests: migration default for a legacy config, sticky-true holds across a failed probe, all four render sites read the persisted flag, an explicitly-`false` hand-edited config is respected — 16 new tests (808 passed total)
+
+**`init` is deliberately outside the sticky-true rule.** It is the one site allowed to record a miss as `false`, because there is no prior observation to overwrite — this is the project's first answer, not a revision of one. It now names the decision in a single local (`detected_pyve_installed`) that both the render call and the persisted `Config` read, so the file can never disagree with what was just rendered.
+
+**Two pre-existing tests encoded the old contract and were updated.** `test_go_md_omits_pyve_essentials_when_pyve_not_installed` and `test_header_common_pip_branch_when_pyve_absent` both expressed "pyve is absent" by nulling `pyve_version` alone, and both began failing — correctly. Under the decoupling, a version going away no longer strips the guidance; that *is* the fix. They now set `pyve_installed: false`, which is how the config expresses absence. Worth noting they were also quietly machine-dependent before: they only passed because they nulled the one field the gate read, and on a machine where `init` detects pyve they now exercise a genuinely explicit opt-out.
+
+**The plan's production concern, confirmed rather than assumed.** The plan flagged that a re-render newly *adding* the section is a content change to a managed file and asked for an explicit check that no `.bak` proliferation results. Verified end-to-end on a real project: a config stuck at `pyve_installed: false` renders a 160-line `go.md`; flipping the flag re-renders at 240 lines — the ~80 lines of guardrail restored — with **zero** backup files created. Also verified the migration path on a real legacy config (no `pyve_installed` key, `pyve_version: 'pyve 3.2.2'`): the guidance renders immediately from the derived default, and the next `mode` persists `pyve_installed: true`, which is exactly the "changes on the next `update` / `mode`" repair the plan describes.
+
+No version bump — Subphase R-2 ships bundled as `v2.20.0` at R.o, which owns the CHANGELOG entry.
 
 ### Story R.k: Host-supplied pyve version — `--pyve-version` / `PYVE_VERSION` [Planned]
 
@@ -340,15 +348,15 @@ Documentation and the single release tag for the subphase.
 
 ---
 
-### Story R.?: Working with branches
+## Story R.p: Working with branches [Planned]
 
 We need to fix `project-guide git-push <branch>` and `... git-commit <branch>` to loosen committed story checking. If working on a production repo and kicking off a new branch with either of these commands and the `stories.md` file has multiple completed stories that were smashed and merged to `main` branch, Project Guide is going to check the current branch (`main`, for example) to see that the stories are in the Git log. They won't be. Starting a new branch should be simple and seamless, and I am inclined to think that it is practically just a simple wrapper for `git-push` or `git-commit`, but this needs to be thought through more carefully. 
 
-Let's also implement the wrapper for `git-merged` in `gitbetter` v1.8.0. 
+- [ ] TBD
 
 ---
 
-### Story R.z: Refactor planning docs (artifact-role realignment + spec accuracy) [Planned]
+### Story R.?: Refactor planning docs (artifact-role realignment + spec accuracy) [Planned]
 
 Two problems surfaced while scoping a documentation refactor.
 
@@ -362,15 +370,21 @@ Verified against the code, the bundled template tree, and a full test run (636 p
 
 The `features.md` pass is already complete and was presented at its per-document gate; `docs/specs/features_old.md` is the backup and can be deleted once the whole session closes. The `tech-spec.md` pass and the `project-essentials.md` revisit have not started — the relocation targets they were to receive are named in their task lines below. Resume with `project-guide mode refactor_plan`.
 
-Renumbered `R.b` → `R.z` to park it behind the subphases. It is a **phase-level** story, not part of any subphase.
+Renumbered `R.b` → `R.?` to park it behind the subphases. It is a **phase-level** story, not part of any subphase.
 
-- [x] Refactor `features.md` — receive relocated *what* content (FR-15 branch-logic decision table: the 9 outcomes with exit codes, prompts, defaults, and `--no-input` behavior; `heal`/`update`/`init` division of labor into FR-14); fix the pre-v2.9.0 FR-15 error model; resolve the `go.md` tracked-vs-untracked self-contradiction (L132 / L140 vs FR-14 L395 — `tech-spec.md` L111 is the correct statement); add the missing `init` inputs `--test-first` and `--project-name`; add `developer/python-editable-install.md` and `templates/modes/_phase-letters.md` to the File Structure tree; add the missing `project_name` field to the `.project-guide.yml` schema block; refresh stale version examples; move `FR-7: Shell Completion` back into numeric sequence (it sat after FR-15); record FR-7's known zsh `compinit` / `PATH`-resolution limitations and point at the incoming [`shell-completion-ownership.md`](shell-completion-ownership.md) change request; repair the `phase-q-pyve-toolchain-hosting.md` link (moved to `.archive/`)
+- [x] (confirm this) Refactor `features.md` — receive relocated *what* content (FR-15 branch-logic decision table: the 9 outcomes with exit codes, prompts, defaults, and `--no-input` behavior; `heal`/`update`/`init` division of labor into FR-14); fix the pre-v2.9.0 FR-15 error model; resolve the `go.md` tracked-vs-untracked self-contradiction (L132 / L140 vs FR-14 L395 — `tech-spec.md` L111 is the correct statement); add the missing `init` inputs `--test-first` and `--project-name`; add `developer/python-editable-install.md` and `templates/modes/_phase-letters.md` to the File Structure tree; add the missing `project_name` field to the `.project-guide.yml` schema block; refresh stale version examples; move `FR-7: Shell Completion` back into numeric sequence (it sat after FR-15); record FR-7's known zsh `compinit` / `PATH`-resolution limitations and point at the incoming [`shell-completion-ownership.md`](shell-completion-ownership.md) change request; repair the `phase-q-pyve-toolchain-hosting.md` link (moved to `.archive/`)
 - [ ] Refactor `tech-spec.md` — receive relocated *how* content (gitbetter wrapper internals under § External CLI Dependencies: bundled-subject emit grammar, colon rule, whitespace collapse, the permissive-read/strict-emit parser asymmetry, header-filter predicate, committed-prefix→uncommitted-suffix partition, `_presume_committed_on_branch` anchor heuristics; reconcile rather than duplicate for gitignore / IDE-visibility / auto-heal-hook / schema-versioning detail already partly present); fix the entry-point template misnamed `templates/go.md` → `templates/llm_entry_point.md`; update the test inventory 629 → 636 in both places; extend the partials filename convention to cover `_phase-letters.md`
 - [ ] Revisit `project-essentials.md` — trim ~213 lines to ~80 by relocating the ~130 duplicated lines above; retain the developer-lane rule, the genuinely non-obvious traps, the Pyve env-spec vendored contract (no other home), and pointers into `features.md` / `tech-spec.md`; verify no fact is lost in transit
 
 `concept.md` needs no changes — its scope list, command inventory, and 17-mode count with the `plan_envs` frozen marker are all current.
 
 No version bump: spec-accuracy correction and doc reorganization with no behavioral change. Rides the next code story's release per Version Cadence.
+
+--- 
+
+## Story R.?: v2.21.0 Subphase R-3 bundled release [Planned]
+
+- [ ] TBD
 
 ---
 

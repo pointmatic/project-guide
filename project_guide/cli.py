@@ -282,6 +282,14 @@ def init(
     except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
         detected_pyve_version = None
 
+    # `init` is the one site allowed to record a miss as False: there is no
+    # prior observation to preserve, so this is the project's first answer
+    # rather than an overwrite of one. Every *later* automatic update goes
+    # through `Config.record_pyve_detection`, which can only turn the flag on
+    # (Story R.j sticky-true rule). Rendering and persistence read the same
+    # local, so the file can never disagree with what was just rendered.
+    detected_pyve_installed = detected_pyve_version is not None
+
     # Load metadata and render go.md
     metadata_file = ".metadata.yml"
     metadata_path = target_path / metadata_file
@@ -292,7 +300,7 @@ def init(
         render_go_project_guide(
             target_path, mode, metadata, output_path,
             test_first=bool(resolved_test_first),
-            pyve_installed=detected_pyve_version is not None,
+            pyve_installed=detected_pyve_installed,
             pyve_version=detected_pyve_version,
         )
         if not quiet:
@@ -312,6 +320,7 @@ def init(
         current_mode="default",
         test_first=bool(resolved_test_first),
         pyve_version=detected_pyve_version,
+        pyve_installed=detected_pyve_installed,
         project_name=str(resolved_project_name),
     )
     config.save(str(config_path))
@@ -714,7 +723,7 @@ def set_mode(mode_name: str | None, verbose: bool, no_input: bool):
         render_go_project_guide(
             target_dir, mode, metadata, output_path,
             test_first=config.test_first,
-            pyve_installed=config.pyve_version is not None,
+            pyve_installed=config.pyve_installed,
             pyve_version=config.pyve_version,
         )
     except RenderError as e:
@@ -1156,7 +1165,7 @@ def update(files: tuple, dry_run: bool, force: bool, no_input: bool, quiet: bool
             render_go_project_guide(
                 target_dir_path, mode, metadata, output_path,
                 test_first=config.test_first,
-                pyve_installed=config.pyve_version is not None,
+                pyve_installed=config.pyve_installed,
                 pyve_version=config.pyve_version,
             )
             if not quiet:
@@ -1236,7 +1245,7 @@ def _apply_heal(config: Config, config_path: Path) -> None:
         render_go_project_guide(
             target_dir_path, mode, metadata, output_path,
             test_first=config.test_first,
-            pyve_installed=config.pyve_version is not None,
+            pyve_installed=config.pyve_installed,
             pyve_version=config.pyve_version,
         )
     except (MetadataError, RenderError) as e:

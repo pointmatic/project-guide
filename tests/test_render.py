@@ -1169,9 +1169,13 @@ def test_go_md_omits_pyve_essentials_when_pyve_not_installed(tmp_path):
         result = runner.invoke(main, ['init'])
         assert result.exit_code == 0
 
-        # Force pyve_version to None regardless of what detection found
+        # Express "pyve is not installed" the way the config now expresses it.
+        # Story R.j decoupled the render gate from `pyve_version`, so nulling
+        # the version alone no longer turns the guidance off — that is the
+        # sticky-true fix, not a regression. `pyve_installed` is the gate.
         config_data = yaml.safe_load(Path(".project-guide.yml").read_text())
         config_data["pyve_version"] = None
+        config_data["pyve_installed"] = False
         Path(".project-guide.yml").write_text(yaml.dump(config_data))
 
         result = runner.invoke(main, ['mode', 'default'])
@@ -2308,6 +2312,7 @@ def test_header_common_pip_branch_when_pyve_absent():
         runner.invoke(main, ['init'])
         cfg = yaml.safe_load(Path('.project-guide.yml').read_text())
         cfg['pyve_version'] = None
+        cfg['pyve_installed'] = False  # the render gate since Story R.j
         Path('.project-guide.yml').write_text(yaml.dump(cfg))
 
         result = runner.invoke(main, ['mode', 'default'])
@@ -2372,3 +2377,122 @@ def test_best_practices_guide_no_longer_references_bump_version():
 
 
 # --- End Story Q.ac -----------------------------------------------------------
+
+
+# --- Story R.j: the render gate reads the persisted flag ----------------------
+#
+# Each render call site must consult `pyve_installed`, not
+# `pyve_version is not None`. The two are set to *disagree* below, so a site
+# still deriving the gate from the version fails loudly instead of passing by
+# coincidence.
+
+
+def _write_config(**fields):
+    """Patch `.project-guide.yml` in the current directory."""
+    import yaml
+
+    data = yaml.safe_load(Path(".project-guide.yml").read_text())
+    data.update(fields)
+    Path(".project-guide.yml").write_text(yaml.dump(data))
+
+
+def _go_md() -> str:
+    return Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+
+def test_mode_renders_pyve_guidance_from_the_flag_without_a_version(tmp_path):
+    """`pyve_installed` alone is enough to render — the version is not the gate.
+
+    This is the repair path: a project whose detection missed can be fixed by
+    the flag going true, even though no version was ever recorded.
+    """
+    from click.testing import CliRunner
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        assert runner.invoke(main, ['init']).exit_code == 0
+        _write_config(pyve_installed=True, pyve_version=None)
+
+        assert runner.invoke(main, ['mode', 'default']).exit_code == 0
+
+        assert "### Pyve Essentials" in _go_md()
+
+
+def test_mode_omits_pyve_guidance_when_the_flag_is_off_despite_a_version(tmp_path):
+    """The opt-out direction: a hand-edited `false` wins over a recorded version."""
+    from click.testing import CliRunner
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        assert runner.invoke(main, ['init']).exit_code == 0
+        _write_config(pyve_installed=False, pyve_version="3.2.2")
+
+        assert runner.invoke(main, ['mode', 'default']).exit_code == 0
+
+        assert "### Pyve Essentials" not in _go_md()
+
+
+def test_update_renders_pyve_guidance_from_the_flag(tmp_path):
+    """Second of the four render sites."""
+    from click.testing import CliRunner
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        assert runner.invoke(main, ['init']).exit_code == 0
+        _write_config(pyve_installed=True, pyve_version=None)
+        Path("docs/project-guide/go.md").unlink()
+
+        assert runner.invoke(main, ['update', '--force']).exit_code == 0
+
+        assert "### Pyve Essentials" in _go_md()
+
+
+def test_heal_renders_pyve_guidance_from_the_flag(tmp_path):
+    """Third site. `_apply_heal` only *reads* the flag — it must never probe.
+
+    A pyve subprocess in the auto-hook path is the Q.t (v2.15.1) hang class,
+    which is why the refresh sites in R.l deliberately exclude this one.
+    """
+    from click.testing import CliRunner
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        assert runner.invoke(main, ['init']).exit_code == 0
+        _write_config(pyve_installed=True, pyve_version=None)
+        Path("docs/project-guide/README.md").unlink()  # drift for heal to repair
+
+        assert runner.invoke(main, ['heal', '--no-input']).exit_code == 0
+
+        assert "### Pyve Essentials" in _go_md()
+
+
+def test_init_persists_the_flag_it_rendered_with(tmp_path):
+    """Fourth site, plus the write-back: `init` records what it decided.
+
+    Without persistence the flag would be re-derived on every load and the
+    decoupling would be cosmetic.
+    """
+    import yaml
+    from click.testing import CliRunner
+
+    from project_guide.cli import main
+
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        assert runner.invoke(main, ['init']).exit_code == 0
+
+        data = yaml.safe_load(Path(".project-guide.yml").read_text())
+
+    assert "pyve_installed" in data
+    assert isinstance(data["pyve_installed"], bool)
+
+
+# --- End Story R.j -----------------------------------------------------------

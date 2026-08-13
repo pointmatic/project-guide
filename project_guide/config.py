@@ -90,6 +90,14 @@ class Config:
     current_mode: str = "default"
     test_first: bool = False
     pyve_version: str | None = None
+    #: Whether the Pyve guidance section renders into ``go.md``.
+    #:
+    #: Deliberately *not* derived from ``pyve_version`` (Story R.j). The two
+    #: answer different questions — "should the guidance render?" versus
+    #: "which pyve was seen?" — and deriving the first from the second is what
+    #: turned a single failed ``pyve --version`` probe into the permanent loss
+    #: of ~80 lines of guardrail from every rendered ``go.md``.
+    pyve_installed: bool = False
     project_name: str = ""
     metadata_overrides: dict[str, dict] = field(default_factory=dict)
     overrides: dict[str, FileOverride] = field(default_factory=dict)
@@ -140,6 +148,17 @@ class Config:
         raw_pyve = data.get('pyve_version')
         pyve_version = str(raw_pyve) if raw_pyve is not None else None
 
+        # Migration default (Story R.j): a config written before this field
+        # existed has no key, so fall back to exactly the answer the old
+        # derived gate would have given. Upgrading therefore changes no
+        # project's behavior at the moment of upgrade; it changes on the next
+        # `update` / `mode`, which is the intended repair. A key that *is*
+        # present always wins — that is how a hand-edited opt-out survives.
+        raw_installed = data.get('pyve_installed')
+        pyve_installed = (
+            bool(raw_installed) if raw_installed is not None else pyve_version is not None
+        )
+
         return Config(
             version=data.get('version', '2.0'),
             installed_version=data.get('installed_version'),
@@ -148,10 +167,47 @@ class Config:
             current_mode=data.get('current_mode', 'default'),
             test_first=bool(data.get('test_first', False)),
             pyve_version=pyve_version,
+            pyve_installed=pyve_installed,
             project_name=str(data.get('project_name', '') or ''),
             metadata_overrides=metadata_overrides,
             overrides=overrides
         )
+
+    def record_pyve_detection(self, detected_version: str | None) -> bool:
+        """Fold an *automatic* pyve detection result in. Returns whether it changed.
+
+        This is the single function every automatic update must flow through,
+        and it enforces the load-bearing rule of Subphase R-2:
+
+        > **Automatic detection may only ever set ``pyve_installed`` to
+        > ``true``. It never sets it to ``false``.**
+
+        A failed probe leaves both fields exactly as they were. Detection is
+        unreliable in ways that have nothing to do with whether pyve is really
+        present — a `PATH` that has not been rehashed, a slow first run, a
+        sandbox — and treating any of those as "pyve is gone" is what silently
+        removed the guardrail. Once a project has seen pyve even once, no
+        later miss can strip the guidance again.
+
+        Turning the flag off stays an explicit user action: hand-editing
+        ``.project-guide.yml``. The accepted trade is that a project which
+        genuinely stops using pyve keeps rendering the section until the
+        developer opts out — irrelevant guidance is noise, missing guidance is
+        a removed guardrail.
+
+        ``init`` deliberately does **not** call this: it is the one site
+        allowed to record a miss as ``false``, because there is no prior
+        observation to preserve.
+
+        The boolean return lets callers skip a pointless config write.
+        """
+        if detected_version is None:
+            return False
+
+        changed = not self.pyve_installed or self.pyve_version != detected_version
+        self.pyve_installed = True
+        self.pyve_version = detected_version
+        return changed
 
     def save(self, path: str = ".project-guide.yml") -> None:
         """Save configuration to YAML file."""
@@ -163,6 +219,7 @@ class Config:
             "current_mode": self.current_mode,
             "test_first": self.test_first,
             "pyve_version": self.pyve_version,
+            "pyve_installed": self.pyve_installed,
             "project_name": self.project_name,
         }
 
