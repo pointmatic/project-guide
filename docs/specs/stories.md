@@ -403,19 +403,74 @@ Documentation and the single release tag for the subphase.
 
 ---
 
-## Subphase R-3: UX and documentation improvements
+## Subphase R-3: Branch Workflows and Doc Realignment
+
+Two shipped surfaces do the wrong thing for consumers on branch/PR workflows, and one documented gap has now been deferred twice. `git-push <branch>` / `git-commit <branch>` decide how strictly to check committed stories by asking *which branch am I on* rather than *where is this work going*, so starting a branch from a squash-merged `main` either hard-errors or proposes a commit subject covering the entire file. gitbetter's `--keep` and `--amend` are unreachable through the wrappers, so sustained branch work means dropping to the bare command. And completion staleness is still the dead-path test only, flagged by R.f and re-flagged by R.h.
+
+Full plan, decisions, and out-of-scope negotiation: [`phase-r-subphase-3-branch-workflows-plan.md`](phase-r-subphase-3-branch-workflows-plan.md). Ships as one bundled release, **`v2.21.0`** (Story R.t); stories before it run unversioned.
+
+**The wrapper-value principle** (from the plan, and the test every wrapper decision below is measured against): the `project-guide` wrapper adds integration value — reading `stories.md` and `git log` so the developer copies and pastes less. Anything beyond that, use the bare `gitbetter` command.
+
+**Scope note.** The PR-based-workflow production-readiness item stays **waived with no timeline**. R.p is a fix for *consumers* running branch/PR workflows, not a step toward adopting one in this repo; direct-to-main remains the deliberate process here.
 
 ---
 
-## Story R.p: Working with branches [Planned]
+### Story R.p: Destination-aware branch gate for `git-push` / `git-commit` [Done]
 
-We need to fix `project-guide git-push <branch>` and `... git-commit <branch>` to loosen committed story checking. If working on a production repo and kicking off a new branch with either of these commands and the `stories.md` file has multiple completed stories that were smashed and merged to `main` branch, Project Guide is going to check the current branch (`main`, for example) to see that the stories are in the Git log. They won't be. Starting a new branch should be simple and seamless, and I am inclined to think that it is practically just a simple wrapper for `git-push` or `git-commit`, but this needs to be thought through more carefully. 
+`project-guide git-push <branch>` and `... git-commit <branch>` check committed stories too strictly. Kicking off a new branch on a production repo whose `stories.md` holds multiple completed stories that were squash-merged to `main` makes Project Guide check the *current* branch (`main`) for those stories in the git log. They won't be there. Starting a new branch should be simple and seamless.
 
-- [ ] TBD
+The gate reads the wrong branch: `on_main` is computed from `_get_current_branch()` (`cli.py:2233`) while gitbetter's positional `branch_name` is what declares the destination. Story Q.u already built the correct behavior — `_presume_committed_on_branch`'s anchor and no-anchor heuristics — and it is merely unreachable from `main`. Nothing new needs inventing.
+
+- [x] Make the gate consult the destination: a supplied `branch_name` selects the `_presume_committed_on_branch` path regardless of which branch is checked out (`cli.py:2233-2240`) — now `cli.py:2249-2253`, a single `heading_elsewhere` predicate OR-ed into the existing branch test. Nothing new was invented: Q.u's heuristics were already correct and merely unreachable
+- [x] Settle boundary case 1 — `branch_name` equal to the current branch (`git-push "msg" main` while on `main`) is **not** branch work and keeps the strict discipline
+- [x] Settle boundary case 2 — the presumption announcements name the branch whose log was actually **scanned** (the current one); the destination branch has no log yet, so quoting it would mislead — satisfied structurally by passing `branch` rather than `branch_name` into the helper, with a test asserting the destination name is *absent* from the announcement
+- [x] Leave out-of-sequence detection unchanged on `main` with no branch argument — the relaxation must be reachable only by explicitly naming a destination
+- [x] Tests: kickoff from a squash-merged `main` with zero parseable IDs (no-anchor offer, not a whole-file bundle); kickoff with a partial anchor (presumption, not a hard error); same-branch argument keeps strict discipline; existing non-main behavior unchanged — 8 new tests (873 passed total)
+- [x] Verification per CI-gate parity — `pyve test`, ruff, mypy, plus the stripped-`PATH` run — 873 both directions, ruff clean, mypy clean
+
+**The equal-names rule cuts one way only.** `git-push main` while on `main` stays strict (boundary case 1), but `git-push feature/x` while *on* `feature/x` must keep relaxing — it was relaxed before this story by the non-main test, and it is the ordinary push-this-branch invocation. The predicate is therefore OR-ed into the existing check rather than replacing it, and a test pins the mirror case so a future "simplification" to a single equal-names rule fails loudly.
+
+**An undeterminable branch stays strict.** Git absent, not a repo, or no commits yet: Q.u folded this into the strict side and it stays there even with a destination named. The relaxation works by scanning the current branch's log and presuming around what it shows, so it needs both a branch to scan and a name to quote — with neither, there is nothing to relax *against*. This also keeps the `assert branch is not None` at the call site honest, which mypy checks.
+
+**One existing test changed shape, not intent.** `test_git_push_bundle_offer_branch_name_pass_through` pushed to `feature/xyz` from `main` with an empty log — which is now exactly the kickoff case, so the no-anchor offer lands ahead of the bundle offer it was written to exercise. It answers `n` then `y` and asserts the same pass-through. That it broke at all is the fix working: the old flow reached a whole-file bundle from a plain branch argument.
+
+**Verified on a real repo, against real gitbetter.** A scratch repo whose history is one squash-merge-shaped subject (`Add feature X (#42)`) plus one intact `A.b: v0.2.0 Second`, with three `[Done]` stories — the exact reported situation. Three runs from `main`: **no argument** → the out-of-sequence hard error (unchanged); **`git-push feature/x`** → `The first committed story in branch 'main' is: A.b.`, `Presuming earlier [Done] stories merged to main via a squashed branch: A.a.`, and gitbetter opens with `Message: A.c: v0.3.0 Third` — the single correct story rather than a bundle spanning the file; **`git-push main`** → the out-of-sequence error again.
+
+No version bump — Subphase R-3 ships bundled as `v2.21.0` at R.t.
+
+### Story R.q: gitbetter `--keep` and `--amend` pass-through [Planned]
+
+Both wrappers build `argv = [tool_path, message]` plus an optional branch (`cli.py:2310`), so gitbetter's `--keep|-k` and `--amend` cannot be reached. `--keep` is exactly the multi-commit feature-branch flag — the convenience evaporates at the moment the workflow gets long enough to need it.
+
+`--amend` means **commit the current tree on top of the old committed tree**, nothing more. Per the wrapper-value principle it is a short-circuit path, not a new branch through the derivation flow: no message is being decided, so none of the derivation machinery applies.
+
+- [ ] Add `--keep` / `-k` pass-through to both wrappers — no project-guide semantics attach to it
+- [ ] Add `--amend` as a short-circuit path: read the previous subject with `git log -1 --pretty=%s` and pass it back **verbatim**. Do not re-derive from `stories.md` — that would rewrite a subject as a side effect of a bug fix, and would silently canonicalize legacy bundled subjects (permissive read / strict emit)
+- [ ] Refuse `--amend` under `--no-input` (and `CI=1` / non-TTY stdin) with a non-zero exit — it force-pushes with `--force-with-lease`, and a history-shape decision is not a CI default
+- [ ] Refuse `--amend` when a `[Done]` story is uncommitted: gitbetter runs `git add -A` before amending (`git-push.sh:237`), so that story's work would land inside the previous story's commit under the previous story's message. Name the offending story in the refusal
+- [ ] Scope the guard deliberately — it fires on `[Done]`-but-uncommitted stories only. In-progress work on a `[Planned]` story stays invisible to it; the wrapper does not become a general-purpose working-tree guard
+- [ ] Handle "no previous commit to amend" with a clear error rather than an opaque gitbetter failure
+- [ ] Confirm the normal already-committed → exit 0 `Nothing to commit` path is bypassed, not inverted — `--amend` should never reach it
+- [ ] Tests: `--keep` reaches gitbetter; `--amend` passes the previous subject unchanged; `--amend` refused under `--no-input`; refused with an uncommitted `[Done]` story; no-previous-commit error; both wrappers behave identically
+- [ ] Verification per CI-gate parity
+
+### Story R.r: Widen completion staleness beyond the dead-path test [Planned]
+
+R.f defined **stale** as the dead-path test only (`os.access(path, os.X_OK)`) and flagged the gap in the same breath: a block generated by an older project-guide whose template has since changed is not detected, even though R.d's baked version stamp would make it detectable. R.h inherited the gap and re-flagged it as "the last story where it would naturally land." It did not land.
+
+**The version stamp is the wrong predicate.** Comparing it to `__version__` would fire on every release, including the large majority that never touch the completion template — turning a precise signal into the noise R.h explicitly refused to risk. The question is "would reinstalling change anything?", which is a content comparison.
+
+- [ ] Recover the install parameters from the installed artifacts — `--bin` from the post-processed callback, and for zsh the autoload directory from the installed `fpath` line (R.f already does the latter)
+- [ ] Regenerate the script from those parameters and compare against what is installed; report **stale** on a genuine difference
+- [ ] Use R.d's version stamp **diagnostically** — name which version generated the block in the warning — never as the staleness decision
+- [ ] Keep the false-positive rate at zero: the warning fires from the pre-invoke hook ahead of every command, so a false positive is noise on every invocation. If exactness cannot be reached, warn **less** — that is the correct failure direction
+- [ ] Confirm `status` and `heal` stay consistent — both consume `inspect_shell`, so neither may disagree with the other about the same install
+- [ ] Tests: template-drift staleness detected; a version bump that does not change the template does **not** warn; bare-name installs still report `installed` with the `PATH` note; existing dead-path and partial states unchanged
+- [ ] Verification per CI-gate parity
 
 ---
 
-### Story R.?: Refactor planning docs (artifact-role realignment + spec accuracy) [Planned]
+### Story R.s: Refactor planning docs (artifact-role realignment + spec accuracy) [Planned]
 
 Two problems surfaced while scoping a documentation refactor.
 
@@ -425,11 +480,11 @@ Two problems surfaced while scoping a documentation refactor.
 
 Verified against the code, the bundled template tree, and a full test run (636 passed, 91.51% coverage).
 
-**Status — ON HOLD until all Phase R mechanics are settled (2026-08-12).** Deliberately parked at the end of the phase: the subphases ahead of it change the very surfaces this story documents, so refactoring them first would guarantee a second pass. Concretely — Subphase R-1 rewrites FR-7 and adds a `completion` command group to `features.md` / `tech-spec.md`, and R-1's own release story (R.i) removes the "Known limitations" block this story's `features.md` pass added. Run this **last**, once every subphase has landed.
+**Status — ON HOLD until R.p–R.r land.** Deliberately parked at the end of the phase: the subphases ahead of it change the very surfaces this story documents, so refactoring them first would guarantee a second pass. Concretely — Subphase R-1 rewrote FR-7 and added a `completion` command group to `features.md` / `tech-spec.md`, and R-1's own release story (R.i) removed the "Known limitations" block this story's `features.md` pass added. R-1 and R-2 have since shipped; the remaining blockers are R.p–R.r, which change `git-push` / `git-commit` behavior (FR-15, § External CLI Dependencies) and the completion staleness definition (FR-7). Run this **last**, once they have landed.
 
 The `features.md` pass is already complete and was presented at its per-document gate; `docs/specs/features_old.md` is the backup and can be deleted once the whole session closes. The `tech-spec.md` pass and the `project-essentials.md` revisit have not started — the relocation targets they were to receive are named in their task lines below. Resume with `project-guide mode refactor_plan`.
 
-Renumbered `R.b` → `R.?` to park it behind the subphases. It is a **phase-level** story, not part of any subphase.
+Renumbered `R.b` → `R.?` → **`R.s`**, absorbed into Subphase R-3 (2026-08-12). It was previously a **phase-level** story belonging to no subphase, which created a problem its own text could not solve: it declares "rides the next code story's release," but as a phase-level story sitting *after* R-3's release tag there would be no next code story to ride. R-3 is the last subphase, so placing it after R.r satisfies "run this last, once every subphase has landed" exactly, and it now rides `v2.21.0`. It must run **after** R.p–R.r, which change the very `features.md` / `tech-spec.md` surfaces it reconciles.
 
 - [x] (confirm this) Refactor `features.md` — receive relocated *what* content (FR-15 branch-logic decision table: the 9 outcomes with exit codes, prompts, defaults, and `--no-input` behavior; `heal`/`update`/`init` division of labor into FR-14); fix the pre-v2.9.0 FR-15 error model; resolve the `go.md` tracked-vs-untracked self-contradiction (L132 / L140 vs FR-14 L395 — `tech-spec.md` L111 is the correct statement); add the missing `init` inputs `--test-first` and `--project-name`; add `developer/python-editable-install.md` and `templates/modes/_phase-letters.md` to the File Structure tree; add the missing `project_name` field to the `.project-guide.yml` schema block; refresh stale version examples; move `FR-7: Shell Completion` back into numeric sequence (it sat after FR-15); record FR-7's known zsh `compinit` / `PATH`-resolution limitations and point at the incoming [`shell-completion-ownership.md`](shell-completion-ownership.md) change request; repair the `phase-q-pyve-toolchain-hosting.md` link (moved to `.archive/`)
 - [ ] Refactor `tech-spec.md` — receive relocated *how* content (gitbetter wrapper internals under § External CLI Dependencies: bundled-subject emit grammar, colon rule, whitespace collapse, the permissive-read/strict-emit parser asymmetry, header-filter predicate, committed-prefix→uncommitted-suffix partition, `_presume_committed_on_branch` anchor heuristics; reconcile rather than duplicate for gitignore / IDE-visibility / auto-heal-hook / schema-versioning detail already partly present); fix the entry-point template misnamed `templates/go.md` → `templates/llm_entry_point.md`; update the test inventory 629 → 636 in both places; extend the partials filename convention to cover `_phase-letters.md`
@@ -437,17 +492,38 @@ Renumbered `R.b` → `R.?` to park it behind the subphases. It is a **phase-leve
 
 `concept.md` needs no changes — its scope list, command inventory, and 17-mode count with the `plan_envs` frozen marker are all current.
 
-No version bump: spec-accuracy correction and doc reorganization with no behavioral change. Rides the next code story's release per Version Cadence.
+No version bump — Subphase R-3 ships bundled as `v2.21.0` at R.t, which owns the CHANGELOG entry.
 
---- 
+---
 
-## Story R.?: v2.21.0 Subphase R-3 bundled release [Planned]
+### Story R.t: `v2.21.0` Subphase R-3 bundled release [Planned]
 
-- [ ] TBD
+Documentation and the single release tag for the subphase.
+
+- [ ] Update `features.md` FR-15 — the destination-aware branch gate, the `--keep` / `--amend` flags with both refusal conditions, and the wrapper-value principle that bounds what the wrapper will ever do
+- [ ] Update `features.md` FR-7 — the widened staleness definition; the known-gaps block keeps fish, bash 3.2 `compopt`, and PowerShell, and gains the Windows/git-bash deferral
+- [ ] Update `tech-spec.md` § External CLI Dependencies — the destination-aware gate, `--amend`'s short-circuit path, and why it is not an inversion of the already-committed check
+- [ ] Update `project-essentials.md` § `project-guide git-push` is developer-lane — the branch-logic list gains the destination-aware case; record the wrapper-value principle as the rule future wrapper features are tested against
+- [ ] Update `README.md` and `docs/site/user-guide/commands.md` for the two new flags — grep for every surface rather than working from a file list (the R.i lesson: the checklist named four files and there were five)
+- [ ] `CHANGELOG.md` entry for `v2.21.0`, dated — Added / Changed / Fixed
+- [ ] Bump `project_guide/version.py` and `pyproject.toml` to `2.21.0`
+- [ ] Verification per CI-gate parity: `pyve test`, `pyve env run ruff check project_guide/ tests/`, `pyve env run mypy project_guide/`, the stripped-`PATH` run, and `mkdocs build --strict`
+- [ ] Delete `docs/specs/features_old.md` — the R.s backup, no longer needed once that story closes
+
+**Release shape.** Phase R carries four tags — `v2.18.1` (R.a), `v2.19.0` (Subphase R-1), `v2.20.0` (Subphase R-2), `v2.21.0` (Subphase R-3) — the documented multi-release exception rather than the preferred single bundle, for the reason recorded in R-1 and R-2: the subphases are independently shippable fixes to unrelated surfaces.
 
 ---
 
 ## Future
+
+### Shell completion on Windows — support git-bash properly, or refuse [Deferred]
+
+Recommended as a follow-on by Story R.i and considered for Subphase R-3, where it was **dropped during out-of-scope negotiation** (2026-08-12). The `completion` command group bakes Windows-convention paths into POSIX shell scripts, which is wrong for git-bash/MSYS — the only plausible Windows consumer. Two candidate outcomes, and the choice is the deliverable:
+
+- **Support it** — detect MSYS/git-bash and emit POSIX-convention paths. Additive and non-breaking.
+- **Refuse** — error clearly on Windows rather than installing something wrong. Honest, but breaks any git-bash user who works today, which would make it a substantively breaking change and force a major bump.
+
+**Why deferred rather than planned:** neither outcome can be validated without a Windows machine, so committing to one now is guessing — the same reason R.i declined to guess. The gap is already documented in three places (FR-7 known gaps, `install-options.md`, the `v2.19.0` CHANGELOG), all stating that bash/zsh completion is macOS- and Linux-supported and unverified on Windows. Nothing has been reported from the field. Revisit when a Windows consumer surfaces or a test machine is available.
 
 ### Installation/Config Discovery Hierarchy (global vs. project context) [Deferred]
 

@@ -4,5 +4,6 @@ target_dir: docs/project-guide
 metadata_file: .metadata.yml
 current_mode: code_test_first
 test_first: false
-pyve_version: pyve version 2.6.2
+pyve_version: 3.2.2
+pyve_installed: true
 project_name: project-guide

@@ -2918,7 +2918,13 @@ def test_git_push_bundle_offer_mixed_versions(runner, tmp_path, monkeypatch):
 
 
 def test_git_push_bundle_offer_branch_name_pass_through(runner, tmp_path, monkeypatch):
-    """BRANCH_NAME positional still appears after the bundled message."""
+    """BRANCH_NAME positional still appears after the bundled message.
+
+    Story R.p put one prompt ahead of this one: naming a destination from
+    `main` now reaches the no-anchor offer (`Commit just the last one?`), and
+    declining it falls through to the bundle offer this test is about. Hence
+    `n` then `y` — the pass-through assertion is unchanged.
+    """
     import project_guide.cli as cli_module
 
     with runner.isolated_filesystem(temp_dir=tmp_path):
@@ -2931,7 +2937,7 @@ def test_git_push_bundle_offer_branch_name_pass_through(runner, tmp_path, monkey
         _mock_git_log_subjects(monkeypatch, subjects=[], git_push_argv_capture=captured)
         monkeypatch.setattr(cli_module, 'should_skip_input', lambda *a, **kw: False)
 
-        result = runner.invoke(main, ['git-push', 'feature/xyz'], input='y\n')
+        result = runner.invoke(main, ['git-push', 'feature/xyz'], input='n\ny\n')
 
         assert result.exit_code == 0, result.output
         argv = captured[0]
@@ -3642,6 +3648,249 @@ def test_git_push_nonmain_duplicate_id_warning_still_fires(runner, tmp_path, mon
 
 
 # --- End Story Q.u ----------------------------------------------------------
+
+
+# --- Story R.p: destination-aware branch gate --------------------------------
+#
+# Q.u built the right behavior and asked the wrong question. The gate read
+# `_get_current_branch()` — where the developer is standing — when gitbetter's
+# positional argument is what declares where the work is going. Kicking off a
+# branch from a squash-merged `main` therefore hit the full strict discipline
+# against a log that cannot contain the stories, and either hard-errored or
+# proposed a commit subject covering the whole file.
+
+
+def test_branch_argument_from_main_reaches_the_presumption_path(runner, tmp_path, monkeypatch):
+    """The headline: naming a destination selects the relaxed path from `main`.
+
+    Zero parseable story IDs is the squash-merged repo's steady state — every
+    earlier story shipped under a PR title. Before this story the wrapper
+    proposed one bundled subject spanning every [Done] story in the file.
+    """
+    import project_guide.cli as cli_module
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 First [Done]",
+            "### Story A.b: v0.2.0 Second [Done]",
+            "### Story A.c: v0.3.0 Third [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(
+            monkeypatch, subjects=[], git_push_argv_capture=captured, branch="main",
+        )
+        monkeypatch.setattr(cli_module, 'should_skip_input', lambda *a, **kw: False)
+
+        result = runner.invoke(main, ['git-push', 'feature/x'], input='\n')  # default Y
+
+        assert result.exit_code == 0, result.output
+        assert "Commit just the last one?" in result.output
+        assert len(captured) == 1, captured
+        assert captured[0][1] == "A.c: v0.3.0 Third"
+        assert captured[0][2] == "feature/x"
+
+
+def test_branch_argument_from_main_presumes_prefix_before_the_anchor(runner, tmp_path, monkeypatch):
+    """The partial-anchor case: presumption, not a hard error.
+
+    A.a squash-merged under a PR title while A.b kept its subject, so the
+    strict gate saw an uncommitted story preceding a committed one — the
+    out-of-sequence shape — and refused.
+    """
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 First [Done]",
+            "### Story A.b: v0.2.0 Second [Done]",
+            "### Story A.c: v0.3.0 Third [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(
+            monkeypatch,
+            subjects=["A.b: v0.2.0 Second"],
+            git_push_argv_capture=captured,
+            branch="main",
+        )
+
+        result = runner.invoke(main, ['git-push', 'feature/x'])
+
+        assert result.exit_code == 0, result.output
+        assert "Out-of-sequence" not in result.output
+        assert len(captured) == 1, captured
+        assert captured[0][1] == "A.c: v0.3.0 Third"
+
+
+def test_the_announcements_name_the_branch_that_was_scanned(runner, tmp_path, monkeypatch):
+    """Boundary case 2: quote the log we read, not the branch we are heading for.
+
+    The destination has no log yet — it may not exist at all — so naming it in
+    "the first committed story in branch X" would assert something about a
+    branch nobody looked at.
+    """
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 First [Done]",
+            "### Story A.b: v0.2.0 Second [Done]",
+            "### Story A.c: v0.3.0 Third [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        _mock_git_log_subjects(
+            monkeypatch,
+            subjects=["A.b: v0.2.0 Second"],
+            git_push_argv_capture=[],
+            branch="main",
+        )
+
+        result = runner.invoke(main, ['git-push', 'feature/x'])
+
+        assert "first committed story in branch 'main' is: A.b" in result.output
+        assert "branch 'feature/x' is" not in result.output
+
+
+def test_naming_the_current_branch_is_not_branch_work(runner, tmp_path, monkeypatch):
+    """Boundary case 1: `git-push main` while on `main` keeps the strict gate.
+
+    Pushing the branch you are already on is ordinary work, not a kickoff, so
+    the argument must not become a way to opt out of out-of-sequence detection.
+    """
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 First [Done]",
+            "### Story A.b: v0.2.0 Second [Done]",
+            "### Story A.c: v0.3.0 Third [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        # A.a uncommitted while A.c is committed — the out-of-sequence shape.
+        _mock_git_log_subjects(
+            monkeypatch,
+            subjects=["A.c: v0.3.0 Third"],
+            git_push_argv_capture=captured,
+            branch="main",
+        )
+
+        result = runner.invoke(main, ['git-push', 'main'])
+
+        assert result.exit_code == 1
+        assert "Out-of-sequence" in result.output
+        assert captured == []
+
+
+def test_a_same_named_branch_argument_off_main_still_relaxes(runner, tmp_path, monkeypatch):
+    """The mirror of boundary case 1, which must NOT become strict.
+
+    On `feature/x`, `git-push feature/x` is the ordinary push-this-branch
+    invocation. It was relaxed before this story (non-main), and the
+    equal-names rule must not accidentally tighten it.
+    """
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 First [Done]",
+            "### Story A.b: v0.2.0 Second [Done]",
+            "### Story A.c: v0.3.0 Third [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(
+            monkeypatch,
+            subjects=["A.b: v0.2.0 Second"],
+            git_push_argv_capture=captured,
+            branch="feature/x",
+        )
+
+        result = runner.invoke(main, ['git-push', 'feature/x'])
+
+        assert result.exit_code == 0, result.output
+        assert "Out-of-sequence" not in result.output
+        assert len(captured) == 1, captured
+        assert captured[0][1] == "A.c: v0.3.0 Third"
+
+
+def test_main_without_a_branch_argument_keeps_the_strict_gate(runner, tmp_path, monkeypatch):
+    """The relaxation is reachable only by explicitly naming a destination."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 First [Done]",
+            "### Story A.b: v0.2.0 Second [Done]",
+            "### Story A.c: v0.3.0 Third [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(
+            monkeypatch,
+            subjects=["A.c: v0.3.0 Third"],
+            git_push_argv_capture=captured,
+            branch="main",
+        )
+
+        result = runner.invoke(main, ['git-push'])
+
+        assert result.exit_code == 1
+        assert "Out-of-sequence" in result.output
+        assert captured == []
+
+
+def test_an_undeterminable_branch_keeps_the_strict_gate(runner, tmp_path, monkeypatch):
+    """No current branch means no log to presume against, and no name to quote.
+
+    Git absent, not a repo, or no commits yet: Q.u folded this into the strict
+    side and it stays there. The relaxation's whole mechanism is "scan the
+    branch we are on and presume around what it shows", which needs a branch.
+    """
+    import project_guide.cli as cli_module
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 First [Done]",
+            "### Story A.b: v0.2.0 Second [Done]",
+            "### Story A.c: v0.3.0 Third [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git_log_subjects(
+            monkeypatch,
+            subjects=["A.c: v0.3.0 Third"],
+            git_push_argv_capture=captured,
+            branch="main",
+        )
+        monkeypatch.setattr(cli_module, "_get_current_branch", lambda: None)
+
+        result = runner.invoke(main, ['git-push', 'feature/x'])
+
+        assert result.exit_code == 1
+        assert "Out-of-sequence" in result.output
+        assert captured == []
+
+
+def test_git_commit_gets_the_same_gate(runner, tmp_path, monkeypatch):
+    """Both wrappers share `_run_gitbetter_wrapper`, so neither may drift."""
+    import project_guide.cli as cli_module
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 First [Done]",
+            "### Story A.b: v0.2.0 Second [Done]",
+        )
+        monkeypatch.setattr(
+            cli_module.shutil, "which",
+            lambda name: "/usr/local/bin/git-commit" if name == "git-commit" else None,
+        )
+        captured: list = []
+        _mock_git_log_subjects(
+            monkeypatch, subjects=[], git_push_argv_capture=captured, branch="main",
+        )
+        monkeypatch.setattr(cli_module, 'should_skip_input', lambda *a, **kw: False)
+
+        result = runner.invoke(main, ['git-commit', 'feature/x'], input='\n')
+
+        assert result.exit_code == 0, result.output
+        assert "Commit just the last one?" in result.output
+        assert len(captured) == 1, captured
+        assert captured[0][1] == "A.b: v0.2.0 Second"
+
+
+# --- End Story R.p ------------------------------------------------------------
 
 
 # --- Story R.a: project-guide git-commit subcommand -------------------------

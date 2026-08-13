@@ -2225,16 +2225,37 @@ def _run_gitbetter_wrapper(tool_name: str, branch_name: str | None, no_input: bo
     commit_units = [s for s in done_stories if not s.is_header]
     headers = [s for s in done_stories if s.is_header]
 
-    # Q.u: branch-aware committed-set handling. On main/master (or when the
-    # branch is undeterminable) the full out-of-sequence discipline applies.
-    # On any other branch, squash merges to main make earlier [Done] stories
-    # unparseable from this branch's log, so the presumption heuristics in
-    # _presume_committed_on_branch replace the out-of-sequence error/prompt.
+    # Q.u: branch-aware committed-set handling. Squash merges to main rewrite
+    # commit subjects (PR titles), so earlier [Done] stories may not parse out
+    # of the log at hand even though they shipped; where that is possible, the
+    # presumption heuristics in _presume_committed_on_branch replace the
+    # out-of-sequence error/prompt.
+    #
+    # R.p: the question is *where is this work going*, not *where am I
+    # standing*. Q.u read only the checked-out branch, which left the correct
+    # behavior unreachable from `main` — precisely the kickoff case, where a
+    # developer on a squash-merged main names a new destination and the strict
+    # discipline is measured against a log that cannot contain those stories.
+    # gitbetter's positional argument is what declares the destination, so a
+    # supplied `branch_name` selects the relaxed path from any checkout.
     branch = _get_current_branch()
     on_main = branch is None or branch in ("main", "master")
 
-    if not on_main:
-        assert branch is not None  # on_main is True whenever branch is None
+    # Naming the branch you are already on is an ordinary push, not a kickoff:
+    # the argument must not double as an opt-out from out-of-sequence
+    # detection. An undeterminable branch stays strict — the relaxation works
+    # by scanning the current branch's log and presuming around what it shows,
+    # which needs a branch to scan and a name to quote.
+    heading_elsewhere = (
+        branch_name is not None and branch is not None and branch_name != branch
+    )
+
+    if not on_main or heading_elsewhere:
+        assert branch is not None  # both disjuncts are False whenever branch is None
+        # The branch passed here is the one whose log was actually read, which
+        # is what the presumption announcements quote. The destination has no
+        # log yet — it may not even exist — so naming it would assert something
+        # about a branch nobody looked at.
         committed = _presume_committed_on_branch(
             branch, commit_units, committed, skip_input
         )
