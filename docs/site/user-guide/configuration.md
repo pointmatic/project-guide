@@ -10,12 +10,13 @@ The `.project-guide.yml` file is created automatically when you run `project-gui
 
 ```yaml
 version: "2.0"
-installed_version: "2.17.0"
+installed_version: "2.20.0"
 target_dir: "docs/project-guide"
 metadata_file: ".metadata.yml"
 current_mode: "code_direct"
 test_first: false
-pyve_version: "2.6.2"        # null if pyve is not installed
+pyve_version: "3.2.2"        # bare version; null if pyve was never detected
+pyve_installed: true         # renders the Pyve guidance into go.md
 overrides: {}
 ```
 
@@ -53,7 +54,23 @@ The default coding approach. `false` (the default) starts coding in `code_direct
 
 ### `pyve_version`
 
-The version of [pyve](https://pointmatic.github.io/pyve/) detected at `init` time, or `null` if pyve was not installed. When set, project-guide adapts to pyve-managed hosting — the rendered `go.md` onboarding, the `project-guide status` footer, and the `project-guide heal` local-install check all read this cached value (pyve is not re-detected on every command). If you install pyve after running `init`, re-run `project-guide init --force` to refresh the detection.
+The version of [pyve](https://pointmatic.github.io/pyve/) that project-guide has seen, stored bare (`3.2.2`), or `null` if pyve was never detected. project-guide adapts to pyve-managed hosting from this cached value — the rendered `go.md` onboarding, the `project-guide status` footer, and the `project-guide heal` local-install check all read it rather than re-running `pyve --version` on every command.
+
+At `init` the value is resolved from the first available of: the `--pyve-version` flag → the `PYVE_VERSION` environment variable → a `pyve --version` probe. A tool that installs project-guide on your behalf and already knows pyve's version can pass it directly, which skips the probe:
+
+```bash
+project-guide init --pyve-version 3.2.2
+```
+
+If detection misses, `init` says so on stderr rather than failing — pyve simply may not have been on `PATH` at that moment.
+
+### `pyve_installed`
+
+Whether the Pyve guidance section is rendered into `go.md`. It is a field in its own right, not a reading of `pyve_version`: the guidance is the part of the guide that tells your LLM to use `pyve test` rather than `pyve run pytest`, and one unlucky probe should not be able to remove it permanently.
+
+**If you install pyve after running `init`,** run `project-guide update` or switch modes (`project-guide mode <name>`) — both re-detect and restore the guidance. You do not need `init --force`.
+
+Detection only ever turns this **on**. A later failed probe leaves it alone, so a rehashing `PATH` or a slow first run cannot strip the guidance back out. To opt out of the section deliberately, set it to `false` by hand — though note that a subsequent successful detection turns it back on, so the opt-out holds only while pyve is genuinely unavailable.
 
 ### `overrides`
 

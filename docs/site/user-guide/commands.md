@@ -165,7 +165,7 @@ Shows grouped sections:
 - **Guide** - The rendered `go.md` entry point path
 - **Files** - Summary counts (current / need updating / missing / overridden); per-file list in verbose mode
 - **Stories** - Total/done/in-progress/planned counts and next unstarted story (when `stories.md` exists and contains stories); per-phase breakdown in verbose mode
-- **Pyve footer** - A `Managed by pyve vX.Y.Z` line when pyve was present at `init` time (read from the cached `pyve_version`)
+- **Pyve footer** - A `Managed by pyve vX.Y.Z` line when pyve has been detected (read from the cached `pyve_version`, which `update` and an explicit `mode <name>` refresh; `status` itself never probes)
 
 Each file shows one of:
 

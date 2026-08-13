@@ -506,12 +506,13 @@ The `.project-guide.yml` file stores project configuration:
 
 ```yaml
 version: "2.0"
-installed_version: "2.17.0"
+installed_version: "2.20.0"
 target_dir: "docs/project-guide"
 metadata_file: ".metadata.yml"
 current_mode: "code_direct"
 test_first: false
-pyve_version: "1.2.3"          # null if pyve not installed
+pyve_version: "3.2.2"          # bare version; null if pyve was never detected
+pyve_installed: true           # renders the Pyve guidance into go.md
 
 overrides:
   templates/modes/debug-mode.md:
@@ -531,7 +532,8 @@ metadata_overrides:             # optional — per-project mode field patches
 - `metadata_file` - Hidden metadata file inside target dir (default: `.metadata.yml`)
 - `current_mode` - Active development mode
 - `test_first` - Default coding approach (`false` = `code_direct`, `true` = `code_test_first`)
-- `pyve_version` - Detected pyve version at init time; `null` if pyve not installed
+- `pyve_version` - Detected pyve version, stored bare (`3.2.2`); `null` if pyve was never detected. Supply it directly with `project-guide init --pyve-version 3.2.2` (or the `PYVE_VERSION` env var) when the calling tool already knows it — that skips the `pyve --version` probe entirely
+- `pyve_installed` - Whether the Pyve guidance section renders into `go.md`. Refreshed by `update` and by an explicit `project-guide mode <name>`, so a pyve installed after `init` is picked up without re-initializing. Detection only ever turns it **on**; set it to `false` by hand to opt out
 - `overrides` - Map of file-level update locks with reason and timestamp
 - `metadata_overrides` - Per-project patches for individual mode fields (`next_mode`, `files_exist`, `info`, `description`)
 

@@ -63,6 +63,7 @@ For a high-level concept (why), see [`concept.md`](concept.md). For implementati
 - Optional: `--test-first` (prefer TDD; planning modes suggest `code_test_first`, persisted as `test_first` in `.project-guide.yml`)
 - Optional: `--quiet` / `-q` (machine mode: **no stdout on success**; errors/warnings on stderr — see FR-9)
 - Optional: `--project-name` (name used in generated artifacts, e.g. the `stories.md` header; first step of the resolution chain — CLI flag → `PROJECT_GUIDE_PROJECT_NAME` → `pyproject.toml` `[project].name` → current directory name)
+- Optional: `--pyve-version` (pyve's version, supplied by a host tool that already knows it; skips the `pyve --version` probe entirely and renders the Pyve guidance — CLI flag → `PYVE_VERSION` → `PATH` probe. **`init` only:** later changes are handled by re-detection on `update` / `mode`, not by more flags — see FR-13)
 
 **`project-guide mode [MODE_NAME]`**
 - Optional: mode name to switch to
@@ -109,12 +110,18 @@ For a high-level concept (why), see [`concept.md`](concept.md). For implementati
 
 **`.project-guide.yml`** (created in project root):
 ```yaml
-version: '2.0'
-installed_version: 2.18.1
+version: '2.0'              # config schema version, not the package version
+installed_version: 2.20.0
 target_dir: docs/project-guide
 metadata_file: .metadata.yml
 current_mode: default
+test_first: false
+project_name: my-project
+pyve_version: 3.2.2         # bare version; the legacy raw `pyve --version` line still reads
+pyve_installed: true        # the render gate for the Pyve guidance — see FR-13
 ```
+
+`version` tracks the **config schema** (`SCHEMA_VERSION` in `config.py`) and bumps only on breaking changes — a field rename, removal, type change, or a change in an existing field's meaning. Additive-with-default fields (every field below `current_mode` above) do not bump it, because `Config.load` reads each through `data.get(key, default)` and an older config keeps loading unchanged.
 
 ### Metadata File
 
@@ -419,9 +426,15 @@ The change request that motivated this work is recorded in [`shell-completion-ow
 
 ### FR-13: Pyve Detection and Auto-Rendered pyve-essentials.md
 
-`project-guide init` detects whether `pyve` is installed by running `pyve --version`. On success, the version string is stored as `pyve_version` in `.project-guide.yml`; on failure (`FileNotFoundError`, non-zero exit, timeout), `null` is stored. Detection failure is non-fatal.
+`project-guide init` resolves pyve's version from the first available of: `--pyve-version` → `PYVE_VERSION` env var → a `pyve --version` probe. A host tool that already knows the answer (pyve invokes `init` and knows its own version with certainty) supplies it and no subprocess runs; a blank value at either supplied level means *not supplied* and falls through. The resolved value is normalized to a bare `3.2.2` and stored as `pyve_version` in `.project-guide.yml`; on probe failure (`FileNotFoundError`, non-zero exit, timeout), `null` is stored. Detection failure is non-fatal, but **not silent** — `init` warns on stderr (surviving `--quiet` and `--no-input`) that the guidance will be omitted, and names the remedy.
 
-The `pyve_installed` boolean (derived from `pyve_version`) is passed as a Jinja2 context variable at every render call site. When true, `render.py` reads `templates/artifacts/pyve-essentials.md` from the template tree and passes its content as the `pyve_essentials` context variable. `_header-common.md` renders it as a `### Pyve Essentials` subsection nested inside the `## Project Essentials` wrapper, so every `go.md` across every mode surfaces the bundled pyve rules automatically.
+**`pyve_installed` is a persisted field, not a derivation.** It answers "should the Pyve guidance render?"; `pyve_version` answers "which pyve was seen?". Deriving the first from the second is what turned a single failed probe into the permanent loss of ~80 lines of guardrail from every rendered `go.md`, so the two are decoupled and the flag is stored in its own right. A config predating the field defaults it to `pyve_version is not None`, so no project changes behavior at the moment of upgrade; a key that *is* present always wins.
+
+**Sticky-true.** Automatic detection may set `pyve_installed` to `true` and never to `false`. A failed probe leaves both fields untouched: detection is unreliable in ways unrelated to whether pyve is really present (an un-rehashed `PATH`, a slow first run, a sandbox), and treating any of those as "pyve is gone" is what removed the guardrail. Once a project has seen pyve even once, no later miss can strip the guidance. Turning the flag off is an explicit user action — hand-editing `.project-guide.yml` — which holds only while detection keeps missing; a successful detection sets it back on. `init` is the sole exception to sticky-true: it may record a miss as `false`, having no prior observation to overwrite.
+
+**Refresh sites.** `pyve_version` is a cache, so `update` and an explicit `mode <name>` switch re-probe and write back a changed result — converting a permanent detection failure into a transient one. A changed result also forces the `go.md` re-render, which would otherwise not fire for a project that is in sync. The bare `mode` listing does not probe, `--dry-run` does not probe, and **`_apply_heal` never probes**: it runs from the pre-invoke auto-hook ahead of every command including `--help` and `--version`, and a subprocess there is the Story Q.t hang class. A failed refresh is silent; the loud warning belongs to `init`, a once-per-project event.
+
+The `pyve_installed` boolean is passed as a Jinja2 context variable at every render call site. When true, `render.py` reads `templates/artifacts/pyve-essentials.md` from the template tree and passes its content as the `pyve_essentials` context variable. `_header-common.md` renders it as a `### Pyve Essentials` subsection nested inside the `## Project Essentials` wrapper, so every `go.md` across every mode surfaces the bundled pyve rules automatically.
 
 This is a package-versioned auto-render rather than a one-shot merge: improvements to `pyve-essentials.md` flow to every project on the next `project-guide mode <name>` invocation without any scaffold-time copy step.
 

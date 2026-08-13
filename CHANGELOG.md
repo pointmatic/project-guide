@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.20.0] - 2026-08-12
+
+**A failed pyve probe no longer strips the Pyve guidance from `go.md` (Subphase R-2, Stories R.j–R.n).** `init` probed for pyve by bare name and cached the result; every render site then derived `pyve_installed` from `config.pyve_version is not None`, so a **single detection miss permanently removed ~80 lines** from every rendered guide and nothing ever re-detected. Every command still exited 0 and nothing warned, which made the loss visible only by diffing against a correct render.
+
+The omitted content is the guardrail itself — use `pyve test` not `pyve run pytest`, the two-environment isolation rule, don't `pip install -e ".[dev]"` into the main venv. A project in this state hands its LLM a guide that never mentions pyve, so the LLM does the plausible wrong thing, and the guidance that existed to prevent exactly that is what went missing.
+
+Detection failed in practice for two ordinary reasons: a `pyve self install` layout puts pyve at `~/.local/bin/pyve`, and a development checkout driven by `./pyve.sh` never puts `pyve` on `PATH` at all — even though pyve is manifestly present and *is the thing running the init*.
+
+### Added
+- **`pyve_installed` config field** — the render gate, persisted in its own right rather than derived from `pyve_version`. The two answer different questions ("should the guidance render?" vs. "which pyve was seen?"), and conflating them is what turned a detection miss into content loss. Additive with a behavior-preserving default (an absent key reads as `pyve_version is not None`), so **no `SCHEMA_VERSION` bump** and no existing project changes behavior at the moment of upgrade.
+- **`Config.record_pyve_detection(detected_version) -> bool`** — the single choke point every automatic detection flows through, enforcing **sticky-true**: detection may set the flag **on**, never **off**. A failed probe leaves both fields untouched, because probes fail for reasons unrelated to whether pyve is present (an un-rehashed `PATH`, a slow first run, a sandbox). Once a project has seen pyve even once, no later miss can strip the guidance again. Turning it off stays a hand-edit — which holds only while detection keeps missing.
+- **`--pyve-version` flag and `PYVE_VERSION` env var on `init`** — a host tool that knows pyve's version with certainty supplies it and the probe never runs. Resolution mirrors `--project-name` (flag → env → detection), with the detection link evaluated lazily so a supplied value costs zero subprocesses. `init`-only by design: later changes are handled by re-detection, not by asking the host to re-assert the fact on every invocation. Works precisely where the probe cannot — verified with pyve genuinely absent from `PATH`, which is the pyve-hosting case.
+- **Detection-miss warning at `init`** — stderr, surviving `--quiet` and `--no-input`, naming the file that lost the content and the remedy. A silent `null` was indistinguishable from a deliberate non-pyve project. Suppressed when the version was host-supplied, since no detection was attempted.
+
+### Changed
+- **`update` and an explicit `mode <name>` switch now re-detect pyve** and write back a changed result, converting a permanent detection failure into a transient one. A changed result also forces the `go.md` re-render — without that the flag would flip in the config while the file on disk kept the guidance stripped, since a project whose `init` missed pyve is otherwise perfectly in sync. The bare `mode` listing and `--dry-run` do not probe. A failed refresh is silent.
+- **`pyve_version` is stored bare** (`3.2.2`, not `pyve version 3.2.2`), normalized at both write paths — the probe and the host-supplied legs. The reader still accepts the legacy raw-stdout form indefinitely, because `status` is not a refresh site and a config that never runs `update` or `mode` keeps the old shape forever. Existing projects repair themselves at the first refresh. **Normalizing is not validating:** nothing is rejected, and a value with no recognizable version token is stored exactly as given.
+- **`_pyve_version_token()` retired** in favor of the shared `_normalize_pyve_version()`, which now serves both roles — normalizing on write, tolerating the legacy form on read.
+- **Invariant (b) amended** in `project-essentials.md` to record the two sanctioned refresh points, alongside FR-13, `tech-spec.md`'s `Config` listing (which also omitted `project_name`), `README.md`, and the user-guide configuration page. The user guide's "re-run `init --force` to refresh the detection" advice is replaced: `update` or a mode switch now does it non-destructively.
+
+### Fixed
+- **The auto-hook stays subprocess-free.** `_apply_heal` runs from the pre-invoke hook ahead of every command including `--help` and `--version`, so a probe there would be a subprocess before literally every invocation — the failure class of Story Q.t (v2.15.1), which hung in the field. The exclusion is now pinned by a regression test guarding both the helper and `subprocess.run` directly, so a future re-implementation that shells out cannot slip past it.
+- **Four render tests were machine-dependent and CI was red because of it** (Story R.m.1). They expressed "pyve is installed" by setting `pyve_version` alone and borrowed the render gate from `init`'s live detection, so they passed on a developer machine with pyve and failed on every machine without one — and `ci.yml` installs no pyve. Red since the R.j decoupling. The suite now passes with pyve present *and* under a stripped `PATH`, and `project-essentials.md`'s CI-gate-parity checklist gained the stripped-`PATH` run so the class does not recur.
+
+### Notes
+- A re-render that newly *adds* the Pyve section is handled cleanly by the existing hash-comparison machinery — confirmed end-to-end with **zero** `.bak` files across an adding re-render and repeated renders.
+- No cross-repo coordination required: `pyve_version` is not in the `.project-guide.yml` field subset pinned by pyve (`version`, `installed_version`, `target_dir`, `current_mode`). The pyve-side change that passes `--pyve-version` from `run_project_guide_init_in_env` lands in the pyve repo, gated on this release.
+- Affected projects gain ~80 lines in `go.md` on the next render. That is the bug fix; `go.md` is generated output, not a public API.
+
 ## [2.19.0] - 2026-08-12
 
 **project-guide owns its shell completion (Subphase R-1, Stories R.b–R.h.1).** Completion was self-service — the developer hand-copied an `eval "$(_PROJECT_GUIDE_COMPLETE=…)"` snippet — and it broke silently in two ways reported from the field ([pyve#70](https://github.com/pointmatic/pyve/issues/70)): the zsh snippet needs a `compinit` that may never have run, and every generated callback resolves the bare command name through `PATH` at completion time, which fails when project-guide is hosted behind a shim that is off `PATH`. Both are closed, and completion is now installed, removed, and inspected by project-guide itself.

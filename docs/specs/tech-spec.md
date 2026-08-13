@@ -156,7 +156,7 @@ project-guide/
 
 **Data classes:**
 - `FileOverride` — reason, locked_version, last_updated
-- `Config` — version, installed_version, target_dir, metadata_file, current_mode, test_first, pyve_version, project_name, metadata_overrides, overrides
+- `Config` — version, installed_version, target_dir, metadata_file, current_mode, test_first, pyve_version, pyve_installed, project_name, metadata_overrides, overrides
 
 `project_name` is populated at `init` via a four-level resolution chain (CLI `--project-name` flag → `PROJECT_GUIDE_PROJECT_NAME` env var → `pyproject.toml` `[project].name` via `runtime._detect_project_name_from_pyproject()` → `Path.cwd().name`) and persists thereafter. It flows into `archive-stories` as the authoritative source for the fresh `stories.md` header.
 
@@ -164,7 +164,8 @@ project-guide/
 - `Config.load()` / `Config.save()` — YAML round-trip
 - Schema version guard: `Config.load()` compares `data['version']` against module-level `SCHEMA_VERSION` and raises `SchemaVersionError(direction="older"|"newer")` on mismatch. `SchemaVersionError` subclasses `ConfigError` so existing handlers still catch it. `cli.py:update` treats it specially: on `"older"` it directs the user at `init --force`; on `"newer"` it instructs them to upgrade the package. `cli.py:init` performs the actual `.project-guide.yml.bak.<timestamp>` backup when `--force` is used on an existing config — that is the single destructive-overwrite site.
 - Override management: `is_overridden()`, `add_override()`, `remove_override()`
-- Defaults: `target_dir="docs/project-guide"`, `metadata_file=".metadata.yml"`, `current_mode="default"`, `test_first=False`, `pyve_version=None`, `metadata_overrides={}`
+- Pyve detection: `record_pyve_detection(detected_version)` — the sticky-true choke point for every automatic update (see the `Config` dataclass section)
+- Defaults: `target_dir="docs/project-guide"`, `metadata_file=".metadata.yml"`, `current_mode="default"`, `test_first=False`, `pyve_version=None`, `pyve_installed=False`, `metadata_overrides={}`. `pyve_installed` is the one field whose *load* default differs from its dataclass default: an absent key reads as `pyve_version is not None`, preserving pre-R-2 behavior for existing configs
 
 ### Module: `metadata.py`
 
@@ -244,16 +245,29 @@ class FileOverride:
 ```python
 @dataclass
 class Config:
-    version: str = "2.0"
+    version: str = "2.0"                 # config schema version (SCHEMA_VERSION)
     installed_version: str = ""
     target_dir: str = "docs/project-guide"
     metadata_file: str = ".metadata.yml"
     current_mode: str = "default"
     test_first: bool = False
-    pyve_version: str | None = None
+    pyve_version: str | None = None      # bare "3.2.2"; legacy raw line still reads
+    pyve_installed: bool = False         # the render gate — not derived from the above
+    project_name: str = ""
     metadata_overrides: dict[str, dict] = field(default_factory=dict)
     overrides: dict[str, FileOverride] = field(default_factory=dict)
 ```
+
+**`pyve_installed` is deliberately not derived from `pyve_version`** (Subphase R-2). The two answer different questions — "should the Pyve guidance render?" versus "which pyve was seen?" — and deriving the first from the second is what turned a single failed `pyve --version` probe into the permanent loss of ~80 lines of guardrail from every rendered `go.md`. A config written before the field existed defaults it to `pyve_version is not None`, so upgrading changes no project's behavior; a key that *is* present always wins, which is how a hand-edited opt-out survives a load.
+
+**Sticky-true helper.** Every *automatic* detection result flows through one method:
+
+```python
+def record_pyve_detection(self, detected_version: str | None) -> bool:
+    """Fold a detection result in. Returns whether anything changed."""
+```
+
+It may set `pyve_installed` to `True` and never to `False`: a failed probe returns `False` (nothing changed) and leaves both fields alone, because detection fails for reasons unrelated to whether pyve is present — an un-rehashed `PATH`, a slow first run, a sandbox. The boolean return lets callers skip a pointless config write, and is what `update` reads to decide whether a re-render is owed. `init` is the one site that bypasses the helper: it may record a miss as `False`, having no prior observation to overwrite.
 
 ### Metadata (`ModeDefinition`)
 
@@ -440,7 +454,7 @@ Shared properties, each of which is load-bearing rather than incidental:
 
 1. **Last-resort detection, evaluated lazily.** The chain is always *flag → env var → detection*, and the detection link is only reached when the earlier ones are empty. For `--pyve-version` this is the difference between one subprocess and none, which is why the resolution is hand-written rather than routed through `_resolve_setting` (whose `default` argument is evaluated eagerly).
 2. **Blank means "not supplied", not "the empty value".** A host interpolating an unset shell variable yields `""`; treating that as an answer would record a useless value *and* skip the detection that would have found the real one.
-3. **Supplied values are not validated.** These fields record an observation, not a constraint. Refusing a value the host asserts about *itself* would be project-guide second-guessing the only component that knows for certain — and the validation would inevitably lag the host's own format changes.
+3. **Supplied values are not validated.** These fields record an observation, not a constraint. Refusing a value the host asserts about *itself* would be project-guide second-guessing the only component that knows for certain — and the validation would inevitably lag the host's own format changes. **Normalizing is not validating** (R.n): `--pyve-version "pyve version 3.2.2"` is stored as `3.2.2` so the field has one shape regardless of who wrote it, but nothing is rejected and nothing raises — a value with no recognizable version token is stored exactly as given.
 4. **project-guide still owns the consequence.** `--bin` does not decide whether to post-process (absoluteness does); `--pyve-version` does not decide whether the guidance renders (`pyve_installed` does). The host supplies a fact, never a decision.
 
 **Where the pattern deliberately stops.** `--pyve-version` is `init`-only. Later changes are handled by re-detection at the `update` / `mode` refresh sites, not by asking the host to re-assert the fact on every invocation. And `--project-name` is *not* elevated to other commands: identity is a stable fact deliberately changed, environment is a fact that changes on its own, and symmetric flags would imply a symmetry that does not exist.

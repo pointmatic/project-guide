@@ -382,18 +382,24 @@ The field currently holds the whole `pyve --version` line (`"pyve version 2.6.2"
 
 No version bump — Subphase R-2 ships bundled as `v2.20.0` at R.o, which owns the CHANGELOG entry.
 
-### Story R.o: `v2.20.0` Subphase R-2 bundled release [Planned]
+### Story R.o: `v2.20.0` Subphase R-2 bundled release [Done]
 
 Documentation and the single release tag for the subphase.
 
-- [ ] Update `features.md` FR-13 — the detection contract, the `pyve_installed` gate, sticky-true semantics, and the refresh sites
-- [ ] **Amend invariant (b) in `project-essentials.md`** — record `update` / explicit `mode` as a second sanctioned refresh point alongside the existing Q-4 readiness-gate exception, and state that `_apply_heal` remains off-limits with the Q.t rationale
-- [ ] Update `tech-spec.md` — reconcile the `Config` dataclass listing with the actual dataclass (it currently omits `project_name` as well as the new `pyve_installed`) and document the sticky-true helper
-- [ ] Document the new config field and `--pyve-version` flag in `README.md` and `docs/site/user-guide/configuration.md`
-- [ ] Confirm a re-render that newly *adds* the Pyve section is handled cleanly by the existing hash-comparison machinery, with no `.bak` proliferation
-- [ ] `CHANGELOG.md` entry for `v2.20.0`, dated
-- [ ] Bump `project_guide/version.py` and `pyproject.toml` to `2.20.0`
-- [ ] Verification per CI-gate parity: `pyve test`, `pyve env run ruff check project_guide/ tests/`, `pyve env run mypy project_guide/`
+- [x] Update `features.md` FR-13 — the detection contract, the `pyve_installed` gate, sticky-true semantics, and the refresh sites — rewritten as four labelled paragraphs (resolution chain + the non-silent miss, the persisted gate, sticky-true, refresh sites incl. the `_apply_heal` exclusion); `--pyve-version` added to the `init` inputs list, and the `.project-guide.yml` example — which had drifted to five fields — now shows all nine with the schema-vs-package-version distinction spelled out
+- [x] **Amend invariant (b) in `project-essentials.md`** — record `update` / explicit `mode` as a second sanctioned refresh point alongside the existing Q-4 readiness-gate exception, and state that `_apply_heal` remains off-limits with the Q.t rationale — written as *two refresh points and one hard exclusion*, framing the refresh as the invariant's own escape clause taken up rather than a loosening of it
+- [x] Update `tech-spec.md` — reconcile the `Config` dataclass listing with the actual dataclass (it currently omits `project_name` as well as the new `pyve_installed`) and document the sticky-true helper — both fields added with inline comments, plus a prose block on why the gate is not derived and a signature-level description of `record_pyve_detection`; the module-level `config.py` summary, its defaults line (noting the one field whose *load* default differs from its dataclass default), and the R.k host-supplied-facts § (normalizing ≠ validating) all reconciled
+- [x] Document the new config field and `--pyve-version` flag in `README.md` and `docs/site/user-guide/configuration.md` — plus `commands.md`, whose `status`-footer line still said the value came from `init` time
+- [x] Confirm a re-render that newly *adds* the Pyve section is handled cleanly by the existing hash-comparison machinery, with no `.bak` proliferation
+- [x] `CHANGELOG.md` entry for `v2.20.0`, dated
+- [x] Bump `project_guide/version.py` and `pyproject.toml` to `2.20.0`
+- [x] Verification per CI-gate parity: `pyve test`, `pyve env run ruff check project_guide/ tests/`, `pyve env run mypy project_guide/` — 865 passed, ruff clean, mypy clean, plus the fourth gate R.m.1 added: **865 under `env -i PATH=/usr/bin:/bin`**
+
+**The user guide carried advice this subphase made wrong.** `configuration.md` told developers who installed pyve after `init` to "re-run `project-guide init --force`" — the destructive rebuild path, for what is now a non-destructive refresh. Replaced with `update` or a mode switch, and the page gains a `pyve_installed` section written for a developer rather than a maintainer: what the field gates, why it is not read off `pyve_version`, and that the hand-edited opt-out holds only while pyve stays genuinely unavailable. Finding this is the argument for the doc pass being a story rather than a footnote on R.j.
+
+**The `.bak` concern, confirmed on a clean project rather than cited from earlier runs.** This story owns the claim, so it was re-verified from scratch: `init` under a stripped `PATH` (160-line `go.md`, no guidance) → `update` (240 lines, guidance restored) → a mode switch → another `update`. **Zero** backup files at every step. The adding re-render is just a content change to generated output, which the existing hash comparison already handles.
+
+**Release shape.** Phase R now carries three tags — `v2.18.1` (R.a), `v2.19.0` (Subphase R-1), `v2.20.0` (Subphase R-2) — the documented multi-release exception rather than the preferred single bundle, driven by the subphases being independently shippable fixes to unrelated surfaces. No cross-repo coordination: `pyve_version` is not in the pyve-pinned field subset, re-checked against the assertion that pins it. The pyve-side change that passes `--pyve-version` from `run_project_guide_init_in_env` lands in the pyve repo, gated on this release.
 
 ---
 
