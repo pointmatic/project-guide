@@ -438,21 +438,31 @@ The gate reads the wrong branch: `on_main` is computed from `_get_current_branch
 
 No version bump — Subphase R-3 ships bundled as `v2.21.0` at R.t.
 
-### Story R.q: gitbetter `--keep` and `--amend` pass-through [Planned]
+### Story R.q: gitbetter `--keep` and `--amend` pass-through [Done]
 
 Both wrappers build `argv = [tool_path, message]` plus an optional branch (`cli.py:2310`), so gitbetter's `--keep|-k` and `--amend` cannot be reached. `--keep` is exactly the multi-commit feature-branch flag — the convenience evaporates at the moment the workflow gets long enough to need it.
 
 `--amend` means **commit the current tree on top of the old committed tree**, nothing more. Per the wrapper-value principle it is a short-circuit path, not a new branch through the derivation flow: no message is being decided, so none of the derivation machinery applies.
 
-- [ ] Add `--keep` / `-k` pass-through to both wrappers — no project-guide semantics attach to it
-- [ ] Add `--amend` as a short-circuit path: read the previous subject with `git log -1 --pretty=%s` and pass it back **verbatim**. Do not re-derive from `stories.md` — that would rewrite a subject as a side effect of a bug fix, and would silently canonicalize legacy bundled subjects (permissive read / strict emit)
-- [ ] Refuse `--amend` under `--no-input` (and `CI=1` / non-TTY stdin) with a non-zero exit — it force-pushes with `--force-with-lease`, and a history-shape decision is not a CI default
-- [ ] Refuse `--amend` when a `[Done]` story is uncommitted: gitbetter runs `git add -A` before amending (`git-push.sh:237`), so that story's work would land inside the previous story's commit under the previous story's message. Name the offending story in the refusal
-- [ ] Scope the guard deliberately — it fires on `[Done]`-but-uncommitted stories only. In-progress work on a `[Planned]` story stays invisible to it; the wrapper does not become a general-purpose working-tree guard
-- [ ] Handle "no previous commit to amend" with a clear error rather than an opaque gitbetter failure
-- [ ] Confirm the normal already-committed → exit 0 `Nothing to commit` path is bypassed, not inverted — `--amend` should never reach it
-- [ ] Tests: `--keep` reaches gitbetter; `--amend` passes the previous subject unchanged; `--amend` refused under `--no-input`; refused with an uncommitted `[Done]` story; no-previous-commit error; both wrappers behave identically
-- [ ] Verification per CI-gate parity
+- [x] Add `--keep` / `-k` pass-through to both wrappers — no project-guide semantics attach to it (`cli.py:2573`)
+- [x] Add `--amend` as a short-circuit path: read the previous subject with `git log -1 --pretty=%s` and pass it back **verbatim**. Do not re-derive from `stories.md` — that would rewrite a subject as a side effect of a bug fix, and would silently canonicalize legacy bundled subjects (permissive read / strict emit) — `_run_amend` (`cli.py:2309`), reached before the normal flow's early exits
+- [x] Refuse `--amend` under `--no-input` (and `CI=1` / non-TTY stdin) with a non-zero exit — it force-pushes with `--force-with-lease`, and a history-shape decision is not a CI default
+- [x] Refuse `--amend` when a `[Done]` story is uncommitted: gitbetter runs `git add -A` before amending (`git-push.sh:237`), so that story's work would land inside the previous story's commit under the previous story's message. Name the offending story in the refusal — **citation re-verified against the installed gitbetter 1.8.0** before building on it: `git add -A` at `libexec/git-push.sh:237`, `git commit --amend -m` at `:247`, `--force-with-lease` at `:291`
+- [x] Scope the guard deliberately — it fires on `[Done]`-but-uncommitted stories only. In-progress work on a `[Planned]` story stays invisible to it; the wrapper does not become a general-purpose working-tree guard
+- [x] Handle "no previous commit to amend" with a clear error rather than an opaque gitbetter failure
+- [x] Confirm the normal already-committed → exit 0 `Nothing to commit` path is bypassed, not inverted — `--amend` should never reach it
+- [x] Tests: `--keep` reaches gitbetter; `--amend` passes the previous subject unchanged; `--amend` refused under `--no-input`; refused with an uncommitted `[Done]` story; no-previous-commit error; both wrappers behave identically — 13 new tests (886 passed total)
+- [x] Verification per CI-gate parity — 886 both directions, ruff clean, mypy clean
+
+**The guard had to share the flow's notion of "committed", which the plan did not settle.** Finding 5 says detection "costs nothing" because the wrapper already computes the uncommitted `[Done]` list — but implemented against the **raw** committed set, the guard refuses on every feature branch whose earlier stories shipped under squashed PR titles. Those stories *are* committed; they just do not parse. That would make `--amend` unusable in exactly the workflow `--keep` and `--amend` exist to serve, and it would arrive as a mysterious refusal naming stories the developer shipped weeks ago. So the anchor computation was extracted from `_presume_committed_on_branch` into a pure `_presumed_squash_merged_prefix` (`cli.py:1950`) — no output, no prompting — and both the flow and the guard now read the same set through `_relaxed_committed_set` (`cli.py:2285`), which applies R.p's rule silently. Where there is no anchor to presume around, the guard stays strict: for a history-rewriting operation, refusing on ambiguity is the safe direction. A test pins the squash-merged case so the sharing cannot be undone by accident.
+
+**Check order changed from the checklist's, on evidence.** The no-previous-commit test failed against the guard, not the code: in a repo with no commits *every* `[Done]` story is uncommitted, so the guard fired first and said "commit that story, then amend" — true, and a misdiagnosis. There is nothing to amend *into*. The subject read now precedes the guard, so the fresh-repo case gets the precise error. The `--no-input` refusal stays first: it is categorical and costs nothing to check.
+
+**Verified against real gitbetter 1.8.0, including the part only a real run can show.** With `stories.md`'s title deliberately drifted from the commit's (`A.b: v0.2.0 Second, revised title` on disk vs. `A.b: v0.2.0 Second` in the log), gitbetter opened with `Message: A.b: v0.2.0 Second` and `Mode: amend` — the preserved subject, not the re-derived one, which is the whole of Finding 2 demonstrated rather than asserted. The three refusals were exercised through a pty (`script -q /dev/null`, since a non-TTY stdin trips the interactive-only rule first — itself a confirmation): fresh repo → `No previous commit to amend.`; `--no-input` → the force-push refusal; a finished-but-uncommitted `A.b` → `Refusing to amend: [Done] story A.b is not committed yet.` No history was rewritten in any run.
+
+**`--keep` needed no design.** gitbetter parses flags positionally-independently (`git-push.sh:67-73`), so appending them after the message and optional branch is safe, and `--keep` composes with `--amend` and a branch argument in one invocation.
+
+No version bump — Subphase R-3 ships bundled as `v2.21.0` at R.t.
 
 ### Story R.r: Widen completion staleness beyond the dead-path test [Planned]
 

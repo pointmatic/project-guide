@@ -3893,6 +3893,337 @@ def test_git_commit_gets_the_same_gate(runner, tmp_path, monkeypatch):
 # --- End Story R.p ------------------------------------------------------------
 
 
+# --- Story R.q: gitbetter --keep / --amend pass-through -----------------------
+#
+# Both wrappers built `argv = [tool_path, message]` plus an optional branch, so
+# two gitbetter flags were unreachable. `--keep` is a plain pass-through.
+# `--amend` is a short-circuit, not a new branch through the derivation flow:
+# no message is being decided, so the machinery that decides messages does not
+# apply. What it does need is two guards.
+
+
+def _mock_git(monkeypatch, *, subjects, branch="main", capture=None, last_subject=None):
+    """Like `_mock_git_log_subjects`, but also answers `git log -1 --pretty=%s`.
+
+    `last_subject=None` means "no previous commit" (non-zero exit), which is
+    the state `--amend` has to report rather than hand to gitbetter.
+    """
+    import project_guide.cli as cli_module
+
+    class _Completed:
+        def __init__(self, returncode: int, stdout: str = ""):
+            self.returncode = returncode
+            self.stdout = stdout
+            self.stderr = ""
+
+    def fake_run(argv, **kwargs):
+        if argv[:2] == ["git", "log"] and "-1" in argv:
+            if last_subject is None:
+                return _Completed(128)
+            return _Completed(0, stdout=last_subject + "\n")
+        if argv[:2] == ["git", "log"]:
+            return _Completed(0, stdout="\n".join(subjects) + ("\n" if subjects else ""))
+        if argv[:2] == ["git", "rev-parse"]:
+            return _Completed(0, stdout=branch + "\n")
+        if capture is not None:
+            capture.append(list(argv))
+        return _Completed(0)
+
+    monkeypatch.setattr(cli_module.subprocess, "run", fake_run)
+
+
+def _interactive(monkeypatch):
+    import project_guide.cli as cli_module
+
+    monkeypatch.setattr(cli_module, 'should_skip_input', lambda *a, **kw: False)
+
+
+def test_keep_reaches_gitbetter(runner, tmp_path, monkeypatch):
+    """A pass-through with no project-guide semantics attached."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md("### Story A.a: v0.1.0 First [Done]")
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git(monkeypatch, subjects=[], capture=captured)
+
+        result = runner.invoke(main, ['git-push', '--keep'])
+
+        assert result.exit_code == 0, result.output
+        assert captured[0][1] == "A.a: v0.1.0 First"
+        assert "--keep" in captured[0]
+
+
+def test_keep_composes_with_a_branch_argument(runner, tmp_path, monkeypatch):
+    """`--keep` is exactly the sustained-feature-branch flag, so the two must compose."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md("### Story A.a: v0.1.0 First [Done]")
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git(monkeypatch, subjects=[], capture=captured)
+
+        result = runner.invoke(main, ['git-push', 'feature/x', '-k'])
+
+        assert result.exit_code == 0, result.output
+        argv = captured[0]
+        assert argv[1] == "A.a: v0.1.0 First"
+        assert argv[2] == "feature/x"
+        assert "--keep" in argv
+
+
+def test_amend_passes_the_previous_subject_back_verbatim(runner, tmp_path, monkeypatch):
+    """Preserve, never re-derive.
+
+    The stored title here has drifted from the commit's (a version was
+    assigned after the fact). Re-deriving would silently rename the commit as
+    a side effect of amending a fix into it.
+    """
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md("### Story A.a: v0.1.0 First [Done]")
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git(
+            monkeypatch,
+            subjects=["A.a: First"],
+            capture=captured,
+            last_subject="A.a: First",
+        )
+        _interactive(monkeypatch)
+
+        result = runner.invoke(main, ['git-push', '--amend'])
+
+        assert result.exit_code == 0, result.output
+        assert captured[0][1] == "A.a: First"  # not "A.a: v0.1.0 First"
+        assert "--amend" in captured[0]
+
+
+def test_amend_bypasses_the_nothing_to_commit_exit(runner, tmp_path, monkeypatch):
+    """Already-committed is `--amend`'s precondition, not its blocker.
+
+    Left to the normal flow the wrapper would exit 0 with "Nothing to commit"
+    before ever invoking gitbetter, and `--amend` would appear to do nothing.
+    """
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md("### Story A.a: v0.1.0 First [Done]")
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git(
+            monkeypatch,
+            subjects=["A.a: v0.1.0 First"],
+            capture=captured,
+            last_subject="A.a: v0.1.0 First",
+        )
+        _interactive(monkeypatch)
+
+        result = runner.invoke(main, ['git-push', '--amend'])
+
+        assert result.exit_code == 0, result.output
+        assert "Nothing to commit" not in result.output
+        assert len(captured) == 1, captured
+
+
+def test_amend_is_refused_under_no_input(runner, tmp_path, monkeypatch):
+    """It force-pushes with --force-with-lease; a history-shape decision is
+    not a CI default. Same reasoning as the out-of-sequence path never
+    auto-yesing."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md("### Story A.a: v0.1.0 First [Done]")
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git(
+            monkeypatch,
+            subjects=["A.a: v0.1.0 First"],
+            capture=captured,
+            last_subject="A.a: v0.1.0 First",
+        )
+
+        result = runner.invoke(main, ['git-push', '--amend', '--no-input'])
+
+        assert result.exit_code == 1
+        assert "--amend" in result.output
+        assert captured == []
+
+
+def test_amend_is_refused_when_a_done_story_is_uncommitted(runner, tmp_path, monkeypatch):
+    """The staging guard: gitbetter runs `git add -A` before amending.
+
+    Finishing A.b in the tree and amending while the last commit is A.a lands
+    A.b's diff inside A.a's commit under A.a's message — straight through the
+    one-unit-of-work-one-commit invariant this wrapper exists to serve.
+    """
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 First [Done]",
+            "### Story A.b: v0.2.0 Second [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git(
+            monkeypatch,
+            subjects=["A.a: v0.1.0 First"],
+            capture=captured,
+            last_subject="A.a: v0.1.0 First",
+        )
+        _interactive(monkeypatch)
+
+        result = runner.invoke(main, ['git-push', '--amend'])
+
+        assert result.exit_code == 1
+        assert "A.b" in result.output  # the offender is named
+        assert captured == []
+
+
+def test_the_staging_guard_ignores_planned_work(runner, tmp_path, monkeypatch):
+    """Where the guard stops, deliberately.
+
+    In-progress work on a `[Planned]` story is invisible to it and will still
+    be folded in by `git add -A`. Amending stages your tree — that is git's
+    contract — and the wrapper does not become a general working-tree guard.
+    It intervenes where `stories.md` gives it standing, and nowhere else.
+    """
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md_raw(
+            "### Story A.a: v0.1.0 First [Done]\n\n- [x] done\n\n"
+            "### Story A.b: Second [Planned]\n\n- [ ] todo"
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git(
+            monkeypatch,
+            subjects=["A.a: v0.1.0 First"],
+            capture=captured,
+            last_subject="A.a: v0.1.0 First",
+        )
+        _interactive(monkeypatch)
+
+        result = runner.invoke(main, ['git-push', '--amend'])
+
+        assert result.exit_code == 0, result.output
+        assert len(captured) == 1, captured
+
+
+def test_the_staging_guard_does_not_fire_on_squash_merged_history(runner, tmp_path, monkeypatch):
+    """The guard must read the same committed-set the rest of the wrapper does.
+
+    On a feature branch, earlier `[Done]` stories were squash-merged to main
+    under PR titles and do not parse out of this branch's log. Their work *is*
+    committed. Refusing here would make `--amend` unusable on exactly the
+    workflow `--keep` and `--amend` exist for.
+    """
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md(
+            "### Story A.a: v0.1.0 First [Done]",
+            "### Story A.b: v0.2.0 Second [Done]",
+            "### Story A.c: v0.3.0 Third [Done]",
+        )
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        # Only A.c parses from this branch's log; A.a and A.b shipped via a
+        # squashed PR and are unrecognizable.
+        _mock_git(
+            monkeypatch,
+            subjects=["A.c: v0.3.0 Third"],
+            branch="feature/x",
+            capture=captured,
+            last_subject="A.c: v0.3.0 Third",
+        )
+        _interactive(monkeypatch)
+
+        result = runner.invoke(main, ['git-push', '--amend'])
+
+        assert result.exit_code == 0, result.output
+        assert len(captured) == 1, captured
+        assert captured[0][1] == "A.c: v0.3.0 Third"
+
+
+def test_amend_reports_no_previous_commit_clearly(runner, tmp_path, monkeypatch):
+    """A fresh repo has nothing to amend; say so rather than let gitbetter fail."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md("### Story A.a: v0.1.0 First [Done]")
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git(monkeypatch, subjects=[], capture=captured, last_subject=None)
+        _interactive(monkeypatch)
+
+        result = runner.invoke(main, ['git-push', '--amend'])
+
+        assert result.exit_code == 1
+        assert "no previous commit" in result.output.lower()
+        assert captured == []
+
+
+def test_amend_tolerates_a_missing_stories_md(runner, tmp_path, monkeypatch):
+    """`--amend` reads its message from git, so `stories.md` is only the guard's input.
+
+    The normal flow exits 1 on a missing file because it cannot derive a
+    message without one. The short-circuit can: the guard simply has nothing
+    to check.
+    """
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        Path("docs/specs").mkdir(parents=True, exist_ok=True)
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git(monkeypatch, subjects=[], capture=captured, last_subject="wip")
+        _interactive(monkeypatch)
+
+        result = runner.invoke(main, ['git-push', '--amend'])
+
+        assert result.exit_code == 0, result.output
+        assert captured[0][1] == "wip"
+
+
+def test_amend_composes_with_keep_and_a_branch(runner, tmp_path, monkeypatch):
+    """All three reach gitbetter together, in a shape it parses."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md("### Story A.a: v0.1.0 First [Done]")
+        _mock_git_push_on_path(monkeypatch)
+        captured: list = []
+        _mock_git(
+            monkeypatch,
+            subjects=["A.a: v0.1.0 First"],
+            capture=captured,
+            last_subject="A.a: v0.1.0 First",
+        )
+        _interactive(monkeypatch)
+
+        result = runner.invoke(main, ['git-push', 'feature/x', '--amend', '--keep'])
+
+        assert result.exit_code == 0, result.output
+        argv = captured[0]
+        assert argv[1] == "A.a: v0.1.0 First"
+        assert argv[2] == "feature/x"
+        assert "--amend" in argv and "--keep" in argv
+
+
+@pytest.mark.parametrize("flags", [["--keep"], ["--amend"]])
+def test_git_commit_gets_the_same_flags(runner, tmp_path, monkeypatch, flags):
+    """Both wrappers share `_run_gitbetter_wrapper`; neither may drift."""
+    import project_guide.cli as cli_module
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _write_stories_md("### Story A.a: v0.1.0 First [Done]")
+        monkeypatch.setattr(
+            cli_module.shutil, "which",
+            lambda name: "/usr/local/bin/git-commit" if name == "git-commit" else None,
+        )
+        captured: list = []
+        _mock_git(
+            monkeypatch,
+            subjects=["A.a: v0.1.0 First"] if flags == ["--amend"] else [],
+            capture=captured,
+            last_subject="A.a: v0.1.0 First",
+        )
+        _interactive(monkeypatch)
+
+        result = runner.invoke(main, ['git-commit', *flags])
+
+        assert result.exit_code == 0, result.output
+        assert captured[0][0] == "/usr/local/bin/git-commit"
+        assert flags[0] in captured[0]
+
+
+# --- End Story R.q ------------------------------------------------------------
+
+
 # --- Story R.a: project-guide git-commit subcommand -------------------------
 
 

@@ -60,6 +60,7 @@ from project_guide.runtime import (
     should_skip_input,
 )
 from project_guide.stories import (
+    StoryHeading,
     _read_done_stories,
     _read_stories_summary,
     derive_bundle_commit_message,
@@ -1946,6 +1947,60 @@ def _get_current_branch() -> str | None:
     return branch or None
 
 
+def _presumed_squash_merged_prefix(
+    commit_units: list,
+    committed: set[str],
+) -> tuple[StoryHeading | None, set[str]]:
+    """Anchor + the ``[Done]`` stories before it presumed squash-merged.
+
+    The pure half of :func:`_presume_committed_on_branch` — no output, no
+    prompting — extracted in Story R.q so the ``--amend`` staging guard can
+    ask the same question the normal flow asks without announcing anything.
+    That sharing is not tidiness: a guard reading the *raw* committed set
+    would refuse on every feature branch whose earlier stories shipped under
+    squashed PR titles, which is the workflow ``--amend`` exists for.
+
+    Returns ``(None, set())`` when no story parses out of the log at all —
+    with no anchor there is nothing to presume *around*, and the caller
+    decides what that means (the flow offers a prompt; the guard stays
+    strict, which for a history-rewriting operation is the safe direction).
+    """
+    committed_in_branch = [s for s in commit_units if s.story_id in committed]
+    if not committed_in_branch:
+        return None, set()
+
+    anchor = committed_in_branch[0]
+    anchor_idx = next(
+        i for i, s in enumerate(commit_units) if s.story_id == anchor.story_id
+    )
+    presumed = {
+        s.story_id for s in commit_units[:anchor_idx] if s.story_id not in committed
+    }
+    return anchor, presumed
+
+
+def _previous_commit_subject() -> str | None:
+    """Subject of ``HEAD``, or ``None`` when there is no commit to amend.
+
+    ``None`` covers git being unavailable, a non-repository cwd, and an empty
+    repository alike — every state in which there is nothing for ``--amend``
+    to rewrite, which the caller reports plainly rather than handing to
+    gitbetter to fail on.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "log", "-1", "--pretty=%s"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except (FileNotFoundError, OSError):
+        return None
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip() or None
+
+
 def _presume_committed_on_branch(
     branch: str,
     commit_units: list,
@@ -1970,17 +2025,11 @@ def _presume_committed_on_branch(
       Accept → presume all but the last committed. Decline (or
       ``skip_input``) → fall through unchanged to the normal bundle flow.
     """
-    committed_in_branch = [s for s in commit_units if s.story_id in committed]
-    if committed_in_branch:
-        anchor = committed_in_branch[0]
+    anchor, presumed = _presumed_squash_merged_prefix(commit_units, committed)
+    if anchor is not None:
         anchor_idx = next(
             i for i, s in enumerate(commit_units) if s.story_id == anchor.story_id
         )
-        presumed = {
-            s.story_id
-            for s in commit_units[:anchor_idx]
-            if s.story_id not in committed
-        }
         if presumed:
             click.echo(
                 f"The first committed story in branch '{branch}' is: "
@@ -2045,10 +2094,28 @@ def _resolve_spec_artifacts_path() -> str:
         'Do not read from stdin; auto-decline both the duplicate-story-ID '
         'warning and the bundle-offer prompt (so CI never silently bundles '
         'or papers over a history anomaly). Also auto-enabled by CI=1 or '
-        'non-TTY stdin.'
+        'non-TTY stdin. Refuses --amend outright.'
     ),
 )
-def git_push(branch_name: str | None, no_input: bool):
+@click.option(
+    '--keep', '-k',
+    'keep',
+    is_flag=True,
+    default=False,
+    help="Pass gitbetter's --keep through: skip its post-push branch cleanup prompt.",
+)
+@click.option(
+    '--amend',
+    'amend',
+    is_flag=True,
+    default=False,
+    help=(
+        "Commit the current tree onto the last commit, reusing its subject "
+        "verbatim. Interactive-only (it force-pushes with --force-with-lease), "
+        "and refused while a [Done] story is uncommitted."
+    ),
+)
+def git_push(branch_name: str | None, no_input: bool, keep: bool, amend: bool):
     """Wrap gitbetter's `git-push` with the most-recently-completed story ID.
 
     \b
@@ -2117,10 +2184,20 @@ def git_push(branch_name: str | None, no_input: bool):
     Backticks and double quotes become single quotes; single quotes pass
     through; the colon after the story ID is preserved.
 
+    \b
+    Flag pass-through (Story R.q):
+      --keep / -k  reaches gitbetter unchanged; no project-guide semantics.
+      --amend      short-circuits the derivation flow entirely: reuses the
+                   previous commit's subject verbatim (never re-derived from
+                   stories.md), refuses under --no-input, and refuses while a
+                   [Done] story is uncommitted — gitbetter stages the whole
+                   tree before amending, so that work would land inside the
+                   previous commit under the previous commit's message.
+
     This is a developer-lane convenience command. The LLM still does not
     initiate commits — the approval-gate discipline rule remains in force.
     """
-    _run_gitbetter_wrapper("git-push", branch_name, no_input)
+    _run_gitbetter_wrapper("git-push", branch_name, no_input, keep, amend)
 
 
 @main.command(name="git-commit")
@@ -2134,10 +2211,28 @@ def git_push(branch_name: str | None, no_input: bool):
         'Do not read from stdin; auto-decline both the duplicate-story-ID '
         'warning and the bundle-offer prompt (so CI never silently bundles '
         'or papers over a history anomaly). Also auto-enabled by CI=1 or '
-        'non-TTY stdin.'
+        'non-TTY stdin. Refuses --amend outright.'
     ),
 )
-def git_commit(branch_name: str | None, no_input: bool):
+@click.option(
+    '--keep', '-k',
+    'keep',
+    is_flag=True,
+    default=False,
+    help="Pass gitbetter's --keep through: skip its post-push branch cleanup prompt.",
+)
+@click.option(
+    '--amend',
+    'amend',
+    is_flag=True,
+    default=False,
+    help=(
+        "Commit the current tree onto the last commit, reusing its subject "
+        "verbatim. Interactive-only (it force-pushes with --force-with-lease), "
+        "and refused while a [Done] story is uncommitted."
+    ),
+)
+def git_commit(branch_name: str | None, no_input: bool, keep: bool, amend: bool):
     """Wrap gitbetter's `git-commit` with the most-recently-completed story ID.
 
     \b
@@ -2177,13 +2272,151 @@ def git_commit(branch_name: str | None, no_input: bool):
     duplicate-ID continuation, or `git-commit` not on PATH (install
     gitbetter: `brew install pointmatic/tap/gitbetter`).
 
+    \b
+    `--keep` / `-k` and `--amend` behave exactly as on `git-push` (Story R.q),
+    including the interactive-only rule and the uncommitted-[Done] refusal.
+
     This is a developer-lane convenience command. The LLM still does not
     initiate commits — the approval-gate discipline rule remains in force.
     """
-    _run_gitbetter_wrapper("git-commit", branch_name, no_input)
+    _run_gitbetter_wrapper("git-commit", branch_name, no_input, keep, amend)
 
 
-def _run_gitbetter_wrapper(tool_name: str, branch_name: str | None, no_input: bool):
+def _relaxed_committed_set(
+    branch_name: str | None,
+    commit_units: list,
+    committed: set[str],
+) -> set[str]:
+    """Fold in squash-merge presumption when the invocation context allows it.
+
+    The silent, promptless counterpart to the branch gate in
+    :func:`_run_gitbetter_wrapper`, applying the same rule (Story R.p): a
+    non-main checkout, or a destination branch named explicitly. Shared so the
+    ``--amend`` staging guard cannot develop a second opinion about which
+    stories count as committed.
+    """
+    branch = _get_current_branch()
+    on_main = branch is None or branch in ("main", "master")
+    heading_elsewhere = (
+        branch_name is not None and branch is not None and branch_name != branch
+    )
+    if on_main and not heading_elsewhere:
+        return committed
+    _anchor, presumed = _presumed_squash_merged_prefix(commit_units, committed)
+    return committed | presumed
+
+
+def _run_amend(
+    tool_name: str,
+    branch_name: str | None,
+    keep: bool,
+    skip_input: bool,
+    done_stories: list | None,
+) -> None:
+    """Run gitbetter's ``--amend``: the current tree onto the last commit.
+
+    A short-circuit rather than a branch through the derivation flow (Story
+    R.q). ``--amend`` decides no message, so none of the message-deciding
+    machinery applies — and the normal flow's *already-committed → exit 0*
+    contract would abort the command before gitbetter ever ran, since
+    already-committed is precisely ``--amend``'s precondition.
+
+    A missing or storyless ``stories.md`` is tolerated here, unlike the normal
+    flow, which cannot derive a message without one. The subject comes from
+    git; ``stories.md`` is only the staging guard's input, and with no stories
+    the guard simply has nothing to check.
+
+    Never returns — every path exits.
+    """
+    # Finding 3: `--amend` force-pushes with `--force-with-lease`, which makes
+    # history rewriting reachable through project-guide for the first time.
+    # Interactive-only, on the same reasoning that keeps the out-of-sequence
+    # path from ever auto-yesing: a history-shape decision is the developer's,
+    # not a CI default.
+    if skip_input:
+        click.secho(
+            "--amend rewrites history and force-pushes, so it is interactive-only. "
+            "Re-run without --no-input (and outside CI / with a TTY).",
+            fg='red',
+            err=True,
+        )
+        sys.exit(1)
+
+    # Checked before the staging guard so the fresh-repo case gets the precise
+    # diagnosis. With no commits at all every [Done] story is uncommitted, so
+    # the guard would fire first and say "commit that story, then amend" —
+    # true, but misleading when the real problem is that there is nothing to
+    # amend *into*.
+    subject = _previous_commit_subject()
+    if subject is None:
+        click.secho(
+            "No previous commit to amend.",
+            fg='red',
+            err=True,
+        )
+        sys.exit(1)
+
+    # Finding 5: gitbetter runs `git add -A` before amending (git-push.sh:237),
+    # so an uncommitted [Done] story's work would land inside the previous
+    # story's commit, under the previous story's message. Refuse rather than
+    # prompt — this is the attribution-ambiguity class the multi-story
+    # out-of-sequence error already treats as a hard error.
+    #
+    # Deliberately scoped to [Done]-but-uncommitted stories. In-progress work
+    # on a [Planned] story stays invisible and will still be staged: amending
+    # commits your tree, which is git's documented contract, and this wrapper
+    # does not become a general-purpose working-tree guard. It intervenes
+    # where stories.md gives it standing, and nowhere else.
+    commit_units = [s for s in (done_stories or []) if not s.is_header]
+    committed, _duplicates = _get_committed_story_ids()
+    committed = _relaxed_committed_set(branch_name, commit_units, committed)
+    uncommitted = [s for s in commit_units if s.story_id not in committed]
+    if uncommitted:
+        ids = ", ".join(s.story_id for s in uncommitted)
+        click.secho(
+            f"Refusing to amend: [Done] {'stories' if len(uncommitted) > 1 else 'story'} "
+            f"{ids} {'are' if len(uncommitted) > 1 else 'is'} not committed yet. "
+            f"Amending stages the whole tree, so that work would land inside the "
+            f"previous commit under the previous commit's message.",
+            fg='red',
+            err=True,
+        )
+        sys.exit(1)
+
+    tool_path = shutil.which(tool_name)
+    if tool_path is None:
+        click.secho(
+            f"{tool_name} not found on PATH. "
+            "Install gitbetter: brew install pointmatic/tap/gitbetter",
+            fg='red',
+            err=True,
+        )
+        sys.exit(1)
+
+    # Finding 2: the previous subject goes back verbatim. Re-deriving it from
+    # stories.md would rewrite a commit's message as a side effect of amending
+    # a fix into it, and would silently canonicalize a legacy bundled subject
+    # (the parser is permissive on read, the emitter strict). Preserved
+    # subjects came out of gitbetter already sanitized, so re-passing is
+    # idempotent.
+    argv = [tool_path, subject]
+    if branch_name:
+        argv.append(branch_name)
+    argv.append("--amend")
+    if keep:
+        argv.append("--keep")
+
+    result = subprocess.run(argv, check=False)
+    sys.exit(result.returncode)
+
+
+def _run_gitbetter_wrapper(
+    tool_name: str,
+    branch_name: str | None,
+    no_input: bool,
+    keep: bool = False,
+    amend: bool = False,
+):
     """Shared body for the `git-push` / `git-commit` wrappers (Story R.a).
 
     ``tool_name`` is the gitbetter binary to discover on PATH and invoke
@@ -2197,6 +2430,12 @@ def _run_gitbetter_wrapper(tool_name: str, branch_name: str | None, no_input: bo
     spec_artifacts_path = _resolve_spec_artifacts_path()
     done_stories = _read_done_stories(spec_artifacts_path)
     stories_md_display = f"{spec_artifacts_path}/stories.md"
+
+    # R.q: `--amend` short-circuits everything below — including the two early
+    # exits, which exist because the normal flow cannot derive a message
+    # without stories. `--amend` reads its message from git instead.
+    if amend:
+        _run_amend(tool_name, branch_name, keep, skip_input, done_stories)
 
     if done_stories is None:
         click.secho(
@@ -2331,6 +2570,11 @@ def _run_gitbetter_wrapper(tool_name: str, branch_name: str | None, no_input: bo
     argv = [tool_path, message]
     if branch_name:
         argv.append(branch_name)
+    if keep:
+        # A pure pass-through: `--keep` skips gitbetter's post-push branch
+        # cleanup prompt, which is gitbetter's business entirely. No
+        # project-guide semantics attach to it.
+        argv.append("--keep")
 
     # No capture_output: gitbetter is fully interactive — let it inherit
     # stdin/stdout/stderr. Propagate its exit code unchanged so the reject
