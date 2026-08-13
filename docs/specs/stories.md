@@ -559,6 +559,24 @@ Documentation and the single release tag for the subphase.
 
 **Release shape.** Phase R carries four tags — `v2.18.1` (R.a), `v2.19.0` (Subphase R-1), `v2.20.0` (Subphase R-2), `v2.21.0` (Subphase R-3) — the documented multi-release exception rather than the preferred single bundle, for the reason recorded in R-1 and R-2: the subphases are independently shippable fixes to unrelated surfaces.
 
+### Story R.u: Render user-facing paths with forward slashes on every platform [Done]
+
+Windows CI failed on `v2.21.0`'s commit. `init`'s detection-miss warning (Story R.m) interpolated a `Path` object, so on Windows it printed `docs\project-guide\go.md` while every other project-guide message printed `docs/project-guide/go.md`.
+
+**A product defect, not a test defect.** The obvious reading is "the assertion hard-coded a POSIX separator, so relax the assertion." That is backwards. The project already has a convention — every other user-facing path is assembled as an f-string with a literal `/` (`f"{config.target_dir}/go.md"` in the tracked-`go.md` warning, `stories_md_display` in the wrappers) — and R.m's warning was the one place that departed from it. Relaxing the test would have preserved the inconsistency and taught the suite to accept it.
+
+- [x] Add `_display_path()` (`cli.py:152`) — `Path(path).as_posix()`, with the convention and its rationale recorded once rather than repeated at each call site
+- [x] Apply it to the detection-miss warning **and** to the P.o "intentionally untracked" note two lines below it, which had the same latent defect but no test asserting its path. Left alone, `init` would have named the same file two different ways in two consecutive lines on Windows
+- [x] Tests that catch the bug **off** Windows: `PureWindowsPath` renders backslashes on every platform, so the regression test fails against a `str()`-based implementation on macOS and Linux too — verified by temporarily reverting the helper and watching it fail
+- [x] A test asserting both `init` notices name `docs/project-guide/go.md` and that no backslash-separated form appears in stderr
+- [x] Record the trap in `project-essentials.md` § Story verification — CI runs Windows, a local macOS run cannot see it, and the `PureWindowsPath` technique makes it reproducible
+- [x] Fold the fix into the unreleased `v2.21.0` CHANGELOG entry under **Fixed**, rather than opening a new version section
+- [x] Verification: 906 passed (901 + 5) both directions, ruff clean, mypy clean
+
+**No version bump — this rides `v2.21.0`.** Neither `v2.20.0` nor `v2.21.0` is tagged or on PyPI (2.19.0 is the latest published), so the release carrying the defect has not shipped. Opening a `2.21.1` for a bug that never reached a user would put a patch line in the changelog for a version nobody could install. Checked rather than assumed, via `git tag` and `pip index versions`.
+
+**The gap this exposes in the verification checklist.** The four local gates — tests, ruff, mypy, the stripped-`PATH` run — all passed on the commit Windows rejected, because every one of them runs on POSIX. The stripped-`PATH` gate added in R.m.1 closed the *environment* dimension (pyve present vs. absent); this is the *platform* dimension, and no local gate covers it. The mitigation is not another local run but a habit: assert the forward-slash form, and reproduce Windows rendering with `PureWindowsPath` where a message names a path.
+
 ---
 
 ## Future

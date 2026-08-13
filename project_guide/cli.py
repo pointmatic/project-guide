@@ -150,6 +150,23 @@ def _copy_template_tree(
     return count
 
 
+def _display_path(path: Path | str) -> str:
+    """Render a path for user-facing output, always with forward slashes.
+
+    Every other path project-guide prints is assembled as an f-string with a
+    literal ``/`` (``f"{config.target_dir}/go.md"``, ``stories_md_display``),
+    so messages read the same on every platform. Interpolating a ``Path``
+    instead picks up the OS separator, which on Windows produced
+    ``docs\\project-guide\\go.md`` in one message and ``docs/project-guide/go.md``
+    in the next — for the same file, from the same command.
+
+    Forward slashes are also the right form for the audience: these paths are
+    quoted back in issues and pasted into git commands, and git accepts
+    forward slashes on Windows.
+    """
+    return Path(path).as_posix()
+
+
 def _normalize_pyve_version(raw: str) -> str:
     """Reduce a pyve version string to its bare version token (Story R.n).
 
@@ -478,7 +495,7 @@ def init(
     if pyve_was_probed and detected_pyve_version is None:
         click.secho(
             f"Warning: pyve was not found on PATH, so the Pyve guidance is "
-            f"omitted from {output_path}.\n"
+            f"omitted from {_display_path(output_path)}.\n"
             f"  Once pyve is available, run 'project-guide update' to detect "
             f"it and restore the guidance.",
             fg='yellow',
@@ -491,7 +508,7 @@ def init(
     # fresh installs don't land in the historical "tracked from accident" state.
     if not quiet and not skip_input:
         click.secho(
-            f"Note: {output_path} is intentionally untracked. Do not 'git add' it.",
+            f"Note: {_display_path(output_path)} is intentionally untracked. Do not 'git add' it.",
             fg='yellow',
             err=True,
         )

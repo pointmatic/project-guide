@@ -51,6 +51,8 @@ Record the outcome in the story checklist (counts passed / "clean"). If the loca
 env -i PATH=/usr/bin:/bin HOME="$HOME" .pyve/envs/testenv/venv/bin/python -m pytest -q
 ```
 
+**CI also runs Windows, and a macOS run cannot see it.** `test.yml` runs the suite on a Windows runner, where `str(Path(...))` yields `docs\project-guide\go.md`. Every user-facing path must therefore go through `_display_path()` (`cli.py`) or be assembled as an f-string with a literal `/` — never interpolated as a bare `Path`. Story R.m shipped one warning that did, and only Windows CI caught it. When a message names a path, assert the forward-slash form, and use `PureWindowsPath` to reproduce the Windows rendering in a test that runs everywhere.
+
 A test needing pyve present (or absent) must **state it** — set `pyve_installed` in the config and pin `_probe_pyve_version` via the `_detect_pyve` / `_detect_no_pyve` helpers in `tests/test_render.py` — never borrow the answer from `init`'s live detection. Story R.j left four tests borrowing it and CI was red until **R.m.1** repaired them. The same run later caught **R.r** turning inspection into a subprocess that printed on every command, so this gate earns its keep beyond pyve detection.
 
 ### Commit workflow

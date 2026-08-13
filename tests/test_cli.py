@@ -6272,3 +6272,65 @@ def test_the_status_footer_renders_from_either_stored_form(runner, tmp_path, mon
 
 
 # --- End Story R.n ------------------------------------------------------------
+
+
+# --- Story R.u: user-facing paths render with forward slashes ----------------
+#
+# Windows CI caught `init`'s detection-miss warning printing
+# `docs\project-guide\go.md` while every other project-guide message prints
+# `docs/project-guide/go.md`. The warning interpolated a `Path`; the rest of
+# the CLI assembles display paths as f-strings with a literal `/`. These tests
+# run everywhere, so the convention no longer depends on a Windows runner to
+# be enforced.
+
+
+@pytest.mark.parametrize(
+    ("supplied", "expected"),
+    [
+        (Path("docs") / "project-guide" / "go.md", "docs/project-guide/go.md"),
+        ("docs/specs/stories.md", "docs/specs/stories.md"),
+        (Path("go.md"), "go.md"),
+    ],
+    ids=["path-object", "already-posix-string", "bare-name"],
+)
+def test_display_path_always_uses_forward_slashes(supplied, expected):
+    """The helper is the convention, stated once instead of per call site."""
+    from project_guide.cli import _display_path
+
+    assert _display_path(supplied) == expected
+
+
+def test_display_path_normalizes_a_windows_separated_path():
+    """The case that broke CI, made reproducible off Windows.
+
+    `PureWindowsPath` renders backslashes on every platform, so this fails
+    against a `str()`-based implementation on macOS and Linux too — the bug no
+    longer needs a Windows runner to be caught.
+    """
+    from pathlib import PureWindowsPath
+
+    from project_guide.cli import _display_path
+
+    windows_style = PureWindowsPath("docs/project-guide/go.md")
+    assert str(windows_style) == "docs\\project-guide\\go.md"  # fixture sanity
+    assert _display_path(windows_style) == "docs/project-guide/go.md"
+
+
+def test_init_messages_never_print_a_backslash_separated_path(runner, tmp_path, monkeypatch, prompt_tty):
+    """Both of `init`'s stderr notices name the same file the same way.
+
+    On Windows these two lines disagreed with each other about `go.md` — one
+    OS-separated, one not — for the same file from the same command.
+    """
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        monkeypatch.delenv("PYVE_VERSION", raising=False)
+        _install_probe(monkeypatch, None)
+
+        result = runner.invoke(main, ["init"])
+
+        assert result.exit_code == 0, result.output
+        assert result.stderr.count("docs/project-guide/go.md") == 2
+        assert "docs\\project-guide" not in result.stderr
+
+
+# --- End Story R.u ------------------------------------------------------------
