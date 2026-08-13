@@ -1157,13 +1157,28 @@ def test_go_md_auto_renders_pyve_essentials_when_pyve_installed(tmp_path):
     assert "pyve test" in content
 
 
-def test_go_md_omits_pyve_essentials_when_pyve_not_installed(tmp_path):
+def _detect_no_pyve(monkeypatch):
+    """Pin detection to "pyve not found" for the duration of a test.
+
+    Story R.l made an explicit `mode` switch a *refresh* site, so a test that
+    expresses "pyve is absent" by hand-editing the config must also keep the
+    probe from disagreeing — on a developer machine that has pyve, the refresh
+    correctly sets the flag back to true. Pinning the probe also removes the
+    machine-dependence these tests carried quietly before.
+    """
+    import project_guide.cli as cli_module
+
+    monkeypatch.setattr(cli_module, "_probe_pyve_version", lambda: None)
+
+
+def test_go_md_omits_pyve_essentials_when_pyve_not_installed(tmp_path, monkeypatch):
     """When pyve is not installed, rendered go.md has no Pyve Essentials section."""
     import yaml
     from click.testing import CliRunner  # noqa: I001
 
     from project_guide.cli import main
 
+    _detect_no_pyve(monkeypatch)
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=tmp_path):
         result = runner.invoke(main, ['init'])
@@ -2300,13 +2315,14 @@ def test_header_common_pyve_branch_when_pyve_detected():
     assert 'After installing project-guide (`pip install project-guide`)' not in content
 
 
-def test_header_common_pip_branch_when_pyve_absent():
+def test_header_common_pip_branch_when_pyve_absent(monkeypatch):
     """With pyve absent, go.md's onboarding line keeps the pip-install wording."""
     import yaml
     from click.testing import CliRunner  # noqa: I001
 
     from project_guide.cli import main
 
+    _detect_no_pyve(monkeypatch)
     runner = CliRunner()
     with runner.isolated_filesystem():
         runner.invoke(main, ['init'])
@@ -2420,12 +2436,19 @@ def test_mode_renders_pyve_guidance_from_the_flag_without_a_version(tmp_path):
         assert "### Pyve Essentials" in _go_md()
 
 
-def test_mode_omits_pyve_guidance_when_the_flag_is_off_despite_a_version(tmp_path):
-    """The opt-out direction: a hand-edited `false` wins over a recorded version."""
+def test_mode_omits_pyve_guidance_when_the_flag_is_off_despite_a_version(tmp_path, monkeypatch):
+    """The opt-out direction: a hand-edited `false` wins over a recorded version.
+
+    Scoped by Story R.l: it wins over a *recorded* version, which is a stale
+    observation. It does not win over a *successful live detection* — that
+    refresh sets the flag back on, by design (sticky-true), which is why the
+    probe is pinned here.
+    """
     from click.testing import CliRunner
 
     from project_guide.cli import main
 
+    _detect_no_pyve(monkeypatch)
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=tmp_path):
         assert runner.invoke(main, ['init']).exit_code == 0

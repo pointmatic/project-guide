@@ -193,6 +193,37 @@ def _resolve_pyve_version(cli_value: str | None) -> str | None:
     return _probe_pyve_version()
 
 
+def _refresh_pyve_detection(config: Config, config_path: Path) -> bool:
+    """Re-probe pyve and fold a *successful* result in. Returns whether it changed.
+
+    `pyve_version` is a cache, so this treats it as one: a detection miss at
+    ``init`` stops being permanent and becomes merely transient, repaired the
+    next time the developer runs one of the two sanctioned refresh sites.
+
+    **Where this may be called from (Story R.l).** ``update`` and an explicit
+    ``mode <name>`` switch — both developer-initiated, both already doing a
+    render and a config write. **Never ``_apply_heal``**, which the pre-invoke
+    auto-hook runs ahead of every command including ``--help`` and
+    ``--version``; a probe there is a subprocess before literally every
+    invocation, which is the Story Q.t (v2.15.1) hang class. This also keeps
+    the refresh inside the escape clause invariant (b) wrote for itself: *if a
+    refresh is ever needed, do it explicitly (e.g., on `update`), not
+    implicitly on every command.*
+
+    A failed probe is **silent** and changes nothing — absence is the steady
+    state for a project that does not use pyve, and warning about it on every
+    invocation would turn a real signal into startup noise. The loud warning
+    belongs to ``init`` (Story R.m), which fires once per project.
+
+    Sticky-true is enforced upstream by ``Config.record_pyve_detection``; the
+    write is skipped entirely when nothing changed.
+    """
+    if not config.record_pyve_detection(_probe_pyve_version()):
+        return False
+    config.save(str(config_path))
+    return True
+
+
 @main.command()
 @click.option('--target-dir', default='docs/project-guide', help='Target directory for the guide')
 @click.option('--force', is_flag=True, help='Overwrite existing files')
@@ -762,6 +793,14 @@ def set_mode(mode_name: str | None, verbose: bool, no_input: bool):
             click.echo(f"  {m.name:25} {m.info}")
         sys.exit(1)
 
+    # Refresh the pyve cache before rendering (Story R.l). An explicit mode
+    # switch is one of the two sanctioned refresh sites, and doing it *here* —
+    # after the listing path has already returned, and before the render — is
+    # what lets a project whose `init` missed pyve get the guidance back simply
+    # by switching modes. The bare `project-guide mode` listing never reaches
+    # this line, so it never probes.
+    _refresh_pyve_detection(config, config_path)
+
     # Render go.md to target_dir
     target_dir = Path(config.target_dir)
     output_path = target_dir / "go.md"
@@ -1137,6 +1176,13 @@ def update(files: tuple, dry_run: bool, force: bool, no_input: bool, quiet: bool
         click.secho(f"Error: {e}", fg='red', err=True)
         sys.exit(3)  # Configuration error exit code
 
+    # Refresh the pyve cache (Story R.l) — the other sanctioned refresh site.
+    # Skipped under --dry-run, which promises to change nothing and would
+    # otherwise pay for a subprocess to compute a value it must throw away.
+    pyve_detection_changed = False
+    if not dry_run:
+        pyve_detection_changed = _refresh_pyve_detection(config, config_path)
+
     # Convert files tuple to list or None
     files_list = list(files) if files else None
 
@@ -1199,10 +1245,16 @@ def update(files: tuple, dry_run: bool, force: bool, no_input: bool, quiet: bool
     # Re-render go.md if any templates were updated OR if go.md is missing.
     # go.md is rendered output, not a tracked file, so deleting it must still
     # cause update to restore it even when no templates changed this run.
+    #
+    # A changed pyve detection (Story R.l) joins that condition, because the
+    # repair case has neither trigger: a project whose `init` missed pyve is
+    # otherwise perfectly in sync, so without this the flag would flip to true
+    # in the config while `go.md` kept the guidance stripped — a fix visible
+    # only in YAML.
     target_dir_path = Path(config.target_dir)
     output_path = target_dir_path / "go.md"
     template_files = [f for f in all_updated if f.startswith("templates/")]
-    if not dry_run and (template_files or not output_path.exists()):
+    if not dry_run and (template_files or not output_path.exists() or pyve_detection_changed):
         metadata_path = target_dir_path / config.metadata_file
         try:
             metadata = load_metadata(metadata_path)

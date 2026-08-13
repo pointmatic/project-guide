@@ -303,16 +303,28 @@ pyve invokes `project-guide init` and knows its own version with certainty. Acce
 
 No version bump — Subphase R-2 ships bundled as `v2.20.0` at R.o, which owns the CHANGELOG entry.
 
-### Story R.l: Re-detect on `update` and explicit `mode <name>` [Planned]
+### Story R.l: Re-detect on `update` and explicit `mode <name>` [Done]
 
 `pyve_version` is a cache, so treat it as one. This converts a permanent failure into a transient one.
 
-- [ ] Refresh detection during `update` and during an explicit `mode <name>` switch; write the refreshed value back to `.project-guide.yml`
-- [ ] **Do not** refresh in `_apply_heal` — it runs in the pre-invoke auto-hook on every command, including `--help` and `--version`
-- [ ] Add a regression test asserting the auto-hook path performs **no** pyve subprocess. This is the Q.t (v2.15.1) hang class and the guard must be explicit, not incidental
-- [ ] Inherit the Q.t probe discipline: bounded `timeout`, every exception class caught, failure degrades to "leave the cached value alone"
-- [ ] A failed refresh is silent (absence is the steady state for non-pyve projects) and leaves `pyve_installed` untouched per sticky-true
-- [ ] Tests: pyve appears after a bad init and the section returns on next `update`; same via `mode`; hook performs no probe; probe timeout does not fail the command
+- [x] Refresh detection during `update` and during an explicit `mode <name>` switch; write the refreshed value back to `.project-guide.yml` — one helper, `_refresh_pyve_detection(config, config_path) -> bool` (`cli.py:196`), through which both sites flow; it delegates sticky-true to R.j's `record_pyve_detection` and skips the write when nothing changed
+- [x] **Do not** refresh in `_apply_heal` — it runs in the pre-invoke auto-hook on every command, including `--help` and `--version`
+- [x] Add a regression test asserting the auto-hook path performs **no** pyve subprocess. This is the Q.t (v2.15.1) hang class and the guard must be explicit, not incidental — guarded at **both** layers: the helper, and `subprocess.run` itself, so a future re-implementation that shells out directly fails too
+- [x] Inherit the Q.t probe discipline: bounded `timeout`, every exception class caught, failure degrades to "leave the cached value alone" — inherited unchanged from R.k's `_probe_pyve_version`, and now pinned by tests that drive the *real* probe rather than a stub
+- [x] A failed refresh is silent (absence is the steady state for non-pyve projects) and leaves `pyve_installed` untouched per sticky-true
+- [x] Tests: pyve appears after a bad init and the section returns on next `update`; same via `mode`; hook performs no probe; probe timeout does not fail the command — 17 new tests (838 passed total); lint clean; mypy clean
+
+**The config-only fix that would have shipped.** `update` re-renders `go.md` only when a template drifted or the file is missing, and the repair case has **neither** trigger — a project whose `init` missed pyve is otherwise perfectly in sync. Refreshing the config alone would have flipped `pyve_installed` to `true` in YAML while the file on disk kept the guidance stripped, so the detection result now joins that condition (`cli.py:1257`). A dedicated test asserts `"Already current"` and the restored section in the same run, so the two cannot drift apart again.
+
+**Refresh placement in `mode` is what excludes the listing.** The probe sits after the mode is validated and before the render (`cli.py:802`), which the bare `project-guide mode` listing never reaches — it returns earlier. So "explicit switch refreshes, listing does not" falls out of control flow rather than needing a flag to test for, and an interactively-selected mode gets the refresh for free, correctly: it is the same explicit switch.
+
+**`--dry-run` skips the refresh entirely.** It promises to change nothing, and a config write is a something — so it would otherwise pay for a subprocess to compute a value it must throw away.
+
+**A hand-edited `pyve_installed: false` no longer survives while pyve is installed.** R.j described turning the flag off as "an explicit user action — hand-editing `.project-guide.yml`", and that edit stood only because nothing re-detected. It cannot be preserved now: at refresh time a hand-written `false` is byte-identical to the `false` a missed probe wrote at `init`, and repairing the latter is the point of this story. Sticky-true therefore means *detection wins upward*, leaving no durable opt-out on a pyve-having machine — the deliberate direction of the asymmetry (irrelevant guidance is noise; missing guidance is a removed guardrail), with a real `auto|always|never` setting named out of scope in the subphase plan. The consequence is now asserted by a test rather than left to be discovered, and **three pre-existing tests that encoded the old contract were updated** — `test_go_md_omits_pyve_essentials_when_pyve_not_installed`, `test_header_common_pip_branch_when_pyve_absent`, and R.j's `test_mode_omits_pyve_guidance_when_the_flag_is_off_despite_a_version` all expressed "pyve absent" by hand-editing the flag and then invoking `mode`, which now correctly re-detects. They pin the probe to "not found", which also retires the quiet machine-dependence R.j flagged in them.
+
+**Verified end-to-end against a real project, including the guard.** `init` run under `env -i PATH=/usr/bin:/bin` produces the genuine broken state (`pyve_installed: false`, 160-line `go.md`, no guidance). With pyve back on `PATH`: `update` restores it to 240 lines with `Already current` for every template — proving the re-render came from the detection change alone — and **zero** `.bak` files; `mode code_test_first` does the same via the other site. The no-probe guard was *observed*, not inferred: a fake `pyve` shim on `PATH` that logs every invocation records **0** calls across drift-triggered `--version` and `--help` runs (the auto-hook healed a template and re-rendered without probing), **0** for the bare `mode` listing, and exactly **1** (`--version`) for the explicit switch. Removing pyve from `PATH` again leaves both fields intact and prints nothing.
+
+No version bump — Subphase R-2 ships bundled as `v2.20.0` at R.o, which owns the CHANGELOG entry.
 
 ### Story R.m: Warn loudly on a detection miss at `init` [Planned]
 

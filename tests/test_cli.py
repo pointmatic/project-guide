@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
@@ -5014,3 +5015,317 @@ def test_pyve_version_flag_is_init_only(runner, tmp_path, command):
 
 
 # --- End Story R.k ------------------------------------------------------------
+
+
+# --- Story R.l: re-detect on `update` and explicit `mode <name>` --------------
+#
+# `pyve_version` is a cache, so treat it as one. Refreshing it at two explicit,
+# developer-initiated sites converts a permanent detection failure into a
+# transient one — while the pre-invoke auto-hook stays subprocess-free, because
+# a probe there is the Q.t (v2.15.1) hang class.
+
+
+class _Probe:
+    """A scriptable stand-in for the pyve probe that records its call count."""
+
+    def __init__(self, *results):
+        self._results = list(results)
+        self.calls = 0
+
+    def __call__(self):
+        self.calls += 1
+        return self._results[min(self.calls - 1, len(self._results) - 1)]
+
+
+def _install_probe(monkeypatch, *results):
+    import project_guide.cli as cli_module
+
+    probe = _Probe(*results)
+    monkeypatch.setattr(cli_module, "_probe_pyve_version", probe)
+    return probe
+
+
+def _go_md() -> str:
+    return Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+
+def _init_with_a_detection_miss(runner, monkeypatch):
+    """The broken state this story repairs: pyve present, but init never saw it."""
+    monkeypatch.delenv("PYVE_VERSION", raising=False)
+    probe = _install_probe(monkeypatch, None)
+    assert runner.invoke(main, ["init"]).exit_code == 0
+    assert _config_data()["pyve_installed"] is False
+    assert "### Pyve Essentials" not in _go_md()
+    return probe
+
+
+def test_update_refreshes_detection_and_restores_the_guidance(runner, tmp_path, monkeypatch):
+    """The headline repair: pyve turns up later, and `update` puts the ~80 lines back."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_with_a_detection_miss(runner, monkeypatch)
+        _install_probe(monkeypatch, "3.2.2")
+
+        result = runner.invoke(main, ["update"])
+
+        assert result.exit_code == 0, result.output
+        data = _config_data()
+        assert data["pyve_installed"] is True
+        assert data["pyve_version"] == "3.2.2"
+        assert "### Pyve Essentials" in _go_md()
+
+
+def test_mode_switch_refreshes_detection_and_restores_the_guidance(runner, tmp_path, monkeypatch):
+    """Same repair via the other sanctioned site — an explicit `mode <name>`."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_with_a_detection_miss(runner, monkeypatch)
+        _install_probe(monkeypatch, "3.2.2")
+
+        result = runner.invoke(main, ["mode", "code_direct"])
+
+        assert result.exit_code == 0, result.output
+        data = _config_data()
+        assert data["pyve_installed"] is True
+        assert data["pyve_version"] == "3.2.2"
+        assert "### Pyve Essentials" in _go_md()
+
+
+def test_update_re_renders_even_when_no_template_drifted(runner, tmp_path, monkeypatch):
+    """The refresh has to *reach* `go.md`.
+
+    `update` re-renders only when a template changed or `go.md` is missing.
+    A freshly-initialised project satisfies neither, so without the detection
+    result joining that condition the config would flip to `true` while the
+    file on disk kept the guidance stripped — a fix visible only in YAML.
+    """
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_with_a_detection_miss(runner, monkeypatch)
+        _install_probe(monkeypatch, "3.2.2")
+
+        result = runner.invoke(main, ["update"])
+
+        assert result.exit_code == 0, result.output
+        assert "Already current" in result.output  # nothing drifted...
+        assert "### Pyve Essentials" in _go_md()  # ...and the section came back
+
+
+def test_the_auto_hook_performs_no_pyve_subprocess(runner, tmp_path, monkeypatch, hook_enabled):
+    """The Q.t guard, stated explicitly rather than left incidental.
+
+    `_apply_heal` runs from the pre-invoke hook ahead of *every* command,
+    `--help` and `--version` included. A pyve subprocess there is a probe
+    before literally every invocation — the exact shape of the v2.15.1 hang.
+    Both layers are guarded: the helper, and a re-implementation that reached
+    for `subprocess.run` directly.
+    """
+    import subprocess as subprocess_module
+
+    import project_guide.cli as cli_module
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_with_a_detection_miss(runner, monkeypatch)
+
+        def _boom():
+            raise AssertionError("the auto-hook probed for pyve")
+
+        real_run = subprocess_module.run
+
+        def _guarded_run(argv, *args, **kwargs):
+            if list(argv)[:2] == ["pyve", "--version"]:
+                raise AssertionError("the auto-hook shelled out to `pyve --version`")
+            return real_run(argv, *args, **kwargs)
+
+        monkeypatch.setattr(cli_module, "_probe_pyve_version", _boom)
+        monkeypatch.setattr(cli_module.subprocess, "run", _guarded_run)
+
+        Path("docs/project-guide/templates/modes/debug-mode.md").unlink()  # force a heal
+
+        result = runner.invoke(main, ["--version"], input="y\n")
+
+        assert result.exit_code == 0, result.output
+
+
+def test_the_bare_mode_listing_performs_no_probe(runner, tmp_path, monkeypatch):
+    """Only an explicit switch refreshes. Listing the modes renders nothing."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_with_a_detection_miss(runner, monkeypatch)
+        probe = _install_probe(monkeypatch, "3.2.2")
+
+        assert runner.invoke(main, ["mode", "--no-input"]).exit_code == 0
+
+        assert probe.calls == 0
+
+
+def test_a_dry_run_update_neither_probes_nor_writes(runner, tmp_path, monkeypatch):
+    """`--dry-run` promises to change nothing, and the config is a something."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_with_a_detection_miss(runner, monkeypatch)
+        probe = _install_probe(monkeypatch, "3.2.2")
+
+        assert runner.invoke(main, ["update", "--dry-run"]).exit_code == 0
+
+        assert probe.calls == 0
+        assert _config_data()["pyve_installed"] is False
+
+
+@pytest.mark.parametrize("command", [["update"], ["mode", "code_direct"]])
+def test_a_failed_refresh_leaves_the_cached_value_alone(runner, tmp_path, monkeypatch, command):
+    """Sticky-true: a miss is never evidence of absence, only of a failed look."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        monkeypatch.delenv("PYVE_VERSION", raising=False)
+        _install_probe(monkeypatch, "3.2.2")
+        assert runner.invoke(main, ["init"]).exit_code == 0
+
+        _install_probe(monkeypatch, None)
+        result = runner.invoke(main, command)
+
+        assert result.exit_code == 0, result.output
+        data = _config_data()
+        assert data["pyve_installed"] is True
+        assert data["pyve_version"] == "3.2.2"
+        assert "### Pyve Essentials" in _go_md()
+
+
+@pytest.mark.parametrize("command", [["update"], ["mode", "code_direct"]])
+def test_a_failed_refresh_is_silent(runner, tmp_path, monkeypatch, command):
+    """Absence is the steady state for non-pyve projects; warning about it is noise.
+
+    The loud warning belongs to `init` (Story R.m) — a once-per-project event.
+    """
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_with_a_detection_miss(runner, monkeypatch)
+        _install_probe(monkeypatch, None)
+
+        result = runner.invoke(main, command)
+
+        assert result.exit_code == 0, result.output
+        # Not a bare "pyve" search: `update` legitimately lists the
+        # `pyve-essentials.md` artifact among the files it checked.
+        assert "⚠" not in result.output
+        assert "Warning" not in result.output
+        assert "not found" not in result.output.lower()
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        subprocess.TimeoutExpired(cmd=["pyve", "--version"], timeout=5),
+        FileNotFoundError("pyve"),
+        OSError("exec format error"),
+    ],
+    ids=["timeout", "not-found", "oserror"],
+)
+def test_a_broken_probe_does_not_fail_the_command(runner, tmp_path, monkeypatch, failure):
+    """Q.t probe discipline, exercised through the real `_probe_pyve_version`.
+
+    Bounded by a `timeout` and total across every exception class the call can
+    raise: a refresh is an opportunistic improvement to a cached value, never a
+    reason for the command it precedes to fail.
+    """
+    import project_guide.cli as cli_module
+
+    real_probe = cli_module._probe_pyve_version
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_with_a_detection_miss(runner, monkeypatch)
+
+        def _raise(*args, **kwargs):
+            raise failure
+
+        # The real probe, so the exception travels its actual `except` clause.
+        monkeypatch.setattr(cli_module, "_probe_pyve_version", real_probe)
+        monkeypatch.setattr(cli_module.subprocess, "run", _raise)
+
+        result = runner.invoke(main, ["update"])
+
+        assert result.exit_code == 0, result.output
+        assert _config_data()["pyve_installed"] is False
+
+
+def test_the_probe_is_bounded_by_a_timeout(runner, tmp_path, monkeypatch):
+    """The bound itself, asserted rather than assumed — an unbounded probe hangs."""
+    import project_guide.cli as cli_module
+
+    seen = {}
+    real_probe = cli_module._probe_pyve_version
+
+    def _capture(argv, *args, **kwargs):
+        seen.update(kwargs)
+        raise FileNotFoundError("pyve")
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_with_a_detection_miss(runner, monkeypatch)
+        # Put the real probe back — the point here is the subprocess call it makes.
+        monkeypatch.setattr(cli_module, "_probe_pyve_version", real_probe)
+        monkeypatch.setattr(cli_module.subprocess, "run", _capture)
+
+        assert runner.invoke(main, ["update"]).exit_code == 0
+
+    assert seen.get("timeout") is not None
+
+
+def test_a_successful_refresh_overrides_a_hand_edited_false(runner, tmp_path, monkeypatch):
+    """The consequence of making detection reachable, pinned rather than discovered.
+
+    Story R.j called turning the flag off "an explicit user action — hand-editing
+    `.project-guide.yml`", and while nothing re-detected, that edit stood. Once
+    `update` / `mode` refresh, a live detection sets it back on: at refresh time
+    a hand-written `false` is byte-identical to the `false` a missed probe wrote
+    at `init`, and repairing the latter is the whole point of this story.
+
+    That leaves no durable opt-out while pyve is genuinely installed — the
+    deliberate direction of the asymmetry, since irrelevant guidance is noise
+    and missing guidance is a removed guardrail. A real `auto|always|never`
+    opt-out is named out of scope in the subphase plan.
+    """
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        monkeypatch.delenv("PYVE_VERSION", raising=False)
+        _install_probe(monkeypatch, "3.2.2")
+        assert runner.invoke(main, ["init"]).exit_code == 0
+
+        import yaml
+
+        data = _config_data()
+        data["pyve_installed"] = False
+        Path(".project-guide.yml").write_text(yaml.dump(data))
+
+        assert runner.invoke(main, ["update"]).exit_code == 0
+
+        assert _config_data()["pyve_installed"] is True
+
+
+def test_an_unchanged_refresh_does_not_rewrite_the_config(runner, tmp_path, monkeypatch):
+    """Detecting what is already recorded is not a change; skip the write."""
+    import project_guide.cli as cli_module
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        monkeypatch.delenv("PYVE_VERSION", raising=False)
+        _install_probe(monkeypatch, "3.2.2")
+        assert runner.invoke(main, ["init"]).exit_code == 0
+
+        config = Config.load(".project-guide.yml")
+        saves = []
+        monkeypatch.setattr(
+            Config, "save", lambda self, path=".project-guide.yml": saves.append(path)
+        )
+
+        cli_module._refresh_pyve_detection(config, Path(".project-guide.yml"))
+
+    assert saves == []
+
+
+def test_a_changed_refresh_persists_the_new_value(runner, tmp_path, monkeypatch):
+    """The other half: a genuinely new observation is written back."""
+    import project_guide.cli as cli_module
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        _init_with_a_detection_miss(runner, monkeypatch)
+        _install_probe(monkeypatch, "3.2.2")
+
+        config = Config.load(".project-guide.yml")
+        changed = cli_module._refresh_pyve_detection(config, Path(".project-guide.yml"))
+
+        assert changed is True
+        assert _config_data()["pyve_version"] == "3.2.2"
+
+
+# --- End Story R.l ------------------------------------------------------------
