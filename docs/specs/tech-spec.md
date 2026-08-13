@@ -424,6 +424,27 @@ fi
 
 **Inspection** (`inspect_shell` → `ShellStatus`) reports `absent` / `installed` / `stale` / `partial` / `damaged`. Staleness uses `os.access(bin, os.X_OK)` — the *same* predicate the installed script bakes in, so `status` and the shell cannot disagree. For zsh the autoload directory is read out of the installed `fpath` line rather than assumed, since the shell obeys the rc file. `_warn_if_completion_stale` consumes this from the pre-invoke hook and warns (never repairs) on stale and partial.
 
+### Host-supplied facts (the `--bin` / `--pyve-version` / `--project-name` pattern)
+
+Three flags across two subphases are the same idea, and reading them as one prevents each new instance from being re-litigated:
+
+> When a host tool knows a fact about the environment **with certainty** and project-guide can only *guess* at it, accept the fact as an input. project-guide keeps the decision; the host supplies the input.
+
+| Flag | Env var | The fact | What project-guide would otherwise do |
+|---|---|---|---|
+| `--bin` (R.c) | — | which binary the completion callback should invoke | resolve `argv[0]`, then guess via `PATH` |
+| `--pyve-version` (R.k) | `PYVE_VERSION` | which pyve is running project-guide | shell out to `pyve --version` |
+| `--project-name` (N.s) | `PROJECT_GUIDE_PROJECT_NAME` | what the project is called | read `pyproject.toml`, then fall back to the directory name |
+
+Shared properties, each of which is load-bearing rather than incidental:
+
+1. **Last-resort detection, evaluated lazily.** The chain is always *flag → env var → detection*, and the detection link is only reached when the earlier ones are empty. For `--pyve-version` this is the difference between one subprocess and none, which is why the resolution is hand-written rather than routed through `_resolve_setting` (whose `default` argument is evaluated eagerly).
+2. **Blank means "not supplied", not "the empty value".** A host interpolating an unset shell variable yields `""`; treating that as an answer would record a useless value *and* skip the detection that would have found the real one.
+3. **Supplied values are not validated.** These fields record an observation, not a constraint. Refusing a value the host asserts about *itself* would be project-guide second-guessing the only component that knows for certain — and the validation would inevitably lag the host's own format changes.
+4. **project-guide still owns the consequence.** `--bin` does not decide whether to post-process (absoluteness does); `--pyve-version` does not decide whether the guidance renders (`pyve_installed` does). The host supplies a fact, never a decision.
+
+**Where the pattern deliberately stops.** `--pyve-version` is `init`-only. Later changes are handled by re-detection at the `update` / `mode` refresh sites, not by asking the host to re-assert the fact on every invocation. And `--project-name` is *not* elevated to other commands: identity is a stable fact deliberately changed, environment is a fact that changes on its own, and symmetric flags would imply a symmetry that does not exist.
+
 ### External CLI Dependencies (Story P.k pattern)
 
 `git-push` is the first `project-guide` subcommand that **depends on an external CLI being on PATH** (gitbetter's `git-push` binary); `git-commit` (Story R.a) is the second — same gitbetter toolchain, same shape, sharing `_run_gitbetter_wrapper` with only the binary name differing. Future workflow-integration commands (potential `git-tag`, `git-rebase`, etc.) should follow the same pattern:

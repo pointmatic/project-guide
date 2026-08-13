@@ -4836,3 +4836,181 @@ def test_dedup_preserves_steady_state_silence(runner, tmp_path, prompt_tty, monk
 
 
 # --- End Story R.h.1 ----------------------------------------------------------
+
+
+# --- Story R.k: host-supplied pyve version ------------------------------------
+#
+# pyve invokes `project-guide init` and knows its own version with certainty.
+# Accepting it removes a guess — and a subprocess — from the one place the
+# answer is not in doubt. Same shape as `--bin` in Subphase R-1: project-guide
+# owns the rendering decision, the host tool supplies the fact it alone knows.
+
+
+def _config_data(path=".project-guide.yml"):
+    import yaml
+
+    return yaml.safe_load(Path(path).read_text())
+
+
+@pytest.fixture
+def no_probe(monkeypatch):
+    """Fail the test if the pyve probe runs.
+
+    Skipping the subprocess is the point of the flag, not a side benefit, so
+    it is asserted directly rather than inferred from the recorded version.
+    """
+    import project_guide.cli as cli_module
+
+    def _boom():
+        raise AssertionError("the pyve probe ran despite a host-supplied version")
+
+    monkeypatch.setattr(cli_module, "_probe_pyve_version", _boom)
+
+
+def test_pyve_version_flag_is_recorded_without_probing(runner, tmp_path, no_probe):
+    """The flag wins outright and sets the render gate on."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(main, ["init", "--pyve-version", "3.2.2"])
+
+        assert result.exit_code == 0, result.output
+        data = _config_data()
+
+    assert data["pyve_version"] == "3.2.2"
+    assert data["pyve_installed"] is True
+
+
+def test_pyve_version_env_var_is_recorded_without_probing(runner, tmp_path, monkeypatch, no_probe):
+    """The env-var equivalent, for hosts that would rather export than pass flags."""
+    monkeypatch.setenv("PYVE_VERSION", "3.3.0")
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        assert runner.invoke(main, ["init"]).exit_code == 0
+        data = _config_data()
+
+    assert data["pyve_version"] == "3.3.0"
+    assert data["pyve_installed"] is True
+
+
+def test_pyve_version_flag_beats_the_env_var(runner, tmp_path, monkeypatch, no_probe):
+    """Resolution order matches `--project-name`: CLI flag → env var → probe."""
+    monkeypatch.setenv("PYVE_VERSION", "from-env")
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        assert runner.invoke(main, ["init", "--pyve-version", "from-flag"]).exit_code == 0
+        data = _config_data()
+
+    assert data["pyve_version"] == "from-flag"
+
+
+def test_probe_runs_when_nothing_is_supplied(runner, tmp_path, monkeypatch):
+    """The last link in the chain is the behavior that existed before this story."""
+    import project_guide.cli as cli_module
+
+    monkeypatch.delenv("PYVE_VERSION", raising=False)
+    monkeypatch.setattr(cli_module, "_probe_pyve_version", lambda: "from-probe")
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        assert runner.invoke(main, ["init"]).exit_code == 0
+        data = _config_data()
+
+    assert data["pyve_version"] == "from-probe"
+    assert data["pyve_installed"] is True
+
+
+def test_a_failed_probe_still_records_a_miss(runner, tmp_path, monkeypatch):
+    """`init` remains the one site allowed to write `pyve_installed: false`."""
+    import project_guide.cli as cli_module
+
+    monkeypatch.delenv("PYVE_VERSION", raising=False)
+    monkeypatch.setattr(cli_module, "_probe_pyve_version", lambda: None)
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        assert runner.invoke(main, ["init"]).exit_code == 0
+        data = _config_data()
+
+    assert data["pyve_version"] is None
+    assert data["pyve_installed"] is False
+
+
+@pytest.mark.parametrize("supplied", ["", "   "])
+def test_a_blank_flag_falls_through_to_the_next_link(runner, tmp_path, monkeypatch, supplied):
+    """Blank is "not supplied", not "pyve version is the empty string".
+
+    A host tool interpolating an unset shell variable produces exactly this,
+    and treating it as an answer would record a useless version *and* skip the
+    probe that would have found the real one.
+    """
+    import project_guide.cli as cli_module
+
+    monkeypatch.delenv("PYVE_VERSION", raising=False)
+    monkeypatch.setattr(cli_module, "_probe_pyve_version", lambda: "from-probe")
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        assert runner.invoke(main, ["init", "--pyve-version", supplied]).exit_code == 0
+        data = _config_data()
+
+    assert data["pyve_version"] == "from-probe"
+
+
+def test_a_blank_env_var_falls_through_to_the_probe(runner, tmp_path, monkeypatch):
+    """Same reasoning for `PYVE_VERSION=` — an exported-but-empty variable."""
+    import project_guide.cli as cli_module
+
+    monkeypatch.setenv("PYVE_VERSION", "  ")
+    monkeypatch.setattr(cli_module, "_probe_pyve_version", lambda: "from-probe")
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        assert runner.invoke(main, ["init"]).exit_code == 0
+        data = _config_data()
+
+    assert data["pyve_version"] == "from-probe"
+
+
+def test_a_supplied_version_is_stripped(runner, tmp_path, no_probe):
+    """Surrounding whitespace is a transport artifact, not part of the value."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        assert runner.invoke(main, ["init", "--pyve-version", "  3.2.2\n"]).exit_code == 0
+        data = _config_data()
+
+    assert data["pyve_version"] == "3.2.2"
+
+
+def test_a_supplied_version_is_not_validated(runner, tmp_path, no_probe):
+    """The field records an observation; it does not constrain one.
+
+    `pyve_version` already tolerates both the bare `3.2.2` and the legacy
+    `pyve version 3.2.2` forms, and refusing a value the host asserts about
+    *itself* would be project-guide second-guessing the one component that
+    knows for certain.
+    """
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(main, ["init", "--pyve-version", "pyve version 3.2.2-rc1"])
+
+        assert result.exit_code == 0
+        assert _config_data()["pyve_version"] == "pyve version 3.2.2-rc1"
+
+
+def test_a_supplied_version_renders_the_pyve_guidance(runner, tmp_path, no_probe):
+    """The end the flag exists for: guidance in `go.md` without a probe."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        assert runner.invoke(main, ["init", "--pyve-version", "3.2.2"]).exit_code == 0
+        content = Path("docs/project-guide/go.md").read_text(encoding="utf-8")
+
+    assert "### Pyve Essentials" in content
+
+
+@pytest.mark.parametrize("command", ["update", "mode"])
+def test_pyve_version_flag_is_init_only(runner, tmp_path, command):
+    """Later changes are handled by re-detection (R.l), not by more flags.
+
+    A `--pyve-version` on `update` would invite a host tool to re-assert the
+    fact on every invocation, which is the coupling the refresh sites remove.
+    """
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        runner.invoke(main, ["init"])
+
+        result = runner.invoke(main, [command, "--pyve-version", "3.2.2"])
+
+    assert result.exit_code == 2
+    assert "no such option" in result.output.lower()
+
+
+# --- End Story R.k ------------------------------------------------------------

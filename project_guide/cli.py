@@ -148,6 +148,51 @@ def _copy_template_tree(
     return count
 
 
+def _probe_pyve_version() -> str | None:
+    """Ask the installed pyve for its version. ``None`` on any failure.
+
+    Bounded and total by design: a ``timeout`` plus every exception class the
+    call can raise, because a detection miss must degrade to "unknown" rather
+    than break the command it precedes.
+    """
+    try:
+        result = subprocess.run(
+            ['pyve', '--version'],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        return None
+    return result.stdout.strip() if result.returncode == 0 else None
+
+
+def _resolve_pyve_version(cli_value: str | None) -> str | None:
+    """Resolve pyve's version: CLI flag → ``PYVE_VERSION`` → probe (Story R.k).
+
+    The chain mirrors ``--project-name``'s, with one difference that matters:
+    the last link runs a **subprocess**, so it is evaluated lazily. A host tool
+    that supplies the value never pays for a probe — pyve invokes
+    ``project-guide init`` and knows its own version with certainty, so asking
+    ``PATH`` about it is a guess at a fact already in hand.
+
+    A blank value at either supplied level means *not supplied* and falls
+    through. A host interpolating an unset shell variable produces exactly
+    that, and treating it as an answer would record a useless version *and*
+    skip the probe that would have found the real one.
+
+    Supplied values are **not validated**. The field records an observation
+    rather than constraining one — it already tolerates both the bare
+    ``3.2.2`` and the legacy ``pyve version 3.2.2`` forms — and refusing a
+    value the host asserts about *itself* would be project-guide
+    second-guessing the one component that knows for certain.
+    """
+    for candidate in (cli_value, os.environ.get("PYVE_VERSION")):
+        if candidate and candidate.strip():
+            return candidate.strip()
+    return _probe_pyve_version()
+
+
 @main.command()
 @click.option('--target-dir', default='docs/project-guide', help='Target directory for the guide')
 @click.option('--force', is_flag=True, help='Overwrite existing files')
@@ -189,6 +234,16 @@ def _copy_template_tree(
         "pyproject.toml [project].name → current directory name."
     ),
 )
+@click.option(
+    '--pyve-version',
+    'pyve_version',
+    default=None,
+    help=(
+        "pyve's version, supplied by a host tool that already knows it. "
+        "Skips the `pyve --version` probe entirely and renders the Pyve "
+        "guidance. Resolution: CLI flag → PYVE_VERSION env var → PATH probe."
+    ),
+)
 def init(
     target_dir: str,
     force: bool,
@@ -196,6 +251,7 @@ def init(
     test_first: bool,
     quiet: bool,
     project_name: str | None,
+    pyve_version: str | None,
 ):
     """Initialize project-guide in a new project."""
     config_path = Path(".project-guide.yml")
@@ -268,19 +324,9 @@ def init(
     if not quiet:
         click.secho(f"✓ Created {target_dir}/", fg='green')
 
-    # Detect pyve (non-fatal; failure stores None)
-    detected_pyve_version: str | None = None
-    try:
-        pyve_result = subprocess.run(
-            ['pyve', '--version'],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        if pyve_result.returncode == 0:
-            detected_pyve_version = pyve_result.stdout.strip()
-    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
-        detected_pyve_version = None
+    # Resolve pyve's version: host-supplied value first, probe only as a last
+    # resort (Story R.k). Non-fatal throughout; an unresolved version stores None.
+    detected_pyve_version = _resolve_pyve_version(pyve_version)
 
     # `init` is the one site allowed to record a miss as False: there is no
     # prior observation to preserve, so this is the project's first answer

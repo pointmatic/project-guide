@@ -286,16 +286,22 @@ The core fix. Deriving `pyve_installed` from `config.pyve_version is not None` i
 
 No version bump — Subphase R-2 ships bundled as `v2.20.0` at R.o, which owns the CHANGELOG entry.
 
-### Story R.k: Host-supplied pyve version — `--pyve-version` / `PYVE_VERSION` [Planned]
+### Story R.k: Host-supplied pyve version — `--pyve-version` / `PYVE_VERSION` [Done]
 
 pyve invokes `project-guide init` and knows its own version with certainty. Accept it and skip the guess. Same shape as `--bin` in Subphase R-1: project-guide owns the rendering decision; the host tool supplies the fact it is uniquely positioned to know.
 
-- [ ] Add `--pyve-version` to `init`, plus the `PYVE_VERSION` env-var equivalent
-- [ ] Resolution chain mirrors `--project-name`: CLI flag → env var → `PATH` probe
-- [ ] A supplied value wins outright and sets `pyve_installed=true` without probing
-- [ ] `init` only — **not** elevated to `update` / `mode`; later changes are handled by re-detection (R.l), not by more flags
-- [ ] Document the shared "host-supplied fact" pattern (`--bin`, `--pyve-version`, `--project-name`) so the three read as one idea
-- [ ] Tests: flag wins over env, env wins over probe, supplied value skips the subprocess entirely, malformed value handling
+- [x] Add `--pyve-version` to `init`, plus the `PYVE_VERSION` env-var equivalent
+- [x] Resolution chain mirrors `--project-name`: CLI flag → env var → `PATH` probe — with one difference that had to be built rather than borrowed: the last link is a **subprocess**, so it is evaluated lazily. `_resolve_setting` takes its `default` eagerly, which would have probed on every `init` regardless of what the host supplied, so the chain is hand-written in `_resolve_pyve_version`
+- [x] A supplied value wins outright and sets `pyve_installed=true` without probing — the probe is extracted into `_probe_pyve_version`, and a test fixture (`no_probe`) makes calling it a hard failure, so "skips the subprocess" is asserted directly rather than inferred from the recorded version
+- [x] `init` only — **not** elevated to `update` / `mode`; later changes are handled by re-detection (R.l), not by more flags — pinned by a test asserting both commands still exit 2 on the flag
+- [x] Document the shared "host-supplied fact" pattern (`--bin`, `--pyve-version`, `--project-name`) so the three read as one idea — new `tech-spec.md` § with the rule, a comparison table, the four shared properties, and **where the pattern deliberately stops**
+- [x] Tests: flag wins over env, env wins over probe, supplied value skips the subprocess entirely, malformed value handling — 13 new tests (821 passed total)
+
+**"Malformed value handling" resolved as: do not validate.** The field records an observation, not a constraint — `pyve_version` already tolerates both the bare `3.2.2` and the legacy `pyve version 3.2.2` forms — and refusing a value the host asserts about *itself* would be project-guide second-guessing the one component that knows for certain, with validation that would inevitably lag pyve's own format changes. What *is* handled is the blank case: an empty or whitespace-only flag or env var means **not supplied** and falls through to the next link. A host interpolating an unset shell variable produces exactly that, and treating it as an answer would record a useless version *and* skip the probe that would have found the real one. Values are stripped, since surrounding whitespace is a transport artifact.
+
+**Verified where it actually matters — with pyve absent.** Run under `env -i PATH=/usr/bin:/bin` so `pyve` genuinely does not exist: `--pyve-version 3.2.2` records the version, sets `pyve_installed: true`, and renders the guidance into `go.md`; `PYVE_VERSION=3.3.0` does the same; supplying neither records `null` / `false`. That is not an incidental test environment — it is the pyve-hosting case, where project-guide runs from a toolchain venv whose child process need not have `pyve` on `PATH` at all. The flag works exactly where the probe cannot.
+
+No version bump — Subphase R-2 ships bundled as `v2.20.0` at R.o, which owns the CHANGELOG entry.
 
 ### Story R.l: Re-detect on `update` and explicit `mode <name>` [Planned]
 
