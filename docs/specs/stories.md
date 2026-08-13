@@ -152,14 +152,24 @@ Refactor pass tightened two output defects the first green revealed: the `stale`
 
 No version bump — Subphase R-1 ships bundled as `v2.19.0` at R.i, which owns the CHANGELOG entry.
 
-### Story R.g: Legacy pyve sentinel adoption [Planned]
+### Story R.g: Legacy pyve sentinel adoption [Done]
 
 Users already carry pyve's block. Without this, `install` produces a second block registering the same completion.
 
-- [ ] Detect pyve's exact legacy sentinel pair (`# >>> project-guide completion (added by pyve) >>>` … `# <<< project-guide completion <<<`)
-- [ ] Replace it with project-guide's own block and report the replacement in one line
-- [ ] Belt-and-braces with pyve's own upgrade-path cleanup — the two tools upgrade independently, so neither may assume the other ran
-- [ ] Tests: legacy block present alone, legacy + project-guide block both present, legacy block hand-modified
+- [x] Detect pyve's exact legacy sentinel pair (`# >>> project-guide completion (added by pyve) >>>` … `# <<< project-guide completion <<<`) — `_find_pyve_block_span`, keyed on the **header**: pyve's terminator is byte-identical to ours, so a search anchored on the closing sentinel could not tell the two blocks apart
+- [x] Replace it with project-guide's own block and report the replacement in one line — `RcResult.adopted_legacy` drives `Replaced pyve's completion block (it registered the same completion)`. Replacement happens **at pyve's position**, which is a correctness requirement rather than a nicety (see below)
+- [x] Belt-and-braces with pyve's own upgrade-path cleanup — the two tools upgrade independently, so neither may assume the other ran — adoption is unconditional on every `install`, so it fires whether or not pyve has cleaned up, and re-fires if pyve re-adds its block later. Recognition spans pyve *generations*: both the current `_pyve_pg_bin` form (bash and zsh variants) and the older `command -v project-guide && eval …` form
+- [x] Tests: legacy block present alone, legacy + project-guide block both present, legacy block hand-modified — 14 new tests (771 passed total)
+
+**Why replacement must happen in place.** pyve does not append its block — `add_project_guide_completion` calls `insert_text_before_sdkman_marker_or_append`, deliberately placing the block *above* SDKMan's "must be at the end of the file" marker. Removing pyve's block and appending ours at the tail would move project-guide's wiring past that marker. Verified against a realistic rc file carrying the real pyve block plus an SDKMan footer: the adopted block lands exactly where pyve's was, SDKMan stays last, and completion still returns 13 candidates in a real bash with the binary off `PATH`.
+
+**The adoption boundary, kept explicit.** R.d's rule was "only project-guide's own sentinel is touched." R.g is the single sanctioned exception, and it is bounded twice over: by pyve's exact header, *and* by `_is_pyve_generated`, which requires every body line to be plausibly pyve's output. A block someone has since edited is foreign again — left untouched with the usual warning, ours installed alongside. That boundary is stated in the code next to the token list so it does not erode later.
+
+**Two consequences worth noting.** (1) When both blocks are present, ours is refreshed in place and pyve's duplicate is deleted — and the result is never reported as `UNCHANGED`, because removing the duplicate is a write even when our own block is byte-identical. (2) Two R.d tests were retargeted: they asserted "a foreign block is left untouched" using pyve's genuine block, which is now correctly *adopted*. Their intent is intact, exercised against hand-rolled wiring that is nobody's generated output.
+
+Refactor pass extracted `_drop_separator_blank`, now shared by `remove_block` and the duplicate-deletion path rather than duplicated.
+
+No version bump — Subphase R-1 ships bundled as `v2.19.0` at R.i, which owns the CHANGELOG entry.
 
 ### Story R.h: `heal` stale-completion warning [Planned]
 

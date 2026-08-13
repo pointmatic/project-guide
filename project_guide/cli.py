@@ -2621,6 +2621,8 @@ def completion_install(
 
     verb = "Installed" if result.outcome is RcOutcome.CREATED else "Refreshed"
     click.secho(f"✓ {verb} {resolved_shell} completion in {result.path}", fg='green')
+    if result.adopted_legacy:
+        click.echo("  Replaced pyve's completion block (it registered the same completion)")
     if file_result is not None:
         click.echo(f"  Autoload file: {file_result.path}")
     click.echo(f"  Binary: {resolved_bin}")

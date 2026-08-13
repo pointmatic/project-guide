@@ -287,8 +287,31 @@ SENTINEL_END = "# <<< project-guide completion <<<"
 
 #: A comment that mentions project-guide completion but is not our own
 #: sentinel — pyve's legacy header, or a user's hand-rolled wiring. Detected so
-#: it can be *reported*, never edited. Adopting pyve's block is Story R.g.
+#: it can be *reported*, never edited.
 _FOREIGN_SENTINEL_RE = re.compile(r"^\s*#.*project-guide completion", re.IGNORECASE)
+
+#: pyve's own block header, written by ``add_project_guide_completion`` in
+#: pyve's ``lib/utils.sh``. Its *closing* line is byte-identical to
+#: :data:`SENTINEL_END`, so the two blocks are told apart by their headers
+#: alone — never by the terminator.
+PYVE_SENTINEL_START = "# >>> project-guide completion (added by pyve) >>>"
+
+#: Content pyve plausibly generated. Adoption (Story R.g) is the single
+#: sanctioned exception to "only project-guide's own sentinel is touched", and
+#: it stays bounded by this predicate: pyve's *generated* body may be replaced,
+#: but a block someone has since edited is foreign again and is left alone.
+#: Deliberately permissive across pyve generations — the older
+#: ``command -v project-guide && eval …`` form and the current
+#: ``_pyve_pg_bin`` form both qualify — and deliberately blind to anything
+#: else, so a user's own line inside the block blocks adoption.
+_PYVE_BODY_TOKENS = (
+    "_pyve_pg_bin",
+    "_PROJECT_GUIDE_COMPLETE",
+    "project-guide",
+    "compdef",
+    "compinit",
+)
+_PYVE_STRUCTURAL_LINES = frozenset({"fi", "else", "}", "{", "then"})
 
 
 class RcOutcome(Enum):
@@ -314,6 +337,10 @@ class RcResult:
     path: Path
     backup: Path | None = None
     warnings: tuple[str, ...] = ()
+    #: True when pyve's legacy block was replaced by ours (Story R.g). Worth
+    #: reporting on its own: the user did not ask for another tool's wiring to
+    #: be rewritten, so they are told that it was.
+    adopted_legacy: bool = False
 
 
 def default_rc_path(shell: str) -> Path:
@@ -458,6 +485,45 @@ def _find_block_span(lines: list[str]) -> tuple[int, int] | None:
         f"`{SENTINEL_END}`). Repair or delete it by hand; refusing to guess "
         "where the block ends."
     )
+
+
+def _find_pyve_block_span(lines: list[str]) -> tuple[int, int] | None:
+    """Locate pyve's legacy block as an inclusive ``(start, end)`` range.
+
+    Keyed on the *header*: pyve's terminator is the same string as ours, so a
+    search anchored on the closing sentinel could not tell the two apart.
+    """
+    try:
+        start = lines.index(PYVE_SENTINEL_START)
+    except ValueError:
+        return None
+    for index in range(start + 1, len(lines)):
+        if lines[index] == SENTINEL_END:
+            return start, index
+    return None  # unterminated: not recognizably pyve's, so not ours to touch
+
+
+def _is_pyve_generated(lines: list[str], span: tuple[int, int]) -> bool:
+    """Whether every body line in ``span`` is plausibly pyve's own output."""
+    for line in lines[span[0] + 1 : span[1]]:
+        stripped = line.strip()
+        if not stripped or stripped in _PYVE_STRUCTURAL_LINES:
+            continue
+        if not any(token in stripped for token in _PYVE_BODY_TOKENS):
+            return False
+    return True
+
+
+def _drop_separator_blank(lines: list[str], index: int) -> None:
+    """Reclaim the blank line that separated a removed block, in place.
+
+    Only when it is genuinely adjacent slack — the block ended the file, or a
+    second blank line follows — never a blank line structuring the user's own
+    content. ``index`` is where the removed block started.
+    """
+    if index > 0 and lines[index - 1] == "":
+        if index == len(lines) or lines[index] == "":
+            del lines[index - 1]
 
 
 def _foreign_block_headers(lines: list[str], span: tuple[int, int] | None) -> tuple[str, ...]:
@@ -713,20 +779,44 @@ def install_block(rc_path: Path, block: str) -> RcResult:
     Idempotent: an already-current block is a no-op with no write and no
     backup. An existing block is replaced *where it sits* rather than moved to
     the tail, so a user who repositioned it keeps their layout.
+
+    **Legacy adoption (Story R.g).** pyve wrote its own completion block before
+    project-guide owned this, and the two tools upgrade independently — so
+    neither may assume the other has cleaned up. When pyve's block is present
+    and still carries pyve's generated content, it is *replaced* rather than
+    left in place beside ours, which would leave two blocks registering the
+    same completion. The replacement happens at pyve's position: pyve inserts
+    above SDKMan's must-be-last marker, and appending at the tail instead would
+    move the wiring past it.
     """
     existed = rc_path.exists()
     content = rc_path.read_text() if existed else ""
     lines = content.splitlines()
     span = _find_block_span(lines)
-    warnings = _foreign_warnings(lines, span)
     block_lines = block.rstrip("\n").split("\n")
 
+    pyve_span = _find_pyve_block_span(lines)
+    adoptable = pyve_span is not None and _is_pyve_generated(lines, pyve_span)
+    # A block we are about to replace is not "left untouched", so it is
+    # reported as an adoption instead of warned about as foreign.
+    warnings = tuple(
+        warning
+        for warning in _foreign_warnings(lines, span)
+        if not (adoptable and PYVE_SENTINEL_START in warning)
+    )
+
+    new_lines = list(lines)
     if span is not None:
         start, end = span
-        if lines[start : end + 1] == block_lines:
+        unchanged = lines[start : end + 1] == block_lines
+        if unchanged and not adoptable:
             return RcResult(RcOutcome.UNCHANGED, rc_path, warnings=warnings)
-        new_lines = lines[:start] + block_lines + lines[end + 1 :]
+        new_lines[start : end + 1] = block_lines
         outcome = RcOutcome.UPDATED
+    elif adoptable and pyve_span is not None:
+        # Adopt in place: our block takes over pyve's exact position.
+        new_lines[pyve_span[0] : pyve_span[1] + 1] = block_lines
+        outcome = RcOutcome.CREATED
     else:
         # One blank line separates the block from whatever came before, and
         # `remove_block` consumes exactly that line again on the way out.
@@ -734,10 +824,24 @@ def install_block(rc_path: Path, block: str) -> RcResult:
         new_lines = lines + separator + block_lines
         outcome = RcOutcome.CREATED
 
+    if adoptable and pyve_span is not None and span is not None:
+        # Both blocks existed. Ours was refreshed above; pyve's duplicate goes.
+        # Recompute the span, since replacing ours may have shifted the file.
+        stale_span = _find_pyve_block_span(new_lines)
+        if stale_span is not None:
+            del new_lines[stale_span[0] : stale_span[1] + 1]
+            _drop_separator_blank(new_lines, stale_span[0])
+
     backup = _backup(rc_path) if existed else None
     rc_path.parent.mkdir(parents=True, exist_ok=True)
-    rc_path.write_text("\n".join(new_lines) + "\n")
-    return RcResult(outcome, rc_path, backup=backup, warnings=warnings)
+    rc_path.write_text("\n".join(new_lines) + "\n" if new_lines else "")
+    return RcResult(
+        outcome,
+        rc_path,
+        backup=backup,
+        warnings=warnings,
+        adopted_legacy=adoptable,
+    )
 
 
 def remove_block(rc_path: Path) -> RcResult:
@@ -759,13 +863,7 @@ def remove_block(rc_path: Path) -> RcResult:
 
     start, end = span
     new_lines = lines[:start] + lines[end + 1 :]
-
-    # Reclaim the blank separator `install_block` inserted — but only when it
-    # is genuinely adjacent slack (the block ended the file, or a second blank
-    # line follows), never a blank line structuring the user's own content.
-    if start > 0 and new_lines[start - 1] == "":
-        if start == len(new_lines) or new_lines[start] == "":
-            del new_lines[start - 1]
+    _drop_separator_blank(new_lines, start)
 
     backup = _backup(rc_path)
     rc_path.write_text("\n".join(new_lines) + "\n" if new_lines else "")

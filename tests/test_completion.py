@@ -756,29 +756,231 @@ PYVE_LEGACY_BLOCK = (
     "# <<< project-guide completion <<<\n"
 )
 
+# The current block pyve writes, copied from `add_project_guide_completion`
+# in pyve's `lib/utils.sh`. Both shell variants, because project-guide must
+# recognize whichever one the user happens to carry.
+PYVE_BLOCK_BASH = """\
+# >>> project-guide completion (added by pyve) >>>
+_pyve_pg_bin="$HOME/.local/bin/project-guide"
+[ -x "$_pyve_pg_bin" ] || _pyve_pg_bin="$(command -v project-guide 2>/dev/null || true)"
+if [ -n "$_pyve_pg_bin" ]; then
+  eval "$(_PROJECT_GUIDE_COMPLETE=bash_source "$_pyve_pg_bin" 2>/dev/null)"
+fi
+unset _pyve_pg_bin
+# <<< project-guide completion <<<
+"""
 
-def test_install_leaves_a_foreign_block_untouched(tmp_path):
-    """pyve's legacy block is not ours to rewrite — adoption lands in R.g."""
+# Hand-rolled wiring that is nobody's generated output — the case adoption
+# must never touch, and the one the foreign-block warning is really for.
+FOREIGN_BLOCK = """\
+# my own project-guide completion setup
+source ~/dotfiles/completions/project-guide.bash
+export PROJECT_GUIDE_HACK=1
+"""
+
+PYVE_BLOCK_ZSH = """\
+# >>> project-guide completion (added by pyve) >>>
+_pyve_pg_bin="$HOME/.local/bin/project-guide"
+[ -x "$_pyve_pg_bin" ] || _pyve_pg_bin="$(command -v project-guide 2>/dev/null || true)"
+if [ -n "$_pyve_pg_bin" ]; then
+  (( $+functions[compdef] )) || { autoload -Uz compinit && compinit -i; } 2>/dev/null
+  if (( $+functions[compdef] )); then
+    eval "$(_PROJECT_GUIDE_COMPLETE=zsh_source "$_pyve_pg_bin" 2>/dev/null)"
+  fi
+fi
+unset _pyve_pg_bin
+# <<< project-guide completion <<<
+"""
+
+
+def test_install_leaves_a_hand_modified_pyve_block_untouched(tmp_path):
+    """A pyve block someone edited is no longer pyve's — so it is not ours.
+
+    Adoption (R.g) is bounded to pyve's *generated* content. Once a user has
+    put their own lines inside it, silently discarding them would be exactly
+    the foreign-block edit the safety contract forbids.
+    """
     rc = tmp_path / ".bashrc"
-    rc.write_text(PYVE_LEGACY_BLOCK)
+    hand_modified = PYVE_BLOCK_BASH.replace(
+        "unset _pyve_pg_bin", "export MY_OWN_THING=1\nunset _pyve_pg_bin"
+    )
+    rc.write_text(hand_modified)
 
     result = completion.install_block(rc, completion.build_block("echo hi"))
 
     text = rc.read_text()
-    assert PYVE_LEGACY_BLOCK in text
+    assert hand_modified in text
     assert completion.SENTINEL_START in text
     assert any("added by pyve" in w for w in result.warnings)
 
 
-def test_uninstall_leaves_a_foreign_block_untouched(tmp_path):
-    """Symmetrically, uninstall removes only what project-guide itself wrote."""
+# ---------------------------------------------------------------------------
+# Legacy pyve sentinel adoption (Story R.g)
+#
+# The one sanctioned exception to "only project-guide's own sentinel is
+# touched": pyve's exact known pair, and only while its body is still pyve's.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "legacy", [PYVE_BLOCK_BASH, PYVE_BLOCK_ZSH, PYVE_LEGACY_BLOCK],
+    ids=["pyve-bash", "pyve-zsh", "pyve-older-generation"],
+)
+def test_install_adopts_a_pyve_block(tmp_path, legacy):
+    """Without this, `install` leaves two blocks registering the same completion."""
     rc = tmp_path / ".bashrc"
-    rc.write_text(PYVE_LEGACY_BLOCK)
+    rc.write_text(legacy)
+
+    result = completion.install_block(rc, completion.build_block("echo hi"))
+
+    text = rc.read_text()
+    assert result.adopted_legacy
+    assert completion.PYVE_SENTINEL_START not in text
+    assert text.count(completion.SENTINEL_START) == 1
+    assert result.warnings == ()  # replaced, not "left untouched"
+
+
+def test_adoption_replaces_the_legacy_block_in_place(tmp_path):
+    """Position is load-bearing: pyve inserts *above* the SDKMan marker.
+
+    SDKMan requires its own block to load last, so pyve deliberately places
+    the completion block before it. Removing pyve's block and appending ours
+    at the tail would put our wiring after SDKMan's must-be-last region.
+    """
+    rc = tmp_path / ".bashrc"
+    rc.write_text(
+        "export EDITOR=vim\n\n"
+        + PYVE_BLOCK_BASH
+        + "\n#THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!\n"
+        'source "$HOME/.sdkman/bin/sdkman-init.sh"\n'
+    )
+
+    completion.install_block(rc, completion.build_block("echo hi"))
+
+    lines = rc.read_text().splitlines()
+    assert lines.index(completion.SENTINEL_START) < lines.index(
+        "#THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!"
+    )
+    assert lines[0] == "export EDITOR=vim"
+
+
+def test_adoption_removes_the_legacy_block_when_ours_already_exists(tmp_path):
+    """Both blocks present is the duplicate-registration state R.g closes."""
+    rc = tmp_path / ".bashrc"
+    rc.write_text(PYVE_BLOCK_BASH)
+    completion.install_block(rc, completion.build_block("echo hi"))
+    # Simulate pyve re-adding its block after project-guide installed its own.
+    rc.write_text(PYVE_BLOCK_BASH + "\n" + rc.read_text())
+
+    result = completion.install_block(rc, completion.build_block("echo hi"))
+
+    text = rc.read_text()
+    assert result.adopted_legacy
+    assert completion.PYVE_SENTINEL_START not in text
+    assert text.count(completion.SENTINEL_START) == 1
+
+
+def test_adoption_of_a_duplicate_is_never_reported_as_unchanged(tmp_path):
+    """Our block may be byte-identical, but removing pyve's still wrote."""
+    rc = tmp_path / ".bashrc"
+    block = completion.build_block("echo hi")
+    completion.install_block(rc, block)
+    rc.write_text(PYVE_BLOCK_BASH + "\n" + rc.read_text())
+
+    result = completion.install_block(rc, block)
+
+    assert result.outcome is not completion.RcOutcome.UNCHANGED
+    assert result.adopted_legacy
+
+
+def test_adoption_backs_up_the_rc_file_first(tmp_path):
+    """Rewriting another tool's wiring is exactly when a backup earns its keep."""
+    rc = tmp_path / ".bashrc"
+    rc.write_text(PYVE_BLOCK_BASH)
+
+    result = completion.install_block(rc, completion.build_block("echo hi"))
+
+    assert result.backup is not None
+    assert completion.PYVE_SENTINEL_START in result.backup.read_text()
+
+
+def test_no_adoption_reported_when_there_was_no_legacy_block(tmp_path):
+    """The flag must not misfire on an ordinary install."""
+    rc = tmp_path / ".bashrc"
+    rc.write_text("export EDITOR=vim\n")
+
+    result = completion.install_block(rc, completion.build_block("echo hi"))
+
+    assert not result.adopted_legacy
+
+
+def test_adoption_preserves_surrounding_content_byte_for_byte(tmp_path):
+    """Only the legacy block's own lines are replaced."""
+    rc = tmp_path / ".bashrc"
+    rc.write_text("first\n\n" + PYVE_BLOCK_BASH + "\nlast\n")
+
+    completion.install_block(rc, completion.build_block("echo hi"))
+
+    text = rc.read_text()
+    assert text.startswith("first\n\n")
+    assert text.endswith("\nlast\n")
+
+
+def test_uninstall_after_adoption_leaves_no_completion_wiring(tmp_path):
+    """Adopt then uninstall should not resurrect pyve's block."""
+    rc = tmp_path / ".bashrc"
+    rc.write_text("export EDITOR=vim\n\n" + PYVE_BLOCK_BASH)
     completion.install_block(rc, completion.build_block("echo hi"))
 
     completion.remove_block(rc)
 
-    assert rc.read_text() == PYVE_LEGACY_BLOCK
+    text = rc.read_text()
+    assert completion.PYVE_SENTINEL_START not in text
+    assert completion.SENTINEL_START not in text
+
+
+def test_completion_install_reports_the_adoption_in_one_line(runner, tmp_path):
+    """The user must be told their pyve block was replaced, not silently lose it."""
+    rc = tmp_path / ".bashrc"
+    rc.write_text(PYVE_BLOCK_BASH)
+
+    result = runner.invoke(
+        main,
+        ["completion", "install", "--shell", "bash", "--rc", str(rc),
+         "--bin", "/opt/pg/project-guide"],
+    )
+
+    assert result.exit_code == 0
+    assert "pyve" in result.output
+    assert completion.PYVE_SENTINEL_START not in rc.read_text()
+
+
+def test_status_reports_nothing_foreign_after_adoption(runner, tmp_path):
+    """The duplicate-block note `status` used to print is gone once adopted."""
+    rc = tmp_path / ".bashrc"
+    rc.write_text(PYVE_BLOCK_BASH)
+    completion.install_block(rc, completion.build_block(
+        completion.build_script("bash", "/opt/pg/project-guide")
+    ))
+
+    status = completion.inspect_shell("bash", rc_path=rc)
+
+    assert not any("did not write" in detail for detail in status.details)
+
+
+def test_uninstall_leaves_a_foreign_block_untouched(tmp_path):
+    """Symmetrically, uninstall removes only what project-guide itself wrote.
+
+    Uses hand-rolled wiring rather than pyve's block, which `install` now
+    adopts (R.g) — adoption is bounded to pyve's exact generated content.
+    """
+    rc = tmp_path / ".bashrc"
+    rc.write_text(FOREIGN_BLOCK)
+    completion.install_block(rc, completion.build_block("echo hi"))
+
+    completion.remove_block(rc)
+
+    assert rc.read_text() == FOREIGN_BLOCK
 
 
 def test_no_foreign_warning_for_our_own_block(tmp_path):
@@ -891,7 +1093,7 @@ def test_completion_install_defaults_to_the_home_bashrc(runner, tmp_path, monkey
 def test_completion_install_warns_about_a_foreign_block_on_stderr(runner, tmp_path):
     """The warning is diagnostic, so it must not pollute stdout."""
     rc = tmp_path / ".bashrc"
-    rc.write_text(PYVE_LEGACY_BLOCK)
+    rc.write_text(FOREIGN_BLOCK)
 
     result = runner.invoke(
         main,
@@ -900,8 +1102,8 @@ def test_completion_install_warns_about_a_foreign_block_on_stderr(runner, tmp_pa
     )
 
     assert result.exit_code == 0
-    assert "added by pyve" in result.stderr
-    assert "added by pyve" not in result.stdout
+    assert "my own project-guide completion setup" in result.stderr
+    assert "my own project-guide completion setup" not in result.stdout
 
 
 def test_completion_install_bash_writes_no_autoload_file(runner, tmp_path):
