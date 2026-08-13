@@ -219,17 +219,39 @@ Verified in a real run, not just under the test runner: `project-guide heal` wit
 
 No version bump — Subphase R-1 ships bundled as `v2.19.0` at R.i, which owns the CHANGELOG entry.
 
-### Story R.i: `v2.19.0` Subphase R-1 bundled release [Planned]
+### Story R.i: `v2.19.0` Subphase R-1 bundled release [Done]
 
 Documentation and the single release tag for the subphase.
 
-- [ ] Rewrite `features.md` FR-7 — replace the hand-copied-snippet framing with the `completion` command group; remove the "Known limitations" block added in R.z's `features.md` pass, now that both defects are closed; **state the fish gap explicitly** so the docs stop over-promising
-- [ ] Document the implementation in `tech-spec.md` — the two route mechanisms, post-processing, sentinel machinery, and rc-file safety contract
-- [ ] Update `README.md` and `docs/site/user-guide/commands.md` with the new command group; revise the Shell Completion sections in `README.md` and `docs/site/user-guide/install-options.md`
-- [ ] Record the macOS system-bash 3.2 limitation accurately — **narrowed by R.d**: the registration half is *closed* (the emitted `complete -o nosort … 2>/dev/null || complete …` fallback registers on 3.2), so what remains is only `compopt` (bash ≥ 4.0) breaking **dir/file** completions there. Document the residual limitation, not the pre-spike "nothing works" wording and not R.b Amendment 4's "nothing registers at all," which R.d superseded
-- [ ] `CHANGELOG.md` entry for `v2.19.0`, dated
-- [ ] Bump `project_guide/version.py` and `pyproject.toml` to `2.19.0`
-- [ ] Verification per CI-gate parity: `pyve test`, `pyve env run ruff check project_guide/ tests/`, `pyve env run mypy project_guide/`
+- [x] Rewrite `features.md` FR-7 — replace the hand-copied-snippet framing with the `completion` command group; remove the "Known limitations" block added in R.z's `features.md` pass, now that both defects are closed; **state the fish gap explicitly** so the docs stop over-promising — rewritten around the four subcommands, the two routes, the rc-file safety contract, and `heal` integration. The old limitations block is replaced by a **Known gaps** block, since the two *original* defects are closed but four honest gaps remain (fish, bash 3.2 `compopt`, dead-path-only staleness, PowerShell)
+- [x] Document the implementation in `tech-spec.md` — the two route mechanisms, post-processing, sentinel machinery, and rc-file safety contract — new § "Shell Completion Installation (Subphase R-1)", plus `completion.py` and `test_completion.py` in the package-structure tree, `CompletionError` (and the previously-missing `ActionError`) in the exception hierarchy, the test count refreshed 629 → 790, and a CLI-design note on which completion subcommands take `--quiet` / `--no-input` and why
+- [x] Update `README.md` and `docs/site/user-guide/commands.md` with the new command group; revise the Shell Completion sections in `README.md` and `docs/site/user-guide/install-options.md` — plus a `completion` row in the commands overview table, a stale-completion bullet in `heal`'s **Warnings** list, and **one surface the checklist missed**: `docs/site/user-guide/configuration.md` carried its own copy of the three-shell snippet instructions (found by grepping for `_PROJECT_GUIDE_COMPLETE=` across all docs rather than trusting the list)
+- [x] Record the macOS system-bash 3.2 limitation accurately — **narrowed by R.d**: the registration half is *closed* (the emitted `complete -o nosort … 2>/dev/null || complete …` fallback registers on 3.2), so what remains is only `compopt` (bash ≥ 4.0) breaking **dir/file** completions there. Document the residual limitation, not the pre-spike "nothing works" wording and not R.b Amendment 4's "nothing registers at all," which R.d superseded — stated in FR-7, the CHANGELOG, and `install-options.md`, each naming what *does* work there so the limitation is not read as "bash 3.2 is unsupported"
+- [x] `CHANGELOG.md` entry for `v2.19.0`, dated 2026-08-12 — Added / Changed / Fixed / Known limitations. The **Fixed** section covers R.h.1's double-printed `heal` warnings and R.c's stdout leak into `eval "$(… completion show)"`, both of which are user-visible fixes that would otherwise have shipped unannounced
+- [x] Bump `project_guide/version.py` and `pyproject.toml` to `2.19.0`
+- [x] Verification per CI-gate parity: `pyve test` (790 passed), `pyve env run ruff check project_guide/ tests/` (clean), `pyve env run mypy project_guide/` (clean) — plus `mkdocs build --strict`, which passes and confirms the new cross-document links and anchors resolve
+- [x] **Fix the Windows CI failures the subphase introduced** (7 failures on the `windows-latest` / Python 3.12 matrix leg; macOS and Linux were green throughout). Three distinct causes, none of them a bug in the shipped behavior on the platforms completion targets — see the breakdown below
+- [x] Make the completion tests platform-honest rather than POSIX-literal: module-level `BIN` / `BIN_QUOTED` built with `os.sep` + `os.path.abspath` + `shlex.quote`, so every assertion compares against what the product actually bakes in on the running platform
+- [x] Skip the executable-bit staleness test on Windows, where the case is *unrepresentable* rather than broken (`os.access(…, os.X_OK)` is True for any readable file); the dominant staleness cause — the path being gone — is still covered on every platform
+- [x] Stop the stdout-purity test tripping over CliRunner's simulated typing (`_without_prompt_echo`), which lands in captured stdout on Windows and captured stderr on macOS
+- [x] **Record the Windows gap in the docs rather than papering over it** — FR-7 known gaps, `install-options.md` known limitations, and the `v2.19.0` CHANGELOG entry all now say bash/zsh completion is macOS- and Linux-supported and **unverified on Windows**
+- [x] **Second Windows round — fix the `isabs` trap where it actually bit** (1 failure, `windows-latest` / Python **3.13**). `test_install_autoload_file_refreshes_a_changed_script` fed `build_script` the literals `/old/project-guide` and `/new/project-guide`; under 3.13's `ntpath.isabs` neither is absolute, so post-processing was skipped for both, the two scripts came out byte-identical, and the refresh reported `UNCHANGED`. Now built with the shared helper
+- [x] Promote the platform-correct path construction to a named helper, `abs_bin(*parts)`, with the trap spelled out beside it — the first round fixed the `BIN` literal but left two ad-hoc ones, which is precisely the recurrence a helper prevents
+- [x] Guard the invariant with a test (`test_abs_bin_is_absolute_on_this_platform`) so a reintroduced literal fails loudly instead of degrading into a silent `UNCHANGED`, and strengthen the refresh test to assert the **new** path is present rather than only that the old one is absent
+
+**The three Windows causes, and why none is a shipped-behavior bug on macOS/Linux.**
+
+1. **Platform-dependent path resolution (5 of the 7).** `resolve_bin` runs its argument through `os.path.abspath`, so on Windows `--bin /opt/pg/project-guide` becomes `D:\opt\pg\project-guide`, and `shlex.quote` then wraps it because of the backslashes. The tests asserted on a hard-coded POSIX literal that could only ever match on POSIX. A second, quieter version of the same trap: `build_script` gates post-processing on `os.path.isabs`, and `ntpath.isabs("/opt/…")` was True through Python 3.12 but is **False from 3.13** — so the old literal also silently changed *whether post-processing ran at all*, depending on the interpreter. Both are closed by deriving the path the way the platform does.
+2. **No executable bit on Windows (1).** `os.access(path, os.X_OK)` returns True for any readable file, so a `chmod 0o644` binary cannot read as stale there. This is the predicate deliberately chosen in R.f to agree with the script's own `[[ -x ]]` guard; on Windows there is nothing for it to agree *with*.
+3. **A test-harness artifact, not a stdout leak (1).** Click's `CliRunner` replaces `visible_prompt_func` with one that writes the prompt suffix and the supplied answer to `sys.stdout`, standing in for terminal echo — and that lands in captured **stdout** on Windows and captured **stderr** on macOS. A real terminal echoes keystrokes to the tty, never into the program's stdout, so it cannot reach a command substitution. The R.c guarantee is intact; the assertion was measuring the harness.
+
+**What was deliberately *not* done.** The real finding underneath cause 1 is that the command group bakes Windows-convention paths into POSIX shell scripts, which is wrong for git-bash/MSYS — the only plausible Windows consumer. Making it correct there cannot be validated from this machine, and refusing to run on Windows would be a behavior change that might break a git-bash user who is fine today. So the behavior is unchanged, the gap is documented in three places, and the decision — support git-bash properly, or refuse with a clear message — is **recommended as a follow-on story** rather than guessed at here.
+
+**The `isabs` trap deserved a helper, not a patch — a lesson learned twice.** Round one identified the Python-3.13 `ntpath.isabs` hazard and wrote it into a comment, but only fixed the one literal that had actually failed (`/opt/pg/project-guide`, on the 3.12 leg). Two ad-hoc literals in a different test were examined and waved through: their `not in` assertion passes either way, and the *outcome* assertion that does not was missed. The 3.13 leg then failed on exactly the hazard already documented one screen above it. Two takeaways worth carrying forward: **a hazard that is understood well enough to write down is understood well enough to make structurally impossible** — `abs_bin()` plus its invariant test does what the comment could not; and **when a platform bug is found, sweep every call site of the same shape immediately**, because the matrix leg that exposes the rest may be a different one.
+
+**Three process notes.** (1) The doc surfaces were found by grep rather than by working the checklist, which is how `configuration.md` surfaced; the checklist named four files and there were five. (2) The strict docs build initially failed for a missing plugin, and installing the docs toolchain into the **main** venv was the wrong move — dev tooling belongs in the test env. The runtime venv was restored to exactly its four declared dependencies (`click`, `jinja2`, `pyyaml`, `packaging`) and re-verified; the docs toolchain now lives in `testenv`, matching the `pyve` two-environment rule. (3) Neither Windows round is reproducible from this machine: the failures depend on `ntpath` semantics *and* on Windows' drive-relative `abspath`, which cannot be faithfully simulated on POSIX (`ntpath.abspath` on macOS yields a driveless path). Local verification is therefore reasoning plus targeted simulation, and the CI matrix is the real oracle — which is the argument for the invariant test rather than another careful read-through.
+
+**Subphase R-1 ships here.** Stories R.b (spike) through R.h.1, one release tag, `v2.19.0`. Phase R therefore carries two release tags (`v2.18.1` from R.a predates the subphase) — the documented multi-release exception recorded in the subphase plan.
 
 ---
 
@@ -311,6 +333,18 @@ Documentation and the single release tag for the subphase.
 - [ ] `CHANGELOG.md` entry for `v2.20.0`, dated
 - [ ] Bump `project_guide/version.py` and `pyproject.toml` to `2.20.0`
 - [ ] Verification per CI-gate parity: `pyve test`, `pyve env run ruff check project_guide/ tests/`, `pyve env run mypy project_guide/`
+
+---
+
+## Subphase R-3: UX and documentation improvements
+
+---
+
+### Story R.?: Working with branches
+
+We need to fix `project-guide git-push <branch>` and `... git-commit <branch>` to loosen committed story checking. If working on a production repo and kicking off a new branch with either of these commands and the `stories.md` file has multiple completed stories that were smashed and merged to `main` branch, Project Guide is going to check the current branch (`main`, for example) to see that the stories are in the Git log. They won't be. Starting a new branch should be simple and seamless, and I am inclined to think that it is practically just a simple wrapper for `git-push` or `git-commit`, but this needs to be thought through more carefully. 
+
+Let's also implement the wrapper for `git-merged` in `gitbetter` v1.8.0. 
 
 ---
 

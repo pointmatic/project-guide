@@ -41,9 +41,56 @@ def runner():
     return CliRunner()
 
 
+#: A test binary path built the way the platform builds absolute paths.
+#:
+#: `resolve_bin` runs its argument through `os.path.abspath`, and `build_script`
+#: gates post-processing on `os.path.isabs` — both platform-dependent in ways a
+#: hard-coded POSIX literal hides:
+#:
+#: * On Windows `os.path.abspath(BIN)` yields
+#:   `D:\opt\pg\project-guide`, so an assertion spelling out the POSIX form
+#:   never matches what was actually baked in.
+#: * `ntpath.isabs("/opt/…")` was True through Python 3.12 but is False from
+#:   3.13, so the same literal silently changes whether post-processing runs.
+#:
+#: Building the path with `os.sep` + `abspath` gives one honest answer per
+#: platform, and `BIN_QUOTED` is what the product actually writes into a script
+#: (`shlex.quote` escapes the Windows backslashes; on POSIX it is a no-op).
+#:
+#: **Any** test binary path must be built this way, not just this one. A literal
+#: like `"/old/project-guide"` is not absolute on Windows under Python 3.13, so
+#: `build_script` silently skips post-processing and two different paths yield
+#: byte-identical scripts — which is how a refresh started reporting UNCHANGED.
+
+
+def abs_bin(*parts: str) -> str:
+    """Return an absolute binary path in the running platform's convention."""
+    return os.path.abspath(os.path.join(os.sep, *parts))
+
+
+BIN = abs_bin("opt", "pg", "project-guide")
+BIN_QUOTED = shlex.quote(BIN)
+
+#: True where there is no executable bit and no POSIX shell to speak of.
+WINDOWS = os.name == "nt"
+
+
 # ---------------------------------------------------------------------------
 # Script generation
 # ---------------------------------------------------------------------------
+
+
+def test_abs_bin_is_absolute_on_this_platform():
+    """The invariant every test binary path depends on.
+
+    `build_script` post-processes only when `os.path.isabs` says so. A POSIX
+    literal fails that check on Windows under Python 3.13, which makes two
+    *different* `--bin` values produce byte-identical scripts — a silent
+    failure that reads as "unchanged" rather than as a broken assertion.
+    Pinning the helper keeps the trap from being reintroduced.
+    """
+    assert os.path.isabs(BIN)
+    assert os.path.isabs(abs_bin("old", "project-guide"))
 
 
 def test_generate_script_zsh_uses_click_source_protocol():
@@ -77,7 +124,7 @@ def test_generate_script_rejects_an_unsupported_shell():
 def test_postprocess_rejects_an_unsupported_shell():
     """The same gate applies on the post-processing entry point."""
     with pytest.raises(CompletionError, match="fish"):
-        completion.postprocess_script("", shell="fish", bin_path="/opt/pg/project-guide")
+        completion.postprocess_script("", shell="fish", bin_path=BIN)
 
 
 # ---------------------------------------------------------------------------
@@ -89,19 +136,19 @@ def test_postprocess_zsh_replaces_path_guard_with_executable_test():
     """The `$+commands` PATH guard becomes a filesystem test on the baked path."""
     script = completion.generate_script("zsh")
 
-    result = completion.postprocess_script(script, shell="zsh", bin_path="/opt/pg/project-guide")
+    result = completion.postprocess_script(script, shell="zsh", bin_path=BIN)
 
     assert "$+commands" not in result
-    assert "    [[ -x /opt/pg/project-guide ]] || return 1" in result
+    assert f"    [[ -x {BIN_QUOTED} ]] || return 1" in result
 
 
 def test_postprocess_zsh_substitutes_bin_path_in_callback():
     """The completion callback invokes the absolute path, not the bare name."""
     script = completion.generate_script("zsh")
 
-    result = completion.postprocess_script(script, shell="zsh", bin_path="/opt/pg/project-guide")
+    result = completion.postprocess_script(script, shell="zsh", bin_path=BIN)
 
-    assert "_PROJECT_GUIDE_COMPLETE=zsh_complete /opt/pg/project-guide)" in result
+    assert f"_PROJECT_GUIDE_COMPLETE=zsh_complete {BIN_QUOTED})" in result
     assert "_PROJECT_GUIDE_COMPLETE=zsh_complete project-guide" not in result
 
 
@@ -113,7 +160,7 @@ def test_postprocess_zsh_preserves_the_typed_command_name():
     """
     script = completion.generate_script("zsh")
 
-    result = completion.postprocess_script(script, shell="zsh", bin_path="/opt/pg/project-guide")
+    result = completion.postprocess_script(script, shell="zsh", bin_path=BIN)
 
     assert result.startswith("#compdef project-guide")
     assert "compdef _project_guide_completion project-guide" in result
@@ -123,7 +170,7 @@ def test_postprocess_zsh_preserves_surrounding_blank_lines():
     """Rewrites are line-local; the script's shape is otherwise untouched."""
     script = completion.generate_script("zsh")
 
-    result = completion.postprocess_script(script, shell="zsh", bin_path="/opt/pg/project-guide")
+    result = completion.postprocess_script(script, shell="zsh", bin_path=BIN)
 
     assert len(result.splitlines()) == len(script.splitlines())
 
@@ -137,9 +184,9 @@ def test_postprocess_bash_substitutes_bin_path_for_positional_arg():
     """`$1` (the PATH-resolved command word) becomes the baked path."""
     script = completion.generate_script("bash")
 
-    result = completion.postprocess_script(script, shell="bash", bin_path="/opt/pg/project-guide")
+    result = completion.postprocess_script(script, shell="bash", bin_path=BIN)
 
-    assert "_PROJECT_GUIDE_COMPLETE=bash_complete /opt/pg/project-guide)" in result
+    assert f"_PROJECT_GUIDE_COMPLETE=bash_complete {BIN_QUOTED})" in result
     assert "_PROJECT_GUIDE_COMPLETE=bash_complete $1" not in result
 
 
@@ -147,18 +194,18 @@ def test_postprocess_bash_inserts_executable_guard_above_the_callback():
     """R.b Amendment 2: bash ships no guard, so a stale path would print on every TAB."""
     script = completion.generate_script("bash")
 
-    result = completion.postprocess_script(script, shell="bash", bin_path="/opt/pg/project-guide")
+    result = completion.postprocess_script(script, shell="bash", bin_path=BIN)
 
     lines = result.splitlines()
     callback_index = next(i for i, line in enumerate(lines) if "bash_complete" in line)
-    assert lines[callback_index - 1] == "    [[ -x /opt/pg/project-guide ]] || return 1"
+    assert lines[callback_index - 1] == f"    [[ -x {BIN_QUOTED} ]] || return 1"
 
 
 def test_postprocess_bash_keeps_registration_line_intact():
     """The `complete -F … project-guide` registration still targets the typed name."""
     script = completion.generate_script("bash")
 
-    result = completion.postprocess_script(script, shell="bash", bin_path="/opt/pg/project-guide")
+    result = completion.postprocess_script(script, shell="bash", bin_path=BIN)
 
     assert "complete -o nosort -F _project_guide_completion project-guide" in result
 
@@ -189,7 +236,7 @@ def test_postprocess_raises_when_the_callback_pattern_is_missing(shell):
     """
     with pytest.raises(CompletionError, match="callback"):
         completion.postprocess_script(
-            "# nothing here Click would recognize\n", shell=shell, bin_path="/opt/pg/project-guide"
+            "# nothing here Click would recognize\n", shell=shell, bin_path=BIN
         )
 
 
@@ -200,7 +247,7 @@ def test_postprocess_raises_when_the_zsh_guard_pattern_is_missing():
 
     with pytest.raises(CompletionError, match="guard"):
         completion.postprocess_script(
-            without_guard, shell="zsh", bin_path="/opt/pg/project-guide"
+            without_guard, shell="zsh", bin_path=BIN
         )
 
 
@@ -212,9 +259,9 @@ def test_postprocess_raises_when_the_zsh_guard_pattern_is_missing():
 @pytest.mark.parametrize("shell", ["zsh", "bash"])
 def test_build_script_post_processes_an_absolute_bin_path(shell):
     """An absolute `--bin` is the post-processed branch."""
-    result = completion.build_script(shell, "/opt/pg/project-guide")
+    result = completion.build_script(shell, BIN)
 
-    assert "/opt/pg/project-guide" in result
+    assert BIN in result
 
 
 @pytest.mark.parametrize("shell", ["zsh", "bash"])
@@ -286,16 +333,24 @@ def test_resolve_bin_prefers_the_explicit_flag(monkeypatch):
     """Explicit `--bin` beats every form of self-detection."""
     monkeypatch.setattr(sys, "argv", ["/somewhere/else/project-guide"])
 
-    assert completion.resolve_bin("/opt/pg/project-guide") == "/opt/pg/project-guide"
+    assert completion.resolve_bin(BIN) == BIN
 
 
-def test_resolve_bin_expands_a_tilde(monkeypatch):
-    """pyve passes `~/.local/bin/project-guide`; the script needs it expanded."""
-    monkeypatch.setenv("HOME", "/home/dev")
+def test_resolve_bin_expands_a_tilde(monkeypatch, tmp_path):
+    """pyve passes `~/.local/bin/project-guide`; the script needs it expanded.
 
-    assert completion.resolve_bin("~/.local/bin/project-guide") == (
-        os.path.join("/home/dev", ".local/bin/project-guide")
-    )
+    `USERPROFILE` is set alongside `HOME` because that is the variable
+    `ntpath.expanduser` actually consults — patching only `HOME` would expand
+    to the CI runner's real profile on Windows and quietly test nothing.
+    """
+    home = tmp_path / "dev"
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+
+    resolved = completion.resolve_bin("~/.local/bin/project-guide")
+
+    assert "~" not in resolved
+    assert resolved == os.path.join(str(home), ".local", "bin", "project-guide")
 
 
 def test_resolve_bin_makes_a_relative_path_absolute(tmp_path, monkeypatch):
@@ -359,24 +414,24 @@ def test_resolve_bin_falls_back_to_the_bare_name(monkeypatch):
 
 def test_completion_show_prints_the_zsh_script(runner):
     """`show` writes the script to stdout and exits 0."""
-    result = runner.invoke(main, ["completion", "show", "--shell", "zsh", "--bin", "/opt/pg/project-guide"])
+    result = runner.invoke(main, ["completion", "show", "--shell", "zsh", "--bin", BIN])
 
     assert result.exit_code == 0
     assert result.output.startswith("#compdef project-guide")
-    assert "_PROJECT_GUIDE_COMPLETE=zsh_complete /opt/pg/project-guide)" in result.output
+    assert f"_PROJECT_GUIDE_COMPLETE=zsh_complete {BIN_QUOTED})" in result.output
 
 
 def test_completion_show_prints_the_bash_script(runner):
     """The bash route emits the guarded, path-substituted script."""
-    result = runner.invoke(main, ["completion", "show", "--shell", "bash", "--bin", "/opt/pg/project-guide"])
+    result = runner.invoke(main, ["completion", "show", "--shell", "bash", "--bin", BIN])
 
     assert result.exit_code == 0
-    assert "[[ -x /opt/pg/project-guide ]] || return 1" in result.output
+    assert f"[[ -x {BIN_QUOTED} ]] || return 1" in result.output
 
 
 def test_completion_show_stdout_is_only_the_script(runner):
     """`eval "$(project-guide completion show)"` must not swallow chatter."""
-    result = runner.invoke(main, ["completion", "show", "--shell", "bash", "--bin", "/opt/pg/project-guide"])
+    result = runner.invoke(main, ["completion", "show", "--shell", "bash", "--bin", BIN])
 
     assert result.output.rstrip("\n").endswith("_project_guide_completion_setup;")
 
@@ -385,7 +440,7 @@ def test_completion_show_auto_detects_the_shell(runner, monkeypatch):
     """No `--shell` means `auto`, which reads `$SHELL`."""
     monkeypatch.setenv("SHELL", "/bin/zsh")
 
-    result = runner.invoke(main, ["completion", "show", "--bin", "/opt/pg/project-guide"])
+    result = runner.invoke(main, ["completion", "show", "--bin", BIN])
 
     assert result.exit_code == 0
     assert result.output.startswith("#compdef project-guide")
@@ -439,6 +494,24 @@ def test_completion_show_has_no_output_suppressing_flags(runner, flag):
 # ---------------------------------------------------------------------------
 
 
+def _without_prompt_echo(stdout: str, answer: str) -> str:
+    """Strip CliRunner's simulated typing from captured stdout.
+
+    Click's test runner replaces `visible_prompt_func` with one that writes the
+    prompt suffix and the supplied answer to `sys.stdout`, standing in for the
+    characters a terminal would echo. Whether that lands in the captured stdout
+    or the captured stderr differs across platforms and Click versions — it is
+    stdout on Windows CI, stderr on macOS.
+
+    It is a harness artifact either way: a real terminal echoes keystrokes to
+    the tty, not to the program's stdout, so it can never reach a command
+    substitution. The guarantee under test is about what *project-guide* writes,
+    so the simulated echo is removed before asserting on it.
+    """
+    echo = f" {answer}\n"
+    return stdout[len(echo):] if stdout.startswith(echo) else stdout
+
+
 def test_completion_show_stdout_is_pure_when_the_heal_hook_prompts(runner, tmp_path, monkeypatch):
     """The auto-heal prompt must not land in `eval "$(… completion show)"`.
 
@@ -453,12 +526,12 @@ def test_completion_show_stdout_is_pure_when_the_heal_hook_prompts(runner, tmp_p
 
         result = runner.invoke(
             main,
-            ["completion", "show", "--shell", "zsh", "--bin", "/opt/pg/project-guide"],
+            ["completion", "show", "--shell", "zsh", "--bin", BIN],
             input="n\n",
         )
 
         assert result.exit_code == 0
-        assert result.stdout.startswith("#compdef project-guide")
+        assert _without_prompt_echo(result.stdout, "n").startswith("#compdef project-guide")
         assert "Update?" not in result.stdout
         assert "Update?" in result.stderr
 
@@ -471,7 +544,7 @@ def test_completion_show_stdout_is_pure_when_the_heal_hook_auto_heals(runner, tm
         monkeypatch.delenv("PROJECT_GUIDE_HEALING", raising=False)
 
         result = runner.invoke(
-            main, ["completion", "show", "--shell", "bash", "--bin", "/opt/pg/project-guide"]
+            main, ["completion", "show", "--shell", "bash", "--bin", BIN]
         )
 
         assert result.exit_code == 0
@@ -486,7 +559,7 @@ def test_completion_show_stdout_is_pure_during_legacy_config_migration(runner, t
         Path(".project-guide.yml").rename(".project-guides.yml")
 
         result = runner.invoke(
-            main, ["completion", "show", "--shell", "zsh", "--bin", "/opt/pg/project-guide"]
+            main, ["completion", "show", "--shell", "zsh", "--bin", BIN]
         )
 
         assert result.exit_code == 0
@@ -533,7 +606,7 @@ def test_bash_compat_falls_back_when_nosort_is_unsupported():
     (losing Click's ordering everywhere), the line is rewritten to try it and
     fall back, so modern bash keeps the ordering and 3.2 still registers.
     """
-    script = completion.build_script("bash", "/opt/pg/project-guide")
+    script = completion.build_script("bash", BIN)
 
     assert (
         "complete -o nosort -F _project_guide_completion project-guide 2>/dev/null || "
@@ -543,7 +616,7 @@ def test_bash_compat_falls_back_when_nosort_is_unsupported():
 
 def test_bash_compat_is_applied_exactly_once():
     """The fallback must not stack if the transform is applied twice."""
-    script = completion.build_script("bash", "/opt/pg/project-guide")
+    script = completion.build_script("bash", BIN)
 
     assert script.count("2>/dev/null ||") == 1
 
@@ -562,7 +635,7 @@ def test_bash_compat_applies_on_the_bare_name_fallback():
 
 def test_bash_compat_is_not_applied_to_zsh():
     """`complete` is a bash builtin; the zsh script has no such line."""
-    script = completion.build_script("zsh", "/opt/pg/project-guide")
+    script = completion.build_script("zsh", BIN)
 
     assert "2>/dev/null" not in script
 
@@ -947,7 +1020,7 @@ def test_completion_install_reports_the_adoption_in_one_line(runner, tmp_path):
     result = runner.invoke(
         main,
         ["completion", "install", "--shell", "bash", "--rc", str(rc),
-         "--bin", "/opt/pg/project-guide"],
+         "--bin", BIN],
     )
 
     assert result.exit_code == 0
@@ -960,7 +1033,7 @@ def test_status_reports_nothing_foreign_after_adoption(runner, tmp_path):
     rc = tmp_path / ".bashrc"
     rc.write_text(PYVE_BLOCK_BASH)
     completion.install_block(rc, completion.build_block(
-        completion.build_script("bash", "/opt/pg/project-guide")
+        completion.build_script("bash", BIN)
     ))
 
     status = completion.inspect_shell("bash", rc_path=rc)
@@ -1005,13 +1078,13 @@ def test_completion_install_writes_the_bash_block(runner, tmp_path):
     result = runner.invoke(
         main,
         ["completion", "install", "--shell", "bash", "--rc", str(rc),
-         "--bin", "/opt/pg/project-guide"],
+         "--bin", BIN],
     )
 
     assert result.exit_code == 0
     text = rc.read_text()
-    assert "[[ -x /opt/pg/project-guide ]] || return 1" in text
-    assert "_PROJECT_GUIDE_COMPLETE=bash_complete /opt/pg/project-guide)" in text
+    assert f"[[ -x {BIN_QUOTED} ]] || return 1" in text
+    assert f"_PROJECT_GUIDE_COMPLETE=bash_complete {BIN_QUOTED})" in text
     assert str(rc) in result.output
 
 
@@ -1019,7 +1092,7 @@ def test_completion_install_is_idempotent(runner, tmp_path):
     """Re-running reports the no-op rather than stacking blocks."""
     rc = tmp_path / ".bashrc"
     args = ["completion", "install", "--shell", "bash", "--rc", str(rc),
-            "--bin", "/opt/pg/project-guide"]
+            "--bin", BIN]
     runner.invoke(main, args)
     first = rc.read_text()
 
@@ -1038,7 +1111,7 @@ def test_completion_install_quiet_prints_nothing_on_success(runner, tmp_path):
     result = runner.invoke(
         main,
         ["completion", "install", "--shell", "bash", "--rc", str(rc),
-         "--bin", "/opt/pg/project-guide", "--quiet"],
+         "--bin", BIN, "--quiet"],
     )
 
     assert result.exit_code == 0
@@ -1053,7 +1126,7 @@ def test_completion_uninstall_removes_the_block(runner, tmp_path):
     runner.invoke(
         main,
         ["completion", "install", "--shell", "bash", "--rc", str(rc),
-         "--bin", "/opt/pg/project-guide"],
+         "--bin", BIN],
     )
 
     result = runner.invoke(
@@ -1083,7 +1156,7 @@ def test_completion_install_defaults_to_the_home_bashrc(runner, tmp_path, monkey
 
     result = runner.invoke(
         main,
-        ["completion", "install", "--shell", "bash", "--bin", "/opt/pg/project-guide"],
+        ["completion", "install", "--shell", "bash", "--bin", BIN],
     )
 
     assert result.exit_code == 0
@@ -1098,7 +1171,7 @@ def test_completion_install_warns_about_a_foreign_block_on_stderr(runner, tmp_pa
     result = runner.invoke(
         main,
         ["completion", "install", "--shell", "bash", "--rc", str(rc),
-         "--bin", "/opt/pg/project-guide"],
+         "--bin", BIN],
     )
 
     assert result.exit_code == 0
@@ -1113,7 +1186,7 @@ def test_completion_install_bash_writes_no_autoload_file(runner, tmp_path):
     result = runner.invoke(
         main,
         ["completion", "install", "--shell", "bash", "--rc", str(rc),
-         "--bin", "/opt/pg/project-guide"],
+         "--bin", BIN],
     )
 
     assert result.exit_code == 0
@@ -1157,7 +1230,7 @@ def test_installed_block_registers_completion_in_a_real_bash(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def _install_bash(tmp_path, bin_path="/opt/pg/project-guide"):
+def _install_bash(tmp_path, bin_path=BIN):
     rc = tmp_path / ".bashrc"
     completion.install_block(rc, completion.build_block(
         completion.build_script("bash", bin_path)
@@ -1165,7 +1238,7 @@ def _install_bash(tmp_path, bin_path="/opt/pg/project-guide"):
     return rc
 
 
-def _install_zsh(tmp_path, bin_path="/opt/pg/project-guide"):
+def _install_zsh(tmp_path, bin_path=BIN):
     rc = tmp_path / ".zshrc"
     autoload_dir = tmp_path / "completions"
     completion.install_autoload_file(autoload_dir, completion.build_script("zsh", bin_path))
@@ -1209,12 +1282,22 @@ def test_status_reports_stale_for_a_baked_path_that_no_longer_resolves(tmp_path)
     assert status.state is completion.CompletionState.STALE
 
 
+@pytest.mark.skipif(
+    WINDOWS,
+    reason="Windows has no executable bit: os.access(X_OK) is True for any readable file",
+)
 def test_status_uses_the_same_predicate_the_installed_script_bakes_in(tmp_path):
     """`status` and the script must agree by construction, not by coincidence.
 
     A path that exists but is not executable fails the script's `[[ -x ]]`
     guard at TAB time, so it must read as stale here too — an `exists()` check
     would disagree with the shell.
+
+    Windows cannot express the distinction (`os.access(…, os.X_OK)` is True for
+    anything readable), so the case is unrepresentable rather than broken
+    there. The dominant staleness cause — the path being *gone* — is still
+    detected on every platform, and `test_status_reports_stale_for_a_baked_path_that_no_longer_resolves`
+    covers it.
     """
     binary = tmp_path / "project-guide"
     binary.write_text("#!/bin/sh\n")
@@ -1385,7 +1468,7 @@ def test_completion_status_does_not_offer_reinstall_for_a_damaged_block(runner, 
     reinstall = runner.invoke(
         main,
         ["completion", "install", "--shell", "bash", "--rc", str(rc),
-         "--bin", "/opt/pg/project-guide"],
+         "--bin", BIN],
     )
 
     assert result.exit_code == 1
@@ -1482,7 +1565,7 @@ def test_zsh_block_registers_when_compinit_already_ran(tmp_path):
     """
     autoload_dir = tmp_path / "completions"
     completion.install_autoload_file(
-        autoload_dir, completion.build_script("zsh", "/opt/pg/project-guide")
+        autoload_dir, completion.build_script("zsh", BIN)
     )
     rc = tmp_path / ".zshrc"
     completion.install_block(rc, completion.build_block(
@@ -1497,7 +1580,7 @@ def test_zsh_block_bootstraps_compinit_when_it_never_ran(tmp_path):
     """Field defect 1: without `compinit`, `compdef` does not exist at all."""
     autoload_dir = tmp_path / "completions"
     completion.install_autoload_file(
-        autoload_dir, completion.build_script("zsh", "/opt/pg/project-guide")
+        autoload_dir, completion.build_script("zsh", BIN)
     )
     rc = tmp_path / ".zshrc"
     completion.install_block(rc, completion.build_block(
@@ -1534,19 +1617,19 @@ def test_install_autoload_file_writes_the_compdef_script(tmp_path):
     autoload_dir = tmp_path / "completions"
 
     result = completion.install_autoload_file(
-        autoload_dir, completion.build_script("zsh", "/opt/pg/project-guide")
+        autoload_dir, completion.build_script("zsh", BIN)
     )
 
     written = autoload_dir / "_project-guide"
     assert result.outcome is completion.RcOutcome.CREATED
     assert written.read_text().startswith("#compdef project-guide")
-    assert "[[ -x /opt/pg/project-guide ]] || return 1" in written.read_text()
+    assert f"[[ -x {BIN_QUOTED} ]] || return 1" in written.read_text()
 
 
 def test_install_autoload_file_is_idempotent(tmp_path):
     """Unchanged content is a no-op, so re-running install reports honestly."""
     autoload_dir = tmp_path / "completions"
-    script = completion.build_script("zsh", "/opt/pg/project-guide")
+    script = completion.build_script("zsh", BIN)
     completion.install_autoload_file(autoload_dir, script)
 
     result = completion.install_autoload_file(autoload_dir, script)
@@ -1557,16 +1640,19 @@ def test_install_autoload_file_is_idempotent(tmp_path):
 def test_install_autoload_file_refreshes_a_changed_script(tmp_path):
     """A moved binary rewrites the file rather than leaving a stale path."""
     autoload_dir = tmp_path / "completions"
+    old_bin = abs_bin("old", "project-guide")
+    new_bin = abs_bin("new", "project-guide")
     completion.install_autoload_file(
-        autoload_dir, completion.build_script("zsh", "/old/project-guide")
+        autoload_dir, completion.build_script("zsh", old_bin)
     )
 
     result = completion.install_autoload_file(
-        autoload_dir, completion.build_script("zsh", "/new/project-guide")
+        autoload_dir, completion.build_script("zsh", new_bin)
     )
 
     assert result.outcome is completion.RcOutcome.UPDATED
-    assert "/old/project-guide" not in (autoload_dir / "_project-guide").read_text()
+    assert old_bin not in (autoload_dir / "_project-guide").read_text()
+    assert new_bin in (autoload_dir / "_project-guide").read_text()
 
 
 def test_remove_autoload_file_deletes_it_and_its_empty_owned_dir(tmp_path, monkeypatch):
@@ -1643,7 +1729,7 @@ def test_completion_install_zsh_writes_both_artifacts(runner, tmp_path):
     result = runner.invoke(
         main,
         ["completion", "install", "--shell", "zsh", "--rc", str(rc),
-         "--dir", str(autoload_dir), "--bin", "/opt/pg/project-guide"],
+         "--dir", str(autoload_dir), "--bin", BIN],
     )
 
     assert result.exit_code == 0
@@ -1659,7 +1745,7 @@ def test_completion_install_zsh_is_idempotent_across_both_artifacts(runner, tmp_
     rc = tmp_path / ".zshrc"
     autoload_dir = tmp_path / "completions"
     args = ["completion", "install", "--shell", "zsh", "--rc", str(rc),
-            "--dir", str(autoload_dir), "--bin", "/opt/pg/project-guide"]
+            "--dir", str(autoload_dir), "--bin", BIN]
     runner.invoke(main, args)
     before = ((autoload_dir / "_project-guide").read_text(), rc.read_text())
 
@@ -1679,7 +1765,7 @@ def test_completion_uninstall_zsh_removes_both_artifacts(runner, tmp_path):
     runner.invoke(
         main,
         ["completion", "install", "--shell", "zsh", "--rc", str(rc),
-         "--dir", str(autoload_dir), "--bin", "/opt/pg/project-guide"],
+         "--dir", str(autoload_dir), "--bin", BIN],
     )
 
     result = runner.invoke(
@@ -1699,7 +1785,7 @@ def test_completion_install_zsh_repairs_a_partial_state(runner, tmp_path, drop):
     rc = tmp_path / ".zshrc"
     autoload_dir = tmp_path / "completions"
     args = ["completion", "install", "--shell", "zsh", "--rc", str(rc),
-            "--dir", str(autoload_dir), "--bin", "/opt/pg/project-guide"]
+            "--dir", str(autoload_dir), "--bin", BIN]
     runner.invoke(main, args)
     if drop == "file":
         (autoload_dir / "_project-guide").unlink()
@@ -1722,7 +1808,7 @@ def test_completion_uninstall_zsh_handles_a_partial_state(runner, tmp_path, drop
     runner.invoke(
         main,
         ["completion", "install", "--shell", "zsh", "--rc", str(rc),
-         "--dir", str(autoload_dir), "--bin", "/opt/pg/project-guide"],
+         "--dir", str(autoload_dir), "--bin", BIN],
     )
     if drop == "file":
         (autoload_dir / "_project-guide").unlink()
@@ -1748,7 +1834,7 @@ def test_completion_install_zsh_defaults_to_the_home_zshrc(runner, tmp_path, mon
 
     result = runner.invoke(
         main,
-        ["completion", "install", "--shell", "zsh", "--bin", "/opt/pg/project-guide"],
+        ["completion", "install", "--shell", "zsh", "--bin", BIN],
     )
 
     assert result.exit_code == 0
@@ -1764,7 +1850,7 @@ def test_completion_install_bash_ignores_the_dir_option(runner, tmp_path):
     result = runner.invoke(
         main,
         ["completion", "install", "--shell", "bash", "--rc", str(rc),
-         "--dir", str(tmp_path / "completions"), "--bin", "/opt/pg/project-guide"],
+         "--dir", str(tmp_path / "completions"), "--bin", BIN],
     )
 
     assert result.exit_code != 0

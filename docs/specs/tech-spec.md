@@ -74,6 +74,7 @@ project-guide/
 │   ├── stories.py                      # stories.md parsing: [Done] detection, commit-message derivation
 │   ├── actions.py                      # archive-stories + version-detection actions
 │   ├── runtime.py                      # shared runtime helpers (skip-input, project-name detection)
+│   ├── completion.py                   # shell-completion generation, post-processing, rc-file blocks
 │   └── templates/
 │       └── project-guide/              # Bundled template tree (copied on init)
 │           ├── .metadata.yml
@@ -83,7 +84,7 @@ project-guide/
 │               ├── go.md               # Jinja2 entry point template
 │               ├── modes/              # Mode templates + header partials
 │               └── artifacts/          # Artifact structure templates
-└── tests/                              # 629 tests across 12 files
+└── tests/                              # 790 tests across 13 files
     ├── test_cli.py                     # CLI command tests
     ├── test_sync.py                    # Sync logic tests
     ├── test_integration.py             # End-to-end workflow tests
@@ -95,7 +96,8 @@ project-guide/
     ├── test_stories.py                 # stories.md parsing + commit-message derivation
     ├── test_cross_repo_contract.py     # Pyve-hosting cross-repo contract guards
     ├── test_runtime.py                 # Runtime helpers
-    └── test_archive_stories_mode.py    # archive_stories mode end-to-end
+    ├── test_archive_stories_mode.py    # archive_stories mode end-to-end
+    └── test_completion.py              # completion generation, rc blocks, real-shell checks
 ```
 
 ---
@@ -218,7 +220,9 @@ ProjectGuidesError (base)
 ├── SyncError
 ├── ProjectFileNotFoundError
 ├── MetadataError
-└── RenderError
+├── RenderError
+├── ActionError
+└── CompletionError
 ```
 
 ---
@@ -349,6 +353,8 @@ When **`--quiet` / `-q`** is set and the command **succeeds**, **`stdout` stays 
 
 Commands whose UX remains interactive (`mode`, `status`, etc.) do not accept `--quiet` unless extended explicitly later.
 
+`completion install` / `uninstall` accept `--quiet` (host tools such as pyve shell out to them during provisioning); foreign-block warnings still reach stderr. `completion show` accepts **neither** `--quiet` (its stdout *is* the payload) **nor** `--no-input` (it never prompts). `completion status` accepts neither for the same reasons, and signals through its exit code: 0 absent-or-current, 1 stale/partial/damaged, 2 I/O error.
+
 ---
 
 ## Cross-Cutting Concerns
@@ -372,6 +378,51 @@ Fail fast with actionable messages:
 
 - `.project-guides.yml` → `.project-guide.yml` (automatic rename on any CLI command)
 - v1.x config detection → migration notice in `status` output
+
+### Shell Completion Installation (Subphase R-1)
+
+`completion.py` owns generation, post-processing, and the on-disk artifacts. The design is driven by one finding: **Click's generated callback resolves the bare command name through `PATH` at completion time**, long after the rc block ran. Baking an absolute path into the rc block fixes only the generation call. So project-guide post-processes Click's output rather than emitting it verbatim.
+
+**Post-processing** (`postprocess_script`) — two line-local rewrites per shell, never a blanket substitution of the command name (`#compdef project-guide`, `compdef … project-guide`, and `complete -F … project-guide` all register against the name the user *types*):
+
+| Shell | Rewrites |
+|---|---|
+| zsh | replace the `(( ! $+commands[…] ))` `PATH` guard with `[[ -x <bin> ]] \|\| return 1`; substitute `<bin>` for the bare name in the callback |
+| bash | substitute `<bin>` for `$1` in the callback; **insert** `[[ -x <bin> ]] \|\| return 1` above it — bash ships no guard, and without one a stale `--bin` prints `env: …: No such file or directory` on every TAB |
+
+Applied **only when `--bin` resolves to an absolute path**: the baked guard is a filesystem test, so a bare-name fallback would test a file relative to `$PWD`. On that fallback Click's script is emitted verbatim.
+
+`apply_bash_compat` is separate and applies **regardless** of `--bin`, because it fixes a defect in Click's template rather than in binary resolution: `complete -o nosort -F …` is bash ≥ 4.4, and on bash 3.2 the whole line fails so *nothing* registers. The line is rewritten to `complete -o nosort … 2>/dev/null || complete …`, keeping Click's ordering on modern bash and registering on 3.2.
+
+**No Click version pin.** Each substitution must match **exactly once** or `CompletionError` is raised naming the failed pattern. Click's templates were byte-stable across 8.1.8 → 8.4.x; a future template change becomes a loud failure at generation time rather than a silently-unmodified script.
+
+**Two install routes.** One generator serves both — Click's `zsh_eval_context[-1] == loadautofunc` branch picks the right registration path — so the routes differ only in where the bytes land:
+
+- **bash** — the script is written **inline** into the sentinel block. Nothing is executed at shell startup (no subprocess per shell), and a stale install cannot print.
+- **zsh** — the script goes to an `fpath` autoload file named `_project-guide` (default `$XDG_DATA_HOME/project-guide/zsh-completions`, `--dir` to override), and the rc block only wires it up.
+
+**The zsh bootstrap** (`build_zsh_bootstrap`) satisfies three requirements the obvious two-liner misses:
+
+```zsh
+if [[ -r <dir>/_project-guide ]]; then
+  fpath=(<dir> $fpath)
+  if (( $+functions[compdef] )); then
+    autoload -Uz _project-guide && compdef _project-guide project-guide
+  else
+    autoload -Uz compinit && compinit -i
+  fi 2>/dev/null
+fi
+```
+
+1. The outer `[[ -r ]]` keeps a half-uninstalled state inert — a `compdef` registered against a deleted file defers its failure to TAB time.
+2. The `else` branch covers `compinit` never having run (the original field defect).
+3. The `if` branch covers `compinit` having **already** run — the common case, since the block lands at the end of `~/.zshrc` after oh-my-zsh. `fpath` entries added after `compinit` are never scanned; measured against `$_comps`, which stays unset. Re-running `compinit` was rejected as expensive and as overriding a configuration the user chose.
+
+**rc-file block machinery.** Blocks are bracketed by an exact sentinel pair (`# >>> project-guide completion >>>` / `# <<< project-guide completion <<<`) and carry a version stamp. `install_block` replaces an existing block **where it sits** rather than moving it to the tail; `remove_block` reclaims the blank separator it inserted, but only when that blank is genuinely adjacent slack, so `install` → `uninstall` round-trips byte-for-byte. Every content-changing write is preceded by a `.bak.<timestamp>` copy.
+
+**Ours-vs-foreign** mirrors `_ensure_gitignore_entry()`: content project-guide did not write is reported, never edited. The **one sanctioned exception** is pyve's legacy block, bounded twice — by pyve's exact header (`PYVE_SENTINEL_START`; the *closing* sentinel is byte-identical to ours, so the blocks are told apart by header alone) and by `_is_pyve_generated`, which requires every body line to be plausibly pyve's output. A hand-edited pyve block is foreign again. Adoption replaces in place because pyve inserts its block **above** SDKMan's must-be-last marker; appending ours at the tail would move the wiring past it.
+
+**Inspection** (`inspect_shell` → `ShellStatus`) reports `absent` / `installed` / `stale` / `partial` / `damaged`. Staleness uses `os.access(bin, os.X_OK)` — the *same* predicate the installed script bakes in, so `status` and the shell cannot disagree. For zsh the autoload directory is read out of the installed `fpath` line rather than assumed, since the shell obeys the rc file. `_warn_if_completion_stale` consumes this from the pre-invoke hook and warns (never repairs) on stale and partial.
 
 ### External CLI Dependencies (Story P.k pattern)
 

@@ -39,7 +39,7 @@ When you customize a file for your project, mark it as overridden so future pack
 - **Gentle Force Updates** - Automatic `.bak` files created if you `--force` update a custom file
 - **CLI Interface** - Intuitive commands for every step of the workflow (init, mode, status, update, heal, override, purge, …)
 - **Auto-Heal** - Every command silently repairs the install if drift is detected; prompts only when there's actual work to do, so a fresh clone is one `project-guide <anything>` away from being usable
-- **Shell Completion** - Tab completion for commands, flags, and mode names (bash, zsh, fish)
+- **Shell Completion** - `project-guide completion install` wires up Tab completion for commands, flags, and mode names (bash and zsh), and keeps working even when project-guide lives off your `PATH`
 - **Well Tested** - Comprehensive test coverage across CLI, rendering, and action modules
 - **Zero Configuration** - Works with sensible defaults out of the box
 - **Cross-Platform** - Runs on macOS, Linux, and Windows with Python 3.11+
@@ -74,17 +74,22 @@ click, jinja2, pyyaml, packaging
 
 ### Shell Completion (Optional)
 
-Enable Tab completion for commands, flags, and mode names. Add to your shell startup file:
+Enable Tab completion for commands, flags, and mode names — project-guide installs it for you:
 
 ```bash
-# bash (~/.bashrc)
-eval "$(_PROJECT_GUIDE_COMPLETE=bash_source project-guide)"
-
-# zsh (~/.zshrc)
-eval "$(_PROJECT_GUIDE_COMPLETE=zsh_source project-guide)"
+project-guide completion install
 ```
 
-See [Installation Options](https://pointmatic.github.io/project-guide/user-guide/install-options/#shell-completion-optional) for fish and full details.
+Then restart your shell. `--shell` defaults to `auto` (detected from `$SHELL`); pass `bash` or `zsh` explicitly if you want the other one too.
+
+```bash
+project-guide completion status      # absent / installed / stale, per shell
+project-guide completion uninstall   # restores your rc file byte-for-byte
+```
+
+The installed script does **not** depend on `PATH`, so completion keeps working when project-guide is hosted behind a shim (pyve's toolchain layout). If you later move or upgrade that binary, `project-guide heal` warns that completion has gone stale and re-running `completion install` fixes it.
+
+**bash and zsh only** — fish is not yet supported. See [Installation Options](https://pointmatic.github.io/project-guide/user-guide/install-options/#shell-completion-optional) for what gets written where, and the known limitations.
 
 ## Quick Start
 

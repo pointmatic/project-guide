@@ -107,24 +107,13 @@ All commands will respect this setting.
 
 ## Shell Completion
 
-project-guide supports Tab completion for commands, flags, and mode names in bash, zsh, and fish. Completion is opt-in — add a one-line `eval` to your shell startup file.
+project-guide supports Tab completion for commands, flags, and mode names in **bash and zsh** (fish is not yet supported). Completion is opt-in, and project-guide installs it for you:
 
-**Bash** (`~/.bashrc`):
 ```bash
-eval "$(_PROJECT_GUIDE_COMPLETE=bash_source project-guide)"
+project-guide completion install
 ```
 
-**Zsh** (`~/.zshrc`):
-```bash
-eval "$(_PROJECT_GUIDE_COMPLETE=zsh_source project-guide)"
-```
-
-**Fish** (`~/.config/fish/completions/project-guide.fish`):
-```bash
-_PROJECT_GUIDE_COMPLETE=fish_source project-guide | source
-```
-
-After updating your shell config, restart your shell (or `source` the file). Then:
+Restart your shell (or `source` the rc file it names). Then:
 
 - `project-guide <TAB>` completes command names (`init`, `mode`, `status`, etc.)
 - `project-guide mode <TAB>` completes mode names from the active project's `.metadata.yml` (dynamic — works with any custom modes)

@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.19.0] - 2026-08-12
+
+**project-guide owns its shell completion (Subphase R-1, Stories R.b–R.h.1).** Completion was self-service — the developer hand-copied an `eval "$(_PROJECT_GUIDE_COMPLETE=…)"` snippet — and it broke silently in two ways reported from the field ([pyve#70](https://github.com/pointmatic/pyve/issues/70)): the zsh snippet needs a `compinit` that may never have run, and every generated callback resolves the bare command name through `PATH` at completion time, which fails when project-guide is hosted behind a shim that is off `PATH`. Both are closed, and completion is now installed, removed, and inspected by project-guide itself.
+
+### Added
+- **`project-guide completion` command group** — `install`, `uninstall`, `show`, `status`, in the new `project_guide/completion.py`.
+  - **`install`** (`--shell auto|bash|zsh`, `--bin`, `--rc`, `--dir`, `--quiet`) — idempotent; a no-op when everything is current. **bash** gets the script written inline into a sentinel-bracketed rc block (no subprocess at shell startup); **zsh** gets an `fpath` autoload file `_project-guide` (default `$XDG_DATA_HOME/project-guide/zsh-completions`) plus a small rc block that wires it up.
+  - **`uninstall`** — byte-clean: the rc file is restored exactly as `install` found it, and the zsh autoload file is removed with it.
+  - **`show`** — prints the post-processed script to stdout and writes nothing, so `eval "$(project-guide completion show)"` is safe. Takes neither `--quiet` nor `--no-input`.
+  - **`status`** — reports each shell as `absent` / `installed` / `stale` / `partial` / `damaged`. Exit 0 absent-or-current, 1 needs-attention, 2 I/O error.
+  - **`--bin`** — lets a host tool supply a stable handle; pyve passes its `~/.local/bin/project-guide` shim rather than the version-keyed toolchain path behind it.
+- **`heal` warns on stale or partial completion** (stderr, from the pre-invoke auto-hook), naming the dead path and the copyable remedy. **Never auto-repairs** — the same warn-don't-auto-fix constraint that bounds the `git-push` wrapper. Silent when completion is absent or current, and under `--no-input`.
+- **`CompletionError`** in the exception hierarchy; **`tests/test_completion.py`** (135 tests), including checks that source the generated artifacts in a **real bash and zsh**.
+
+### Changed
+- **Completion no longer depends on `PATH`.** Click's generated script is post-processed before installation: the resolved binary path is baked into the callback, zsh's `(( ! $+commands[…] ))` guard becomes `[[ -x <bin> ]]`, and bash gains an executable guard it does not ship with (without it a stale path prints `env: …: No such file or directory` on every TAB). Applied only when the path is absolute; a bare-name fallback emits Click's script verbatim. Each substitution must match exactly once or generation fails loudly, so a future Click template change cannot silently produce an unmodified script.
+- **macOS system bash 3.2 now registers completion at all.** Click's script ends in `complete -o nosort -F …`; `-o nosort` is bash ≥ 4.4, and on 3.2 the whole line failed, registering *nothing*. The line is emitted as `complete -o nosort … 2>/dev/null || complete …`, preserving Click's ordering on modern bash and falling back on 3.2. (`compopt` still limits **dir/file** completions there — bash ≥ 4.0.)
+- **A legacy pyve completion block is adopted, not duplicated.** pyve wrote its own block before project-guide owned this; `install` replaces it **in place** (pyve inserts above SDKMan's must-be-last marker, so appending would move the wiring past it) and reports the replacement. Bounded to pyve's exact header *and* to a body still carrying pyve's generated content — a hand-edited block is left untouched with a warning, as any foreign block is.
+- **`FR-7` rewritten** in `features.md`, with the fish gap and the residual bash 3.2 limitation stated explicitly; new "Shell Completion Installation" section in `tech-spec.md`; `README.md`, `docs/site/user-guide/commands.md`, and `docs/site/user-guide/install-options.md` updated for the command group.
+
+### Fixed
+- **`heal` printed its warnings twice** (Story R.h.1). `_warn_if_go_md_tracked` and `_warn_if_local_install_under_pyve` were each registered at both the pre-invoke hook and the `heal` command, so `project-guide heal` emitted the tracked-`go.md` warning and the local-install guidance — including its `pip uninstall` advice — twice. `heal` now relies on the hook for the warning text and calls `_warn_if_local_install_under_pyve` solely for its heal-scoped provisioning offer (new `already_warned` parameter). No gate changed: the Q-4 rule that removal advice appears only on `pyve self provision --status` exit 0 is untouched.
+- **stdout purity for `completion show`** (Story R.c). The auto-heal hook's `Update?` confirm and the legacy-config `Migrated` notice wrote to **stdout** ahead of every subcommand, so `eval "$(project-guide completion show)"` would have evaluated them as shell code. Both now go to stderr, matching the rest of the hook.
+
+### Known limitations
+- **fish is not supported.** Click can generate a fish script, but fish uses a completions-directory mechanism with no rc block, so project-guide cannot install, remove, or report on what it would generate; `--shell fish` is refused rather than emitting an unmanageable script.
+- **Staleness is a dead-path test only.** A block generated by an older project-guide whose script template has since changed is not detected as stale; re-run `completion install` after upgrading.
+- **PowerShell / Windows shells** have no Click generator, a documented asymmetry against project-guide's general Windows support.
+- **Windows is unverified even for bash and zsh.** Path handling is `os.path`-based, so on Windows the baked `--bin` is a backslash path that a bash-family shell such as git-bash will not interpret as intended. The command group does not refuse to run there; it has simply only been exercised on macOS and Linux. A Windows decision is deferred to a follow-on story.
+
 ## [2.18.1] - 2026-08-01
 
 **`project-guide git-commit` subcommand (Story R.a).** gitbetter added a `git-commit` subcommand for iterating on commits locally and pushing a batch to GitHub later (saving GitHub Actions CI minutes). project-guide gains the sibling wrapper with an identical interface and behavior to `git-push`.

@@ -79,39 +79,64 @@ You should see the version number displayed.
 
 ## Shell Completion (Optional)
 
-Enable Tab completion for `project-guide` commands, flags, and mode names. Add the appropriate line to your shell's startup file.
-
-### Bash
-
-Add to `~/.bashrc`:
+Enable Tab completion for `project-guide` commands, flags, and mode names. project-guide installs it for you — you no longer hand-copy a snippet into your rc file.
 
 ```bash
-eval "$(_PROJECT_GUIDE_COMPLETE=bash_source project-guide)"
+project-guide completion install
 ```
 
-### Zsh
-
-Add to `~/.zshrc`:
-
-```bash
-eval "$(_PROJECT_GUIDE_COMPLETE=zsh_source project-guide)"
-```
-
-### Fish
-
-Add to `~/.config/fish/completions/project-guide.fish`:
-
-```bash
-_PROJECT_GUIDE_COMPLETE=fish_source project-guide | source
-```
-
-After updating your shell config, restart your shell (or `source` the file). Now you can:
+Restart your shell (or `source` the rc file it names). Now you can:
 
 - `project-guide <TAB>` — complete command names (`init`, `mode`, `status`, etc.)
 - `project-guide mode <TAB>` — complete mode names (`default`, `plan_concept`, `code_direct`, etc.) — reads `.metadata.yml` from your current project
 - `project-guide --<TAB>` — complete flags
 
 Mode name completion is dynamic and reads the active project's `.metadata.yml`, so it works correctly even if you have custom modes.
+
+### Supported shells
+
+**bash and zsh.** `--shell` defaults to `auto`, detected from `$SHELL`; pass `--shell bash` or `--shell zsh` explicitly to set up the other one as well.
+
+**fish is not supported yet.** Click can generate a fish script, but fish uses a different install mechanism (a file in `~/.config/fish/completions/`, no rc block), so project-guide cannot manage what it would generate. Rather than emit a script it cannot install, uninstall, or report on, the command refuses fish outright.
+
+### What gets written where
+
+| Shell | Artifacts |
+|---|---|
+| bash | one sentinel-bracketed block in `~/.bashrc` containing the completion script inline |
+| zsh | an autoload file `_project-guide` in `$XDG_DATA_HOME/project-guide/zsh-completions`, plus a small block in `~/.zshrc` that adds it to `fpath` and registers it |
+
+Override the locations with `--rc <path>` and (zsh) `--dir <path>`.
+
+The block is bracketed by `# >>> project-guide completion >>>` / `# <<< project-guide completion <<<`, and:
+
+- **Your rc file is backed up** (`.bak.<timestamp>`) before any change.
+- **Re-running is a no-op** when everything is already current.
+- **`project-guide completion uninstall` restores the file byte-for-byte**, and removes the zsh autoload file too.
+- **Nothing else is touched.** A completion block project-guide did not write is reported and left alone. The one exception is a block written by an older pyve, which is replaced in place rather than left to register the same completion twice.
+
+### Checking and repairing
+
+```bash
+project-guide completion status
+```
+
+Reports each shell as `absent`, `installed`, `stale`, `partial`, or `damaged`, and exits non-zero if anything needs attention.
+
+**`stale`** means the binary path baked into the script no longer resolves — the usual cause is a host tool (pyve) bumping its toolchain. Completion degrades *silently* in that state by design, so `project-guide heal` warns about it on stderr with the remedy. It never edits your rc file on its own; re-run `project-guide completion install` when you choose.
+
+To see the script without installing anything:
+
+```bash
+project-guide completion show --shell zsh
+```
+
+### Known limitations
+
+- **macOS system bash 3.2** registers completion, but **directory and file** completions fail because Click's generated script calls `compopt`, a bash ≥ 4.0 builtin. Command, subcommand, mode-name, and flag completion all work. Homebrew bash and Linux bash are unaffected.
+- **Staleness detection is a dead-path check.** If a project-guide upgrade changes the completion script itself, `status` will still say `installed`; re-run `completion install` after upgrading to refresh it.
+- **PowerShell and other Windows shells** are not supported — Click ships no generator for them.
+- **Windows is unverified even for bash and zsh.** Completion targets POSIX shells and has only been exercised on macOS and Linux. On Windows the baked binary path follows Windows conventions (`D:\…`), which a bash-family shell such as git-bash will not read the way you expect. The commands do not refuse to run there; they are simply untested.
 
 ## Next Steps
 

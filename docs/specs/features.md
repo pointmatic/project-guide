@@ -332,24 +332,52 @@ The system renders a single entry-point document (`go.md`) from Jinja2 templates
 
 ### FR-7: Shell Completion
 
-Tab completion for `project-guide` commands, flags, and mode names in bash, zsh, and fish.
+Tab completion for `project-guide` commands, flags, and mode names, installed and owned by project-guide itself (Subphase R-1, v2.19.0).
+
+**Supported shells: bash and zsh.** fish is **not** supported — see the gap note below.
 
 **Behavior:**
-1. **Static completion** (commands and flags) is provided automatically by Click for any user who enables shell completion via the standard `_PROJECT_GUIDE_COMPLETE=<shell>_source` environment variable
+1. **Static completion** (commands and flags) comes from Click's generated script, which project-guide post-processes before installing
 2. **Dynamic mode name completion**: `project-guide mode <TAB>` reads the active project's `.metadata.yml` and returns matching mode names; works with custom modes
 3. Completion callbacks never crash the user's shell — any error returns an empty list silently
+4. **Independent of `PATH`.** The resolved binary path is baked into the completion callback, so completion keeps working when project-guide is hosted behind a shim that is not on `PATH` (pyve's toolchain layout)
+5. **Silent degradation is mandatory.** A broken, stale, or half-removed install prints nothing — not at shell startup, and not on TAB. Completion is a convenience; noise on every prompt would be a worse regression than the missing completion it replaces
 
-**Setup:**
-- bash: `eval "$(_PROJECT_GUIDE_COMPLETE=bash_source project-guide)"` in `~/.bashrc`
-- zsh: `eval "$(_PROJECT_GUIDE_COMPLETE=zsh_source project-guide)"` in `~/.zshrc`
-- fish: `_PROJECT_GUIDE_COMPLETE=fish_source project-guide | source` in `~/.config/fish/completions/project-guide.fish`
+**The `completion` command group:**
 
-**Known limitations of the current (self-service) shape.** project-guide does **not** install its own completion today — the developer hand-copies one of the snippets above. Two consequences, both observed in the field:
+```
+project-guide completion install   [--shell auto|zsh|bash] [--bin <path>] [--rc <path>] [--dir <path>] [-q]
+project-guide completion uninstall [--shell auto|zsh|bash] [--rc <path>] [--dir <path>] [-q]
+project-guide completion show      [--shell auto|zsh|bash] [--bin <path>]
+project-guide completion status    [--shell all|zsh|bash] [--rc <path>] [--dir <path>]
+```
 
-- **The zsh snippet has an undocumented precondition.** Click's `zsh_source` output ends in `compdef`, which does not exist until `compinit` has run. On a shell whose startup files never run `compinit`, the `eval` fails with `command not found: compdef`. The snippet as written is incomplete for that configuration.
-- **The snippets resolve the binary through `PATH`.** Under a host tool that installs project-guide outside the user's `PATH` (e.g. pyve's toolchain venv plus a `~/.local/bin` shim), bare-name resolution can fail.
+- **`install`** — idempotent; a no-op when everything is already current. Replaces a legacy pyve-written block in place rather than adding a second one beside it.
+- **`uninstall`** — byte-clean: the rc file is restored exactly as `install` found it.
+- **`show`** — prints the post-processed script to stdout and writes nothing. Takes neither `--quiet` (its stdout *is* the payload) nor `--no-input` (it never prompts).
+- **`status`** — reports per shell: `absent` / `installed` / `stale` / `partial` / `damaged`. Exit 0 when everything is absent or current, 1 when any shell needs attention, 2 on an I/O error.
+- **`--bin`** — lets a host tool supply the stable handle. pyve passes its `~/.local/bin/project-guide` shim, not the version-keyed toolchain path behind it, which rots on every pyve Python bump. Resolution when absent: the path project-guide was invoked as, then a `PATH` lookup.
 
-A change request to close both by adding a first-class `completion` command group — `install` / `uninstall` / `show` / `status`, with a `--bin` flag so a host tool can supply a stable path — is recorded in [`shell-completion-ownership.md`](shell-completion-ownership.md). It is **not yet planned or scheduled**; this section documents shipped behavior only.
+**Two routes, deliberately asymmetric.** zsh gets an `fpath` autoload file (the route its `#compdef` header is built for) plus a small rc block that wires it up; bash gets the script written inline into a sentinel-bracketed rc block, the only route available to it. See `tech-spec.md` § "Shell Completion Installation" for the mechanism.
+
+**rc-file safety contract.** This is the only project-guide feature that writes outside the project directory:
+
+- Only project-guide's own `# >>> project-guide completion >>>` block is rewritten. A block project-guide did not write is reported, never edited — the single exception being pyve's exact legacy block while it still carries pyve's generated content.
+- The rc file is backed up (`.bak.<timestamp>`) before any content-changing write.
+- Re-running with everything current writes nothing.
+- `install` → `uninstall` round-trips the rc file byte-for-byte.
+
+**`heal` integration.** `heal` (and the pre-invoke auto-hook) warns on stderr when completion is installed but **stale** or **partial**, naming the dead path and the copyable remedy. It **never** auto-repairs: writing to a user's startup files unasked is out of bounds, the same constraint that bounds the `git-push` wrapper. Silent when completion is absent or current, and under `--no-input` / CI.
+
+**Known gaps, stated so the docs do not over-promise:**
+
+- **fish is not supported.** Click can generate a fish script, but fish uses a third install mechanism (a file in `~/.config/fish/completions/`, no rc block), so project-guide cannot install what it would generate. `completion show --shell fish` is refused rather than emitting a script the group cannot manage. Deferred to a follow-on story.
+- **macOS system bash 3.2** registers completion (the emitted `complete -o nosort … 2>/dev/null || complete …` fallback handles `-o nosort` being bash ≥ 4.4), but **dir/file** completions still fail there because Click's script calls `compopt`, a bash ≥ 4.0 builtin. Linux bash and Homebrew bash are unaffected.
+- **Staleness is a dead-path test only.** `status` and `heal` detect a baked `--bin` that no longer resolves. A block generated by an older project-guide whose script template has since changed is *not* detected; re-running `install` refreshes it.
+- **PowerShell / Windows shells.** Click ships no generator for them, so this is a documented asymmetry against project-guide's general Windows support.
+- **Windows is unverified even for bash and zsh.** The group targets POSIX shells, and its path handling is `os.path`-based: on Windows `--bin` resolves to a Windows-convention path (`D:\…`) which is then shell-quoted into a bash/zsh script, and a backslash path is not what a bash-family shell such as git-bash expects. Nothing refuses to run there and the test suite passes, but no generated script has been exercised under git-bash or MSYS. Treat bash/zsh completion as **macOS- and Linux-supported**; a Windows decision (support git-bash properly, or refuse with a clear message) is deferred to a follow-on story.
+
+The change request that motivated this work is recorded in [`shell-completion-ownership.md`](shell-completion-ownership.md); the delivered design, including where it departs from that request, is in [`phase-r-subphase-1-shell-completion-plan.md`](phase-r-subphase-1-shell-completion-plan.md).
 
 ### FR-8: Non-Interactive / CI Mode
 

@@ -17,6 +17,7 @@ project-guide provides twelve commands for managing LLM workflow files across yo
 | `override` | Mark a file as overridden to prevent updates |
 | `unoverride` | Remove override status from a file |
 | `overrides` | List all overridden files |
+| `completion` | Install, remove, inspect, or print shell completion |
 | `purge` | Remove all files and configuration |
 
 ## init
@@ -256,6 +257,7 @@ project-guide heal [OPTIONS]
 
 - **Tracked `go.md` (v2.8.0+)** - if `docs/project-guide/go.md` is in your git index, `heal` warns (stderr) with a copyable `git rm --cached … && git commit` migration command. The policy is untracked-by-default: `go.md` stays visible to IDE LLMs but out of the index so branch switches don't trip on it. Non-fatal; apply on your own schedule.
 - **Local install under pyve hosting (v2.13.0+)** - when pyve is detected and a project-local `site-packages` install would shadow pyve's global one, `heal` warns with a copyable `pip uninstall project-guide` command. Non-fatal and never auto-removed; an editable source checkout is not flagged.
+- **Stale or partial shell completion (v2.19.0+)** - when [completion](#completion) is installed but its baked binary path no longer resolves (typically after a pyve toolchain bump), or when only half of the zsh pair survives, `heal` warns on stderr naming the dead path and the `project-guide completion install` remedy. Completion degrades *silently* in that state by design, so this warning is the only signal you get. **Never auto-repaired** — writing to your shell startup files unasked is out of bounds. Silent when completion is absent or current, and under `--no-input`.
 
 ## git-push
 
@@ -392,6 +394,56 @@ project-guide purge --no-input --force
 
 !!! warning
     This operation cannot be undone. Use with caution.
+
+## completion
+
+Manage shell completion for `project-guide` (bash and zsh).
+
+```bash
+project-guide completion install   [OPTIONS]
+project-guide completion uninstall [OPTIONS]
+project-guide completion status    [OPTIONS]
+project-guide completion show      [OPTIONS]
+```
+
+This is the only command group that writes **outside** your project directory. See [Shell Completion](install-options.md#shell-completion-optional) for the full walkthrough, what gets written where, and the known limitations.
+
+### Options
+
+| Option | Applies to | Description |
+|--------|-----------|-------------|
+| `--shell auto\|bash\|zsh` | all | Shell to act on. `auto` (default) detects from `$SHELL`; `status` defaults to `all` |
+| `--bin PATH` | `install`, `show` | Absolute path to bake into the completion callback |
+| `--rc PATH` | `install`, `uninstall`, `status` | Shell rc file. Defaults to `~/.bashrc` or `~/.zshrc` |
+| `--dir PATH` | `install`, `uninstall`, `status` | zsh only: `fpath` directory for the `_project-guide` autoload file |
+| `--quiet` / `-q` | `install`, `uninstall` | No stdout on success; warnings still reach stderr |
+
+### Examples
+
+```bash
+project-guide completion install                    # detect the shell, install
+project-guide completion install --shell bash       # set up the other shell too
+project-guide completion status                     # report both shells
+project-guide completion show --shell zsh           # print the script, write nothing
+project-guide completion uninstall                  # byte-clean removal
+```
+
+### What It Does
+
+- **`install`** — writes the completion wiring and is idempotent; re-running when everything is current writes nothing. Your rc file is backed up (`.bak.<timestamp>`) before any change, and a completion block project-guide did not write is reported rather than edited. A block written by an older pyve is replaced in place, so you never end up with two blocks registering the same completion.
+- **`uninstall`** — restores the rc file byte-for-byte and removes the zsh autoload file. Safe to run when nothing is installed.
+- **`status`** — reports each shell as `absent`, `installed`, `stale`, `partial`, or `damaged`. Exits `0` when everything is absent or current, `1` when something needs attention, `2` on an I/O error.
+- **`show`** — prints the script to stdout and writes nothing, so `eval "$(project-guide completion show)"` is safe.
+
+### Why Completion Survives an Off-`PATH` Install
+
+The resolved binary path is baked into the completion callback, so completion keeps working when project-guide is hosted behind a shim that is not on your `PATH` (pyve's toolchain layout). Host tools pass their stable handle with `--bin`.
+
+The trade-off is that the baked path can go **stale** if that binary later moves — which `completion status` reports and `heal` warns about.
+
+### Unattended / CI Use
+
+`install` and `uninstall` never prompt, so they need no `--no-input`; pair `--quiet` with them when scripting. `show` and `status` take neither flag — their stdout is the payload.
 
 ## Global Options
 
