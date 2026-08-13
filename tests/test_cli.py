@@ -5329,3 +5329,159 @@ def test_a_changed_refresh_persists_the_new_value(runner, tmp_path, monkeypatch)
 
 
 # --- End Story R.l ------------------------------------------------------------
+
+
+# --- Story R.m: warn loudly on a detection miss at `init` ---------------------
+#
+# A silent `null` is indistinguishable from a deliberate non-pyve project, so
+# the one failure that costs ~80 lines of guardrail is also the one that says
+# nothing. This converts an invisible failure into a visible one — once, at
+# `init`, where the miss actually happens.
+
+
+def test_init_warns_when_detection_misses(runner, tmp_path, monkeypatch):
+    """The headline: a miss is announced rather than silently recorded."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        monkeypatch.delenv("PYVE_VERSION", raising=False)
+        _install_probe(monkeypatch, None)
+
+        result = runner.invoke(main, ["init"])
+
+        assert result.exit_code == 0, result.output
+        assert "pyve was not found" in result.stderr
+        assert _config_data()["pyve_installed"] is False
+
+
+def test_the_warning_names_what_was_lost_and_how_to_fix_it(runner, tmp_path, monkeypatch):
+    """A warning that only says "not found" leaves the reader to guess the cost.
+
+    Both halves are load-bearing: *what went missing* (the Pyve guidance is
+    absent from the rendered guide, which is why the LLM will not be told to
+    use `pyve test`) and *the remedy* (`update` re-detects since Story R.l).
+    """
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        monkeypatch.delenv("PYVE_VERSION", raising=False)
+        _install_probe(monkeypatch, None)
+
+        result = runner.invoke(main, ["init"])
+
+        assert "docs/project-guide/go.md" in result.stderr
+        assert "project-guide update" in result.stderr
+
+
+def test_init_is_silent_when_detection_succeeds(runner, tmp_path, monkeypatch):
+    """Nothing to warn about — and the warning must not become a fixture."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        monkeypatch.delenv("PYVE_VERSION", raising=False)
+        _install_probe(monkeypatch, "3.2.2")
+
+        result = runner.invoke(main, ["init"])
+
+        assert result.exit_code == 0, result.output
+        assert "pyve was not found" not in result.stderr
+
+
+@pytest.mark.parametrize("supply", ["flag", "env"])
+def test_no_warning_when_the_version_was_host_supplied(runner, tmp_path, monkeypatch, supply, no_probe):
+    """No detection was attempted, so there is no detection miss to report.
+
+    The `no_probe` fixture makes this structural rather than incidental: if the
+    warning ever fires here it can only be because something probed.
+    """
+    args = ["init"]
+    if supply == "flag":
+        args += ["--pyve-version", "3.2.2"]
+    else:
+        monkeypatch.setenv("PYVE_VERSION", "3.2.2")
+
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(main, args)
+
+        assert result.exit_code == 0, result.output
+        assert "pyve was not found" not in result.stderr
+
+
+def test_a_blank_host_value_still_warns_when_the_probe_then_misses(runner, tmp_path, monkeypatch):
+    """Blank means *not supplied* (R.k), so the probe ran and really did miss.
+
+    The suppression follows whether a probe happened, not whether the flag was
+    typed — otherwise a host interpolating an unset shell variable would
+    silence the warning it most needs to see.
+    """
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        monkeypatch.delenv("PYVE_VERSION", raising=False)
+        _install_probe(monkeypatch, None)
+
+        result = runner.invoke(main, ["init", "--pyve-version", "   "])
+
+        assert "pyve was not found" in result.stderr
+
+
+def test_the_warning_survives_quiet(runner, tmp_path, monkeypatch):
+    """Material warning per FR-9: `--quiet` silences stdout, never stderr."""
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        monkeypatch.delenv("PYVE_VERSION", raising=False)
+        _install_probe(monkeypatch, None)
+
+        result = runner.invoke(main, ["init", "--quiet"])
+
+        assert result.exit_code == 0, result.output
+        assert result.stdout == ""
+        assert "pyve was not found" in result.stderr
+
+
+def test_the_warning_survives_no_input(runner, tmp_path, monkeypatch):
+    """The embedded case is where a silent miss does the most damage.
+
+    Unlike the P.o "intentionally untracked" *note*, this is a warning about
+    content that will be missing from every render — a CI log or a host tool's
+    output is exactly where it needs to appear.
+    """
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        monkeypatch.delenv("PYVE_VERSION", raising=False)
+        _install_probe(monkeypatch, None)
+
+        result = runner.invoke(main, ["init", "--no-input", "--quiet"])
+
+        assert result.exit_code == 0, result.output
+        assert "pyve was not found" in result.stderr
+
+
+@pytest.mark.parametrize("command", [["update"], ["mode", "code_direct"]])
+def test_a_refresh_miss_does_not_repeat_the_warning(runner, tmp_path, monkeypatch, command):
+    """`init` only — a once-per-project event, not startup noise.
+
+    Story R.l's refresh sites run on every `update` / `mode`; warning there
+    would print this on every invocation for every project that does not use
+    pyve, which is the fastest way to teach a developer to ignore it.
+    """
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        monkeypatch.delenv("PYVE_VERSION", raising=False)
+        _install_probe(monkeypatch, None)
+        assert runner.invoke(main, ["init"]).exit_code == 0
+
+        result = runner.invoke(main, command)
+
+        assert result.exit_code == 0, result.output
+        assert "pyve was not found" not in result.stderr
+
+
+def test_the_resolution_reports_whether_it_probed(runner, tmp_path, monkeypatch):
+    """The suppression rule reads a fact the resolver knows, not a re-derivation.
+
+    `init` cannot ask "was this host-supplied?" after the fact without
+    re-walking the chain and drifting from it. The resolver returns it.
+    """
+    import project_guide.cli as cli_module
+
+    monkeypatch.delenv("PYVE_VERSION", raising=False)
+    _install_probe(monkeypatch, "from-probe")
+
+    assert cli_module._resolve_pyve_version("3.2.2") == ("3.2.2", False)
+    assert cli_module._resolve_pyve_version(None) == ("from-probe", True)
+
+    _install_probe(monkeypatch, None)
+    assert cli_module._resolve_pyve_version(None) == (None, True)
+
+
+# --- End Story R.m ------------------------------------------------------------

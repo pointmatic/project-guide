@@ -20,6 +20,7 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
+from typing import NamedTuple
 
 import click
 
@@ -167,7 +168,22 @@ def _probe_pyve_version() -> str | None:
     return result.stdout.strip() if result.returncode == 0 else None
 
 
-def _resolve_pyve_version(cli_value: str | None) -> str | None:
+class PyveVersionResolution(NamedTuple):
+    """What ``_resolve_pyve_version`` found, and whether it had to probe for it.
+
+    ``probed`` exists so ``init``'s detection-miss warning (Story R.m) can ask
+    a question only the resolver can answer: *was a detection even attempted?*
+    A host-supplied version short-circuits the chain, and warning that pyve
+    "was not found" when nobody looked would be false. Returning the fact
+    beats re-walking the chain at the call site, which would be a second copy
+    of the precedence rules, free to drift from the first.
+    """
+
+    version: str | None
+    probed: bool
+
+
+def _resolve_pyve_version(cli_value: str | None) -> PyveVersionResolution:
     """Resolve pyve's version: CLI flag → ``PYVE_VERSION`` → probe (Story R.k).
 
     The chain mirrors ``--project-name``'s, with one difference that matters:
@@ -189,8 +205,8 @@ def _resolve_pyve_version(cli_value: str | None) -> str | None:
     """
     for candidate in (cli_value, os.environ.get("PYVE_VERSION")):
         if candidate and candidate.strip():
-            return candidate.strip()
-    return _probe_pyve_version()
+            return PyveVersionResolution(candidate.strip(), probed=False)
+    return PyveVersionResolution(_probe_pyve_version(), probed=True)
 
 
 def _refresh_pyve_detection(config: Config, config_path: Path) -> bool:
@@ -357,7 +373,7 @@ def init(
 
     # Resolve pyve's version: host-supplied value first, probe only as a last
     # resort (Story R.k). Non-fatal throughout; an unresolved version stores None.
-    detected_pyve_version = _resolve_pyve_version(pyve_version)
+    detected_pyve_version, pyve_was_probed = _resolve_pyve_version(pyve_version)
 
     # `init` is the one site allowed to record a miss as False: there is no
     # prior observation to preserve, so this is the project's first answer
@@ -409,6 +425,29 @@ def init(
         click.secho(
             f"Previous config backed up to {config_backup_path}. "
             f"Delete once you've verified the new config.",
+            fg='yellow',
+            err=True,
+        )
+
+    # Story R.m: a detection miss is the one failure that costs ~80 lines of
+    # guardrail while saying nothing, so a silent `null` reads exactly like a
+    # deliberate non-pyve project. Say it out loud, and say what it cost.
+    #
+    # Emitted unconditionally on stderr: material warnings survive `--quiet`
+    # per FR-9, and the embedded / CI case is precisely where an unnoticed miss
+    # does the most damage. Suppressed only when nothing was detected in the
+    # first place — a host-supplied version (Story R.k) never probes, and
+    # "pyve was not found" would be a claim nobody made.
+    #
+    # `init` only. Story R.l's refresh sites stay silent on a miss: this fires
+    # once per project, and repeating it on every `update` / `mode` for every
+    # project that does not use pyve is how a real signal becomes noise.
+    if pyve_was_probed and detected_pyve_version is None:
+        click.secho(
+            f"Warning: pyve was not found on PATH, so the Pyve guidance is "
+            f"omitted from {output_path}.\n"
+            f"  Once pyve is available, run 'project-guide update' to detect "
+            f"it and restore the guidance.",
             fg='yellow',
             err=True,
         )

@@ -326,15 +326,32 @@ No version bump — Subphase R-2 ships bundled as `v2.20.0` at R.o, which owns t
 
 No version bump — Subphase R-2 ships bundled as `v2.20.0` at R.o, which owns the CHANGELOG entry.
 
-### Story R.m: Warn loudly on a detection miss at `init` [Planned]
+### Story R.m: Warn loudly on a detection miss at `init` [Done]
 
 A silent `null` is indistinguishable from a deliberate non-pyve project. This converts an invisible failure into a visible one.
 
-- [ ] `init` emits a stderr warning when detection fails: pyve not found, the Pyve guidance will be omitted, and the remedy (`project-guide update` once pyve is available)
-- [ ] Material warning per FR-9 — emitted on stderr even under `--quiet`
-- [ ] Fires at `init` only (a once-per-project event), **not** on every refresh failure in R.l — the warning must not become startup noise
-- [ ] Suppressed when the version was host-supplied (R.k), since no detection was attempted
-- [ ] Tests: warning on miss, silence on success, silence when host-supplied, present under `--quiet`
+- [x] `init` emits a stderr warning when detection fails: pyve not found, the Pyve guidance will be omitted, and the remedy (`project-guide update` once pyve is available) — `cli.py:445`, naming the concrete `go.md` path rather than the abstraction, so the reader can see the file that lost the content
+- [x] Material warning per FR-9 — emitted on stderr even under `--quiet`, and under `--no-input` too: unlike the P.o "intentionally untracked" *note* (which `skip_input` suppresses), this reports content that will be missing from every render, and the embedded / CI case is where an unnoticed miss does the most damage
+- [x] Fires at `init` only (a once-per-project event), **not** on every refresh failure in R.l — the warning must not become startup noise
+- [x] Suppressed when the version was host-supplied (R.k), since no detection was attempted
+- [x] Tests: warning on miss, silence on success, silence when host-supplied, present under `--quiet` — 11 new tests (849 passed total); lint clean; mypy clean
+
+**The suppression reads a fact instead of re-deriving one.** "Was this host-supplied?" is answerable at the call site only by re-walking flag → env var → probe, which would be a second copy of R.k's precedence rules with its own drift. `_resolve_pyve_version` now returns a `PyveVersionResolution(version, probed)` NamedTuple (`cli.py:171`) and the warning condition is simply `probed and version is None`. Suppression is then structural: a host-supplied value returns `probed=False` on the same line that short-circuits the chain, so the two cannot disagree. A test asserts the resolver's contract directly, and another pins the case the shortcut would have gotten wrong — a **blank** `--pyve-version` means *not supplied* (R.k), so the probe really did run and really did miss, and the warning fires. Keying off "was the flag typed?" would have silenced exactly the host that interpolated an unset shell variable.
+
+**Verified in the real CLI, not only in tests.** Under `env -i PATH=/usr/bin:/bin` with `--quiet --no-input`: stdout is **0 bytes** and the two-line warning appears on stderr, then the remedy it names (`project-guide update`, with pyve back on `PATH`) restores `pyve_installed: true` and the guidance — so the warning's advice is executable, not aspirational. Both suppression paths are silent in the same conditions: `--pyve-version 3.2.2` with pyve genuinely absent, and an ordinary `init` where detection succeeds.
+
+**Discovered while verifying, not caused by this story: the suite is red on any machine without pyve, which includes CI.** Four render tests (`test_go_md_auto_renders_pyve_essentials_when_pyve_installed`, `test_go_md_renders_project_essentials_wrapper_even_when_only_pyve_content`, `test_go_md_has_both_project_essentials_and_pyve_essentials`, `test_header_common_pyve_branch_when_pyve_detected`) express "pyve is installed" by setting `pyve_version` alone and then rely on `init`'s **real** detection to have set the flag. Story R.j decoupled the gate from the version and fixed the two tests that failed on a pyve-*having* machine; these four are the mirror image and fail on a pyve-*lacking* one. `.github/workflows/ci.yml` installs no pyve, so this has been red since R.j — confirmed by stashing this story's changes and reproducing all four at `HEAD` under a stripped `PATH`. Fix deferred to **R.m.1** rather than folded in here: it is R.j's defect, not this story's, and it wants its own commit.
+
+No version bump — Subphase R-2 ships bundled as `v2.20.0` at R.o, which owns the CHANGELOG entry.
+
+### Story R.m.1: Make the pyve render tests machine-independent [Planned]
+
+The mirror image of the two tests Story R.j fixed. Four tests express "pyve is installed" by setting `pyve_version` alone and depend on `init`'s live detection for the flag the render gate actually reads — so they pass on a developer machine with pyve and fail everywhere else, CI included (`ci.yml` installs no pyve). Red since R.j; found during R.m's verification.
+
+- [ ] Fix the four: `test_go_md_auto_renders_pyve_essentials_when_pyve_installed`, `test_go_md_renders_project_essentials_wrapper_even_when_only_pyve_content`, `test_go_md_has_both_project_essentials_and_pyve_essentials`, `test_header_common_pyve_branch_when_pyve_detected` — set `pyve_installed` explicitly, and pin the probe (R.l made `mode` a refresh site) as `_detect_no_pyve` already does for the absent direction
+- [ ] Sweep for the same shape elsewhere: any test whose expectation depends on whether the *host machine* has pyve
+- [ ] Verify by running the full suite under a stripped `PATH` (`env -i PATH=/usr/bin:/bin`), which is the closest local stand-in for CI
+- [ ] Consider whether the sweep belongs in the CI-gate-parity checklist in `project-essentials.md` — a green local run should predict a green CI run, and this class of failure is exactly what that rule exists to catch
 
 ### Story R.n: Store a bare version string with a tolerant reader [Planned]
 
