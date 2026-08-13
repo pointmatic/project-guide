@@ -950,6 +950,300 @@ def test_installed_block_registers_completion_in_a_real_bash(tmp_path):
     assert proc.stderr == ""
 
 
+# ---------------------------------------------------------------------------
+# `completion status` — inspection
+# ---------------------------------------------------------------------------
+
+
+def _install_bash(tmp_path, bin_path="/opt/pg/project-guide"):
+    rc = tmp_path / ".bashrc"
+    completion.install_block(rc, completion.build_block(
+        completion.build_script("bash", bin_path)
+    ))
+    return rc
+
+
+def _install_zsh(tmp_path, bin_path="/opt/pg/project-guide"):
+    rc = tmp_path / ".zshrc"
+    autoload_dir = tmp_path / "completions"
+    completion.install_autoload_file(autoload_dir, completion.build_script("zsh", bin_path))
+    completion.install_block(rc, completion.build_block(
+        completion.build_zsh_bootstrap(autoload_dir)
+    ))
+    return rc, autoload_dir
+
+
+def test_status_reports_absent_when_nothing_is_installed(tmp_path):
+    """An uninstalled convenience is not a defect — it is simply absent."""
+    status = completion.inspect_shell("bash", rc_path=tmp_path / ".bashrc")
+
+    assert status.state is completion.CompletionState.ABSENT
+    assert status.bin_path is None
+
+
+def test_status_reports_installed_when_the_baked_binary_resolves(tmp_path):
+    """The happy path: a block whose baked path is executable."""
+    binary = tmp_path / "project-guide"
+    binary.write_text("#!/bin/sh\n")
+    binary.chmod(0o755)
+    rc = _install_bash(tmp_path, str(binary))
+
+    status = completion.inspect_shell("bash", rc_path=rc)
+
+    assert status.state is completion.CompletionState.INSTALLED
+    assert status.bin_path == str(binary)
+
+
+def test_status_reports_stale_for_a_baked_path_that_no_longer_resolves(tmp_path):
+    """The pyve-toolchain-bump case, and the reason this command exists.
+
+    Both shells degrade silently in this state, which is exactly why the
+    failure was invisible in the field.
+    """
+    rc = _install_bash(tmp_path, str(tmp_path / "gone" / "project-guide"))
+
+    status = completion.inspect_shell("bash", rc_path=rc)
+
+    assert status.state is completion.CompletionState.STALE
+
+
+def test_status_uses_the_same_predicate_the_installed_script_bakes_in(tmp_path):
+    """`status` and the script must agree by construction, not by coincidence.
+
+    A path that exists but is not executable fails the script's `[[ -x ]]`
+    guard at TAB time, so it must read as stale here too — an `exists()` check
+    would disagree with the shell.
+    """
+    binary = tmp_path / "project-guide"
+    binary.write_text("#!/bin/sh\n")
+    binary.chmod(0o644)  # readable, not executable
+    rc = _install_bash(tmp_path, str(binary))
+
+    status = completion.inspect_shell("bash", rc_path=rc)
+
+    assert status.state is completion.CompletionState.STALE
+
+
+def test_status_reports_a_path_dependent_install_without_calling_it_stale(tmp_path):
+    """A bare-name fallback bakes no guard, so the dead-path test cannot apply."""
+    rc = tmp_path / ".bashrc"
+    completion.install_block(rc, completion.build_block(
+        completion.build_script("bash", "project-guide")
+    ))
+
+    status = completion.inspect_shell("bash", rc_path=rc)
+
+    assert status.state is completion.CompletionState.INSTALLED
+    assert status.bin_path is None
+    assert any("PATH" in detail for detail in status.details)
+
+
+def test_status_reports_a_damaged_block_as_a_defect(tmp_path):
+    """An unterminated block is actionable, and must not crash the report."""
+    rc = tmp_path / ".bashrc"
+    rc.write_text(f"{completion.SENTINEL_START}\nhalf a block\n")
+
+    status = completion.inspect_shell("bash", rc_path=rc)
+
+    assert status.state is completion.CompletionState.DAMAGED
+
+
+def test_status_notes_a_foreign_block(tmp_path):
+    """pyve's legacy block is worth surfacing — R.g is what resolves it."""
+    rc = tmp_path / ".bashrc"
+    rc.write_text(PYVE_LEGACY_BLOCK)
+
+    status = completion.inspect_shell("bash", rc_path=rc)
+
+    assert any("added by pyve" in detail for detail in status.details)
+
+
+# --- zsh's two artifacts, including the partial states ---
+
+
+def test_status_zsh_reports_installed_when_both_artifacts_are_present(tmp_path):
+    """Both halves present and the baked path good."""
+    binary = tmp_path / "project-guide"
+    binary.write_text("#!/bin/sh\n")
+    binary.chmod(0o755)
+    rc, autoload_dir = _install_zsh(tmp_path, str(binary))
+
+    status = completion.inspect_shell("zsh", rc_path=rc, autoload_dir=autoload_dir)
+
+    assert status.state is completion.CompletionState.INSTALLED
+    assert status.autoload_path == autoload_dir / "_project-guide"
+
+
+def test_status_zsh_reports_partial_when_the_autoload_file_is_missing(tmp_path):
+    """rc line without its file: the block is inert, and silently so."""
+    rc, autoload_dir = _install_zsh(tmp_path)
+    (autoload_dir / "_project-guide").unlink()
+
+    status = completion.inspect_shell("zsh", rc_path=rc, autoload_dir=autoload_dir)
+
+    assert status.state is completion.CompletionState.PARTIAL
+    assert any("autoload file" in detail for detail in status.details)
+
+
+def test_status_zsh_reports_partial_when_the_rc_block_is_missing(tmp_path):
+    """File without its rc line: nothing puts the directory on `fpath`."""
+    rc, autoload_dir = _install_zsh(tmp_path)
+    completion.remove_block(rc)
+
+    status = completion.inspect_shell("zsh", rc_path=rc, autoload_dir=autoload_dir)
+
+    assert status.state is completion.CompletionState.PARTIAL
+    assert any("rc block" in detail for detail in status.details)
+
+
+def test_status_zsh_reads_the_autoload_dir_out_of_the_rc_block(tmp_path):
+    """The shell obeys the `fpath` line, so the report must read it too.
+
+    Trusting a `--dir` default over what the rc file actually says would report
+    on a directory the shell never consults.
+    """
+    rc, autoload_dir = _install_zsh(tmp_path)
+
+    status = completion.inspect_shell("zsh", rc_path=rc)  # no autoload_dir hint
+
+    assert status.autoload_path == autoload_dir / "_project-guide"
+    assert status.state is completion.CompletionState.STALE  # /opt/pg is not real
+
+
+def test_status_zsh_finds_the_binary_in_the_autoload_file(tmp_path):
+    """zsh's baked path lives in the autoload file, not the rc block."""
+    binary = tmp_path / "project-guide"
+    binary.write_text("#!/bin/sh\n")
+    binary.chmod(0o755)
+    rc, autoload_dir = _install_zsh(tmp_path, str(binary))
+
+    status = completion.inspect_shell("zsh", rc_path=rc, autoload_dir=autoload_dir)
+
+    assert status.bin_path == str(binary)
+
+
+# --- CLI ---
+
+
+def test_completion_status_reports_both_shells_by_default(runner, tmp_path, monkeypatch):
+    """The pyve case is a user whose zsh works and whose bash does not.
+
+    Reporting only the current shell would hide exactly that.
+    """
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
+
+    result = runner.invoke(main, ["completion", "status"])
+
+    assert result.exit_code == 0
+    assert "bash" in result.output
+    assert "zsh" in result.output
+
+
+def test_completion_status_exits_zero_when_absent(runner, tmp_path, monkeypatch):
+    """Absent is not drift — the same rule R.h inherits for `heal`'s silence."""
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
+
+    result = runner.invoke(main, ["completion", "status"])
+
+    assert result.exit_code == 0
+    assert "absent" in result.output.lower()
+
+
+def test_completion_status_exits_one_when_stale(runner, tmp_path):
+    """A stale install is an actionable defect, so the exit code says so."""
+    rc = _install_bash(tmp_path, str(tmp_path / "gone" / "project-guide"))
+
+    result = runner.invoke(main, ["completion", "status", "--shell", "bash", "--rc", str(rc)])
+
+    assert result.exit_code == 1
+    assert "stale" in result.output.lower()
+
+
+def test_completion_status_names_the_remedy_for_a_stale_install(runner, tmp_path):
+    """Inspectable means actionable: the report says how to fix it."""
+    rc = _install_bash(tmp_path, str(tmp_path / "gone" / "project-guide"))
+
+    result = runner.invoke(main, ["completion", "status", "--shell", "bash", "--rc", str(rc)])
+
+    assert "completion install" in result.output
+
+
+def test_completion_status_does_not_offer_reinstall_for_a_damaged_block(runner, tmp_path):
+    """`install` refuses to parse an unterminated block, so it is not the fix.
+
+    Suggesting it would send the user in a circle: the command fails with the
+    same error the report just showed them.
+    """
+    rc = tmp_path / ".bashrc"
+    rc.write_text(f"{completion.SENTINEL_START}\nhalf a block\n")
+
+    result = runner.invoke(main, ["completion", "status", "--shell", "bash", "--rc", str(rc)])
+    reinstall = runner.invoke(
+        main,
+        ["completion", "install", "--shell", "bash", "--rc", str(rc),
+         "--bin", "/opt/pg/project-guide"],
+    )
+
+    assert result.exit_code == 1
+    assert "completion install" not in result.output
+    assert reinstall.exit_code != 0  # the suggestion would not have worked
+
+
+def test_completion_status_exits_one_on_a_partial_zsh_install(runner, tmp_path):
+    """Partial is the state R.e's two artifacts made possible."""
+    rc, autoload_dir = _install_zsh(tmp_path)
+    (autoload_dir / "_project-guide").unlink()
+
+    result = runner.invoke(
+        main,
+        ["completion", "status", "--shell", "zsh", "--rc", str(rc), "--dir", str(autoload_dir)],
+    )
+
+    assert result.exit_code == 1
+    assert "partial" in result.output.lower()
+
+
+def test_completion_status_exits_zero_when_installed_and_current(runner, tmp_path):
+    """Clean is quiet in the exit code, even though the report still prints."""
+    binary = tmp_path / "project-guide"
+    binary.write_text("#!/bin/sh\n")
+    binary.chmod(0o755)
+    rc = _install_bash(tmp_path, str(binary))
+
+    result = runner.invoke(main, ["completion", "status", "--shell", "bash", "--rc", str(rc)])
+
+    assert result.exit_code == 0
+    assert "installed" in result.output.lower()
+
+
+def test_completion_status_refuses_rc_without_a_shell(runner, tmp_path):
+    """`--rc` is ambiguous across two shells; refusing beats guessing one."""
+    result = runner.invoke(main, ["completion", "status", "--rc", str(tmp_path / ".bashrc")])
+
+    assert result.exit_code != 0
+    assert "--shell" in result.output
+
+
+def test_completion_status_writes_nothing_to_the_filesystem(runner, tmp_path, monkeypatch):
+    """A reporting surface must never repair what it reports."""
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
+    before = set(tmp_path.rglob("*"))
+
+    runner.invoke(main, ["completion", "status"])
+
+    assert set(tmp_path.rglob("*")) == before
+
+
+def test_completion_help_lists_status(runner):
+    """Discoverable alongside the rest of the group."""
+    result = runner.invoke(main, ["completion", "--help"])
+
+    assert "status" in result.output
+
+
 ZSH = shutil.which("zsh")
 
 

@@ -460,23 +460,32 @@ def _find_block_span(lines: list[str]) -> tuple[int, int] | None:
     )
 
 
-def _foreign_warnings(lines: list[str], span: tuple[int, int] | None) -> tuple[str, ...]:
-    """Report completion wiring outside our own block that we must not touch.
+def _foreign_block_headers(lines: list[str], span: tuple[int, int] | None) -> tuple[str, ...]:
+    """Return completion-wiring headers outside our own block.
 
     Mirrors ``_ensure_gitignore_entry()``'s ours-vs-foreign predicate: anything
     we did not write is left exactly as found and merely reported. The block we
     own is excluded from the scan, since its own header mentions the command.
+
+    The bare lines are returned rather than finished sentences, because the
+    same fact needs different framing when writing ("leaving it untouched")
+    and when reporting ("it is present").
     """
     ours = range(span[0], span[1] + 1) if span else range(0)
-    found = [
+    return tuple(
         line.strip()
         for index, line in enumerate(lines)
         if index not in ours
         and line.strip() not in (SENTINEL_START, SENTINEL_END)
         and _FOREIGN_SENTINEL_RE.match(line)
-    ]
+    )
+
+
+def _foreign_warnings(lines: list[str], span: tuple[int, int] | None) -> tuple[str, ...]:
+    """Phrase foreign-block headers for a command that is about to write."""
     return tuple(
-        f"⚠ Leaving a completion block we did not write untouched: {line}" for line in found
+        f"⚠ Leaving a completion block we did not write untouched: {header}"
+        for header in _foreign_block_headers(lines, span)
     )
 
 
@@ -490,6 +499,212 @@ def _backup(path: Path) -> Path:
         counter += 1
     shutil.copy2(path, backup_path)
     return backup_path
+
+
+class CompletionState(Enum):
+    """What `completion status` found for one shell."""
+
+    #: Nothing installed. Not a defect — an uninstalled convenience is not drift.
+    ABSENT = "absent"
+    #: Wired up, and the baked binary still resolves.
+    INSTALLED = "installed"
+    #: Wired up, but the baked path no longer passes the script's own `[[ -x ]]`
+    #: test. Degrades silently in both shells, which is why it went unnoticed
+    #: in the field and why this command exists.
+    STALE = "stale"
+    #: zsh only: one of the two artifacts is missing, so the wiring is inert.
+    PARTIAL = "partial"
+    #: A sentinel block we cannot parse — hand-edited or truncated.
+    DAMAGED = "damaged"
+
+
+@dataclass(frozen=True)
+class ShellStatus:
+    """Inspection result for one shell."""
+
+    shell: str
+    state: CompletionState
+    rc_path: Path
+    autoload_path: Path | None = None
+    bin_path: str | None = None
+    details: tuple[str, ...] = ()
+
+    @property
+    def is_defect(self) -> bool:
+        """Whether this state is something the user should act on."""
+        return self.state in (
+            CompletionState.STALE,
+            CompletionState.PARTIAL,
+            CompletionState.DAMAGED,
+        )
+
+    @property
+    def reinstall_fixes_it(self) -> bool:
+        """Whether re-running `completion install` is the remedy.
+
+        Not for :attr:`CompletionState.DAMAGED`: `install` refuses to guess
+        where an unterminated block ends, so it fails with the same parse
+        error. Offering it there would send the user in a circle.
+        """
+        return self.state in (CompletionState.STALE, CompletionState.PARTIAL)
+
+
+# The path baked into the script's executable guard, shell-quoted by
+# `postprocess_script`. This is the single source of truth for "which binary
+# will the completion callback actually invoke".
+_BAKED_BIN_RE = re.compile(r"\[\[ -x (.+?) \]\]")
+
+# The `fpath` line in the zsh bootstrap, which names the autoload directory the
+# shell will really consult.
+_FPATH_LINE_RE = re.compile(r"^\s*fpath=\((.+?) \$fpath\)\s*$", re.MULTILINE)
+
+
+def _unquote(value: str) -> str:
+    """Reverse ``shlex.quote`` for a single word."""
+    parts = shlex.split(value)
+    return parts[0] if parts else value
+
+
+def _baked_bin(script: str) -> str | None:
+    """Return the path baked into ``script``'s guard, if it has one.
+
+    A bare-name install (the ``PATH`` fallback) bakes no guard at all, so the
+    absence of a match is meaningful rather than an error.
+    """
+    match = _BAKED_BIN_RE.search(script)
+    return _unquote(match.group(1)) if match else None
+
+
+def _binary_resolves(bin_path: str) -> bool:
+    """Apply the *same* predicate the installed script bakes in.
+
+    ``[[ -x ]]`` is an executable test, not an existence test. Using
+    ``Path.exists()`` here would let ``status`` disagree with the shell about a
+    file whose permission bit was lost.
+    """
+    return os.access(bin_path, os.X_OK)
+
+
+def _read_block_body(rc_path: Path) -> tuple[str | None, tuple[str, ...], bool]:
+    """Return ``(block body, notes, damaged)`` for ``rc_path``.
+
+    Reading is best-effort by design: this is a reporting surface, so an
+    unparseable block is data to report rather than an exception to raise.
+    """
+    if not rc_path.exists():
+        return None, (), False
+    try:
+        lines = rc_path.read_text().splitlines()
+    except OSError as e:
+        return None, (f"could not read {rc_path}: {e}",), True
+
+    try:
+        span = _find_block_span(lines)
+    except CompletionError as e:
+        return None, (str(e),), True
+
+    notes = tuple(
+        f"a completion block project-guide did not write is present: {header}"
+        for header in _foreign_block_headers(lines, span)
+    )
+    if span is None:
+        return None, notes, False
+    return "\n".join(lines[span[0] : span[1] + 1]), notes, False
+
+
+def inspect_shell(
+    shell: str, *, rc_path: Path | None = None, autoload_dir: Path | None = None
+) -> ShellStatus:
+    """Report how completion is wired up for ``shell``. Reads only.
+
+    For zsh the autoload directory is taken from the installed ``fpath`` line
+    when there is one: the shell obeys what the rc file says, so reporting
+    against a default the rc file does not name would describe a directory
+    nothing consults.
+    """
+    _require_supported(shell)
+    rc_path = rc_path or default_rc_path(shell)
+    block, details, damaged = _read_block_body(rc_path)
+
+    if damaged:
+        return ShellStatus(shell, CompletionState.DAMAGED, rc_path, details=details)
+
+    if shell == "bash":
+        if block is None:
+            return ShellStatus(shell, CompletionState.ABSENT, rc_path, details=details)
+        return _classify(shell, rc_path, None, block, details)
+
+    # zsh: two artifacts, either of which can go missing on its own.
+    if block is not None:
+        match = _FPATH_LINE_RE.search(block)
+        if match:
+            autoload_dir = Path(_unquote(match.group(1)))
+    autoload_dir = autoload_dir or default_autoload_dir()
+    autoload_path = autoload_dir / AUTOLOAD_FILENAME
+    has_file = autoload_path.exists()
+
+    if block is None and not has_file:
+        return ShellStatus(shell, CompletionState.ABSENT, rc_path, details=details)
+    if block is None:
+        return ShellStatus(
+            shell,
+            CompletionState.PARTIAL,
+            rc_path,
+            autoload_path=autoload_path,
+            details=details + ("the rc block is missing, so nothing adds the "
+                               "autoload file's directory to fpath",),
+        )
+    if not has_file:
+        return ShellStatus(
+            shell,
+            CompletionState.PARTIAL,
+            rc_path,
+            autoload_path=autoload_path,
+            details=details + ("the autoload file is missing, so the rc block "
+                               "does nothing",),
+        )
+    return _classify(shell, rc_path, autoload_path, autoload_path.read_text(), details)
+
+
+def _classify(
+    shell: str,
+    rc_path: Path,
+    autoload_path: Path | None,
+    script: str,
+    details: tuple[str, ...],
+) -> ShellStatus:
+    """Decide installed-vs-stale from the binary baked into ``script``."""
+    bin_path = _baked_bin(script)
+
+    if bin_path is None:
+        return ShellStatus(
+            shell,
+            CompletionState.INSTALLED,
+            rc_path,
+            autoload_path=autoload_path,
+            details=details + ("installed without a baked path; the callback "
+                               "resolves project-guide through PATH",),
+        )
+
+    if not _binary_resolves(bin_path):
+        return ShellStatus(
+            shell,
+            CompletionState.STALE,
+            rc_path,
+            autoload_path=autoload_path,
+            bin_path=bin_path,
+            details=details + ("that path is not executable, so completion "
+                               "silently does nothing",),
+        )
+
+    return ShellStatus(
+        shell,
+        CompletionState.INSTALLED,
+        rc_path,
+        autoload_path=autoload_path,
+        bin_path=bin_path,
+        details=details,
+    )
 
 
 def install_block(rc_path: Path, block: str) -> RcResult:

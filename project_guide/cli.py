@@ -26,12 +26,14 @@ import click
 from project_guide.actions import ActionType, perform_archive
 from project_guide.completion import (
     SUPPORTED_SHELLS,
+    CompletionState,
     RcOutcome,
     build_block,
     build_script,
     build_zsh_bootstrap,
     default_autoload_dir,
     default_rc_path,
+    inspect_shell,
     install_autoload_file,
     install_block,
     remove_autoload_file,
@@ -2694,6 +2696,96 @@ def completion_uninstall(shell: str, rc: str | None, dir_option: str | None, qui
         click.echo(f"  Removed autoload file: {file_result.path}")
     if result.backup:
         click.echo(f"  Backup: {result.backup}")
+
+
+@completion.command(name="status")
+@click.option(
+    '--shell',
+    'shell',
+    type=click.Choice(['all', *SUPPORTED_SHELLS]),
+    default='all',
+    show_default=True,
+    help='Shell to report on. `all` covers every supported shell.',
+)
+@click.option(
+    '--rc',
+    'rc',
+    default=None,
+    help='Shell rc file to inspect. Requires an explicit --shell.',
+)
+@click.option(
+    '--dir',
+    'dir_option',
+    default=None,
+    help='zsh only: fpath directory to inspect. The installed rc block wins if it names one.',
+)
+def completion_status(shell: str, rc: str | None, dir_option: str | None):
+    """Report how shell completion is wired up. Writes nothing.
+
+    \b
+    Per shell, one of:
+      absent    — nothing installed (not a defect; completion is optional)
+      installed — wired up, and the baked binary still resolves
+      stale     — the baked path no longer resolves, so completion silently
+                  does nothing. This is the pyve toolchain-bump case.
+      partial   — zsh only: one of the two artifacts is missing
+      damaged   — a sentinel block that cannot be parsed
+
+    \b
+    Both shells are reported by default, deliberately: the field defect was a
+    user whose zsh completion worked and whose bash completion did not, and a
+    report covering only the current shell would hide exactly that.
+
+    \b
+    Exit codes: 0 when everything is absent or current, 1 when any shell is
+    stale, partial, or damaged, 2 on an I/O error.
+    """
+    if (rc or dir_option) and shell == 'all':
+        raise click.ClickException(
+            "--rc and --dir name files for one shell; pass --shell bash or --shell zsh."
+        )
+
+    shells = list(SUPPORTED_SHELLS) if shell == 'all' else [shell]
+    try:
+        statuses = [
+            inspect_shell(
+                name,
+                rc_path=Path(rc).expanduser() if rc else None,
+                autoload_dir=Path(dir_option).expanduser() if dir_option else None,
+            )
+            for name in shells
+        ]
+    except CompletionError as e:
+        raise click.ClickException(str(e)) from e
+    except OSError as e:
+        click.secho(f"Error inspecting completion: {e}", fg='red', err=True)
+        sys.exit(2)
+
+    colors = {
+        CompletionState.INSTALLED: 'green',
+        CompletionState.ABSENT: 'yellow',
+        CompletionState.STALE: 'red',
+        CompletionState.PARTIAL: 'red',
+        CompletionState.DAMAGED: 'red',
+    }
+
+    for status_result in statuses:
+        click.echo(f"{status_result.shell}: ", nl=False)
+        click.secho(status_result.state.value, fg=colors[status_result.state])
+        click.echo(f"  rc file: {status_result.rc_path}")
+        if status_result.autoload_path:
+            click.echo(f"  autoload file: {status_result.autoload_path}")
+        if status_result.bin_path:
+            click.echo(f"  binary: {status_result.bin_path}")
+        for detail in status_result.details:
+            click.echo(f"  {detail}")
+        if status_result.reinstall_fixes_it:
+            click.echo(
+                f"  fix: project-guide completion install --shell {status_result.shell}"
+            )
+
+    if any(status_result.is_defect for status_result in statuses):
+        sys.exit(1)
 
 
 if __name__ == "__main__":
